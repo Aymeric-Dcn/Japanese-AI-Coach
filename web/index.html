@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Japanese Coach</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23b8323a'/></svg>">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="dot"></span>Japanese Coach</div>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="session" role="tab">Session</button>
+    <button class="tab" data-tab="chat" role="tab">Prof</button>
+    <button class="tab" data-tab="progress" role="tab">Progrès</button>
+  </nav>
+  <div class="status" id="status" title="État des services"></div>
+</header>
+
+<main>
+  <!-- ============ SESSION ============ -->
+  <section id="tab-session" class="panel active">
+    <div class="summary" id="summary"></div>
+
+    <div id="session-start" class="card start">
+      <h2>Session du jour</h2>
+      <p id="start-text" class="muted"></p>
+      <div class="controls">
+        <label>Thème
+          <select id="topic-select"><option value="">Tous les thèmes (mélangés)</option></select>
+        </label>
+        <label>Nouveaux exercices
+          <select id="new-select">
+            <option value="0">0</option><option value="5">5</option>
+            <option value="10" selected>10</option><option value="20">20</option>
+          </select>
+        </label>
+      </div>
+      <button class="primary big" id="btn-start">Commencer</button>
+    </div>
+
+    <div id="session-run" hidden>
+      <div class="progressbar"><div id="progress-fill"></div></div>
+      <div class="card exo" id="exo">
+        <div class="exo-head">
+          <span class="badge" id="exo-status"></span>
+          <span class="muted" id="exo-topic"></span>
+          <span class="muted right" id="exo-count"></span>
+        </div>
+        <div class="choices" id="exo-choices"></div>
+        <div class="sentence" lang="ja" id="exo-sentence"></div>
+        <div class="reading" lang="ja" id="exo-reading"></div>
+        <div class="tr" id="exo-translation"></div>
+        <div class="tr" id="exo-new"></div>
+        <div class="actions">
+          <button class="primary" id="btn-check">Vérifier</button>
+          <button id="btn-hint">Indice</button>
+          <button id="btn-show" hidden>Voir la réponse</button>
+          <button id="btn-readings" class="ghost right">Masquer la lecture</button>
+        </div>
+        <div class="hint" id="exo-hint" hidden></div>
+        <div class="feedback" id="exo-feedback" hidden></div>
+        <div class="actions" id="after-actions" hidden>
+          <button class="primary" id="btn-next">Suivant ↵</button>
+          <button id="btn-ask">Demander au prof</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="session-end" class="card start" hidden>
+      <h2>Session terminée 🎉</h2>
+      <p id="end-text"></p>
+      <button class="primary" id="btn-more">5 nouveaux exercices de plus</button>
+      <button id="btn-home">Retour</button>
+    </div>
+  </section>
+
+  <!-- ============ CHAT ============ -->
+  <section id="tab-chat" class="panel">
+    <div class="chat">
+      <div class="chat-head">
+        <span class="muted">Pose une question, ou écris une phrase en japonais à corriger.</span>
+        <button class="ghost right" id="btn-new-chat">Nouvelle conversation</button>
+      </div>
+      <div class="messages" id="messages"></div>
+      <div class="chips" id="chips">
+        <button class="chip" data-text="Corrige ma phrase : ">Corrige ma phrase…</button>
+        <button class="chip" data-text="Quelle est la différence entre に et で ?">に ou で ?</button>
+        <button class="chip" data-text="Explique-moi la forme en て, avec des exemples simples.">La forme en て</button>
+        <button class="chip" data-text="Sur quoi est-ce que je me trompe le plus en ce moment ?">Mes erreurs</button>
+      </div>
+      <div class="context" id="chat-context" hidden>
+        <span id="chat-context-text"></span>
+        <button class="ghost" id="btn-drop-context" title="Retirer">✕</button>
+      </div>
+      <form class="composer" id="composer">
+        <textarea id="chat-input" rows="2" lang="ja" placeholder="Écris ton message… (Entrée pour envoyer, Maj+Entrée pour aller à la ligne)"></textarea>
+        <button class="primary" id="btn-send" type="submit">Envoyer</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ PROGRESS ============ -->
+  <section id="tab-progress" class="panel">
+    <div class="grid" id="stat-cards"></div>
+    <div class="card">
+      <h3>Thèmes de la réserve</h3>
+      <table class="topics" id="topics-table"></table>
+      <p class="muted small">Pour ajouter des exercices :
+        <code>python make_exercises.py --preset ni-de --known --max-unknown 1 --count 30 --save</code>
+        (liste des thèmes : <code>python make_exercises.py --list-presets</code>)</p>
+    </div>
+    <div class="card" id="weak-card" hidden>
+      <h3>À travailler</h3>
+      <ul id="weak-list"></ul>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
