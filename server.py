@@ -117,6 +117,21 @@ class Handler(BaseHTTPRequestHandler):
                             ex["cue_reading"] = tutor.reading(ex["cue"])
                     data["stats"] = store.stats(db)
                     return self.send_json(data)
+                if url.path == "/api/jlpt/overview":
+                    return self.send_json(jlpt_overview(db, query.get("level") or load_settings()["jlpt_level"]))
+                if url.path in ("/api/jlpt/practice", "/api/jlpt/exam"):
+                    import jlpt_questions as jq
+                    level = query.get("level", "N4")
+                    if url.path.endswith("exam"):
+                        items = []
+                        for qtype, n in jq.EXAM.get(level, {}).items():
+                            if n:
+                                items += store.pick(db, [jq.topic_title(level, qtype)], n)
+                        return self.send_json({"items": items, "minutes": len(items), "plan": jq.EXAM.get(level, {})})
+                    types = [t for t in query.get("types", "").split("|") if t in jq.TYPES] or jq.TYPES
+                    topics = [jq.topic_title(level, t) for t in types]
+                    items = store.pick(db, topics, int(query.get("count", 10)))
+                    return self.send_json({"items": items, "stats": store.stats(db)})
                 if url.path == "/api/topics":
                     return self.send_json({"topics": store.topic_states(db)})
                 if url.path == "/api/stats":
@@ -154,6 +169,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(start_fill(data))
             if url.path == "/api/settings":
                 return self.send_json(save_settings(data))
+            if url.path == "/api/jlpt/exam_result":
+                db = store.connect(DB_PATH)
+                try:
+                    result = store.save_exam(db, str(data.get("level", "")), data.get("answers", []),
+                                             int(data.get("seconds", 0)))
+                    return self.send_json(result)
+                finally:
+                    db.close()
+            if url.path == "/api/jlpt/fill":
+                return self.send_json(start_jlpt_fill(data))
             if url.path == "/api/fill/stop":
                 FILL["stop"] = True
                 return self.send_json(fill_status())
@@ -264,6 +289,29 @@ def start_fill(options: dict) -> dict:
                                     ids=ids or None, model=MODEL, log=log, should_stop=should_stop)
         return sum(a for _, a in results)
     return run_job("Remplissage de la réserve", work)
+
+
+def start_jlpt_fill(options: dict) -> dict:
+    level = str(options.get("level") or load_settings()["jlpt_level"])
+
+    def work(log, should_stop, db):
+        import jlpt_questions
+        return jlpt_questions.fill(db, level, int(options.get("per_type", 10)), model=MODEL, log=log,
+                                   should_stop=should_stop)
+    return run_job(f"Questions JLPT {level}", work)
+
+
+def jlpt_overview(db, level: str) -> dict:
+    import jlpt_questions as jq
+    import lexicon
+    counts = {t["topic"]: t for t in store.topics(db)}
+    types = []
+    for qtype in jq.TYPES:
+        t = counts.get(jq.topic_title(level, qtype), {"total": 0, "unseen": 0})
+        types.append({"type": qtype, "label": jq.LABELS[qtype], "total": t["total"], "unseen": t["unseen"],
+                      "exam": jq.EXAM.get(level, {}).get(qtype, 0)})
+    return {"level": level, "levels": list(jq.EXAM), "types": types, "exams": store.exams(db),
+            "lexicon": lexicon.available(), "kanji": jq.KANJI_PATH.exists()}
 
 
 def ollama_up() -> bool:

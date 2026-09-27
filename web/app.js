@@ -38,6 +38,7 @@ function showTab(name) {
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
   document.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.id === "tab-" + name));
   if (name === "progress") loadProgress();
+  if (name === "jlpt") loadJlpt();
   if (name === "chat") { loadChat(); $("chat-input").focus(); }
 }
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
@@ -189,10 +190,17 @@ function showExercise() {
       ? "Réponses possibles : " + allowed.map(a => `<span class="ans" lang="ja">${esc(a)}</span>`).join("") : "";
   }
 
-  const [before, after] = ex.sentence.split(BLANK);
-  const width = Math.max(4, (ex.answers[0] || "").length + 2);
-  $("exo-sentence").innerHTML = `${esc(before)}<input id="answer" lang="ja" autocomplete="off" spellcheck="false"
-    aria-label="Réponse" style="width:${width}em">${esc(after ?? "")}`;
+  $("exo-mcq").hidden = !ex.choices;
+  if (ex.choices) {  // multiple choice (JLPT questions)
+    $("exo-choices").innerHTML = "";
+    $("exo-sentence").innerHTML = questionHtml(ex.question);
+    $("exo-mcq").innerHTML = choicesHtml(ex.choices);
+  } else {
+    const [before, after] = ex.sentence.split(BLANK);
+    const width = Math.max(4, (ex.answers[0] || "").length + 2);
+    $("exo-sentence").innerHTML = `${esc(before)}<input id="answer" lang="ja" autocomplete="off" spellcheck="false"
+      aria-label="Réponse" style="width:${width}em">${esc(after ?? "")}`;
+  }
   $("exo-reading").textContent = ex.reading || "";
   $("exo-translation").textContent = ex.show_translation ? (ex.translation || "") : "";
   $("exo-new").innerHTML = (ex.new_words || []).length ? `Nouveau : <span lang="ja">${ex.new_words.map(esc).join("、")}</span>` : "";
@@ -201,13 +209,47 @@ function showExercise() {
   $("exo-hint").textContent = "💡 " + (ex.hint || "");
   $("btn-hint").hidden = !ex.hint;
   $("btn-show").hidden = true;
-  $("btn-check").hidden = false;
+  $("btn-check").hidden = !!ex.choices;
   $("exo-feedback").hidden = true;
   $("after-actions").hidden = true;
-  $("answer").focus();
+  if (ex.choices) $("exo-mcq").querySelector("button").focus(); else $("answer").focus();
 }
 
-function field() { return $("answer"); }
+// A JLPT question: 【word】 is underlined, the rest is plain text.
+function questionHtml(q) {
+  return esc(q).replace(/【(.*?)】/g, "<u>$1</u>");
+}
+function choicesHtml(choices) {
+  return choices.map((c, i) => `<button data-choice="${i}" lang="ja"><span class="n">${i + 1}</span>${esc(c)}</button>`).join("");
+}
+
+async function choose(i) {
+  const ex = S.current;
+  if (S.solved) return;
+  const ok = i === ex.answer_index;
+  const buttons = $("exo-mcq").querySelectorAll("button");
+  buttons[ex.answer_index].classList.add("right");
+  if (!ok) buttons[i].classList.add("wrong");
+  ex._given = ex.choices[i];
+  $("exo").classList.toggle("ok", ok);
+  $("exo").classList.toggle("ko", !ok);
+  await record(ok, ex.choices[i]);
+  if (!ok) requeue(ex);
+  const full = ex.full_sentence ? `<br><span lang="ja">${esc(ex.full_sentence)}</span>` : "";
+  S.solved = true;
+  $("exo-feedback").hidden = false;
+  $("exo-feedback").innerHTML = solutionHtml(ex, (ok ? "✓ <strong>Correct !</strong>" :
+    `✗ Réponse : <strong lang="ja">${esc(ex.answers[0])}</strong>`) + full);
+  $("btn-check").hidden = true;
+  $("after-actions").hidden = false;
+  $("btn-next").focus();
+}
+$("exo-mcq").addEventListener("click", e => {
+  const b = e.target.closest("button[data-choice]");
+  if (b) choose(+b.dataset.choice);
+});
+
+function field() { return $("answer") || {value: "", readOnly: false, focus() {}, select() {}}; }
 
 async function record(correct, answer) {
   const ex = S.current;
@@ -331,10 +373,21 @@ $("btn-ask").addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", e => {
+  if (/^[1-4]$/.test(e.key) && e.target.tagName !== "TEXTAREA" && e.target.tagName !== "INPUT") {
+    if ($("tab-session").classList.contains("active") && !$("session-run").hidden && S.current?.choices && !S.solved) {
+      choose(+e.key - 1);
+      return;
+    }
+    if ($("tab-jlpt").classList.contains("active") && !$("exam-run").hidden) {
+      examPick(+e.key - 1);
+      return;
+    }
+  }
   if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return;  // Enter confirms Japanese IME input
   if (!$("tab-session").classList.contains("active") || $("session-run").hidden) return;
   if (e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
   if (e.target.tagName === "BUTTON" && e.target.id !== "btn-next") return;
+  if (S.current?.choices && !S.solved) return;  // multiple choice: click or 1-4
   e.preventDefault();
   if (S.solved) next(); else check();
 });
@@ -546,13 +599,16 @@ $("topics-table").addEventListener("click", async e => {
 // ---------------- filling the reserve ----------------
 
 function renderFill(f) {
-  const log = $("fill-log");
-  log.hidden = !f.log.length;
-  log.textContent = f.log.join("\n");
-  log.scrollTop = log.scrollHeight;
+  document.querySelectorAll(".job-log").forEach(log => {
+    log.hidden = !f.log.length;
+    log.textContent = (f.title ? `— ${f.title} (${f.started || ""}${f.finished ? " → " + f.finished : ""}) —\n` : "") + f.log.join("\n");
+    log.scrollTop = log.scrollHeight;
+  });
   $("btn-fill").disabled = f.running;
-  $("btn-fill").textContent = f.running ? "Remplissage en cours…" : "Remplir la réserve";
+  $("btn-fill").textContent = f.running ? `${f.title || "Remplissage"} en cours…` : "Remplir la réserve";
   $("btn-fill-stop").hidden = !f.running;
+  $("btn-jlpt-fill").disabled = f.running;
+  $("jlpt-fill-state").textContent = f.running ? `${f.title} en cours… (tu peux continuer à travailler)` : "";
 }
 
 async function pollFill() {
@@ -560,7 +616,11 @@ async function pollFill() {
     const f = await api("/api/fill");
     renderFill(f);
     if (f.running) { setTimeout(pollFill, 1500); return; }
-    if (pollFill.was) { toast(`Réserve remplie : ${f.added ?? 0} exercice(s) ajouté(s).`); loadHome(); loadProgramme(); }
+    if (pollFill.was) {
+      toast(`${f.title || "Réserve"} : ${f.added ?? 0} exercice(s) ajouté(s).`);
+      loadHome(); loadProgramme();
+      if ($("tab-jlpt").classList.contains("active")) loadJlpt();
+    }
     pollFill.was = false;
   } catch (e) { /* server restarting */ }
 }
@@ -575,8 +635,184 @@ $("btn-fill").addEventListener("click", async () => {
 });
 $("btn-fill-stop").addEventListener("click", () => api("/api/fill/stop", {}).catch(() => {}));
 
+// ---------------- automatic tasks at startup ----------------
+
+async function loadSettings() {
+  try {
+    const st = await api("/api/settings");
+    document.querySelectorAll("[data-setting]").forEach(cb => { cb.checked = !!st[cb.dataset.setting]; });
+    return st;
+  } catch (e) { return {}; }
+}
+document.querySelectorAll("[data-setting]").forEach(cb => cb.addEventListener("change", () =>
+  api("/api/settings", {[cb.dataset.setting]: cb.checked}).catch(err => toast(err.message))));
+
 // ======================================================================
-window.JapaneseCoach = {session: S, chat: C};  // handy in the browser console, and for tests
+// JLPT
+// ======================================================================
+
+const J = {level: store("jlptLevel") || "", overview: null, types: new Set(JSON.parse(store("jlptTypes") || "[]"))};
+const TYPE_SHORT = {kanji_reading: "漢字読み", orthography: "表記", vocab: "文脈規定", grammar: "文法形式", ordering: "並べ替え ★"};
+
+async function loadJlpt() {
+  try {
+    if (!J.level) J.level = (await loadSettings()).jlpt_level || "N4";
+    const o = await api(`/api/jlpt/overview?level=${J.level}`);
+    J.overview = o;
+    $("jlpt-level").innerHTML = o.levels.map(l => `<option${l === o.level ? " selected" : ""}>${l}</option>`).join("");
+    $("jlpt-types").innerHTML = o.types.map(t => `<div class="stat"><div class="value">${t.unseen} <span class="muted small">/ ${t.total}</span></div>
+      <div class="label" lang="ja">${esc(t.label)}</div></div>`).join("");
+    const notes = [];
+    if (!o.lexicon) notes.push("Niveaux approximatifs : lance anki_sync.py et/ou jlpt_data.py pour connaître le niveau des mots.");
+    if (!o.kanji) notes.push("Pas de fiches kanji (data/kanji.json) : pas de questions 表記.");
+    $("jlpt-note").textContent = "Nouvelles / total par type de question. " + notes.join(" ");
+    if (!J.types.size) o.types.forEach(t => J.types.add(t.type));
+    $("jlpt-type-picker").innerHTML = o.types.map(t => `<label><input type="checkbox" value="${t.type}"${J.types.has(t.type) ? " checked" : ""}>
+      <span lang="ja">${esc(t.label)}</span> <span class="muted small">(${t.total})</span></label>`).join("");
+    const plan = o.types.filter(t => t.exam).map(t => `${TYPE_SHORT[t.type]} ${t.exam}`).join(" · ");
+    const total = o.types.reduce((n, t) => n + t.exam, 0);
+    $("jlpt-exam-plan").textContent = `${total} questions en ${total} minutes, sans correction avant la fin : ${plan}. ` +
+      "Format inspiré du JLPT (partie connaissances de la langue, sans compréhension écrite).";
+    $("btn-jlpt-exam").disabled = !o.types.some(t => t.total);
+    $("btn-jlpt-practice").disabled = !o.types.some(t => t.total);
+    $("jlpt-history").innerHTML = o.exams.length ? `<table class="topics"><tr><th>Date</th><th>Niveau</th><th class="num">Score</th><th class="num">Durée</th></tr>` +
+      o.exams.map(x => `<tr><td>${esc(x.taken_at.replace("T", " ").slice(0, 16))}</td><td>${esc(x.level)}</td>
+        <td class="num">${x.score} / ${x.total} (${Math.round(100 * x.score / Math.max(1, x.total))} %)</td>
+        <td class="num">${Math.round(x.seconds / 60)} min</td></tr>`).join("") + "</table>" : "";
+    renderFill(await api("/api/fill"));
+  } catch (e) { toast("JLPT : " + e.message); }
+}
+
+$("jlpt-level").addEventListener("change", e => {
+  J.level = e.target.value;
+  store("jlptLevel", J.level);
+  api("/api/settings", {jlpt_level: J.level}).catch(() => {});
+  loadJlpt();
+});
+$("jlpt-type-picker").addEventListener("change", e => {
+  e.target.checked ? J.types.add(e.target.value) : J.types.delete(e.target.value);
+  store("jlptTypes", JSON.stringify([...J.types]));
+});
+$("btn-jlpt-fill").addEventListener("click", async () => {
+  try {
+    renderFill(await api("/api/jlpt/fill", {level: J.level, per_type: 10}));
+    pollFill.was = true;
+    setTimeout(pollFill, 1000);
+  } catch (e) { toast(e.message); }
+});
+
+$("btn-jlpt-practice").addEventListener("click", async () => {
+  try {
+    const data = await api(`/api/jlpt/practice?level=${J.level}&count=${$("jlpt-count").value}&types=${[...J.types].join("|")}`);
+    if (!data.items.length) return toast("Aucune question pour ces types : génère-en d'abord.");
+    Object.assign(S, {queue: data.items, pos: 0, done: 0, firstTry: 0});
+    showTab("session");
+    $("session-start").hidden = true;
+    $("session-end").hidden = true;
+    $("session-run").hidden = false;
+    showExercise();
+  } catch (e) { toast(e.message); }
+});
+
+// ---------------- mock exam ----------------
+
+const E = {items: [], pos: 0, picks: [], started: 0, seconds: 0, timer: null};
+
+$("btn-jlpt-exam").addEventListener("click", async () => {
+  try {
+    const data = await api(`/api/jlpt/exam?level=${J.level}`);
+    if (!data.items.length) return toast("Pas assez de questions : génère-en d'abord.");
+    Object.assign(E, {items: data.items, pos: 0, picks: data.items.map(() => null), started: Date.now(), seconds: data.minutes * 60});
+    $("jlpt-home").hidden = true;
+    $("exam-result").hidden = true;
+    $("exam-run").hidden = false;
+    clearInterval(E.timer);
+    E.timer = setInterval(tick, 1000);
+    tick();
+    showExamQuestion();
+  } catch (e) { toast(e.message); }
+});
+
+function tick() {
+  const left = Math.max(0, E.seconds - Math.round((Date.now() - E.started) / 1000));
+  $("exam-timer").textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  $("exam-timer").classList.toggle("low", left < 120);
+  if (!left) finishExam();
+}
+
+function showExamQuestion() {
+  const q = E.items[E.pos];
+  $("exam-section").innerHTML = `<span lang="ja">${esc(TYPE_SHORT[q.qtype] || q.topic)}</span>`;
+  $("exam-count").textContent = `Question ${E.pos + 1} / ${E.items.length} · ${E.picks.filter(p => p !== null).length} répondues`;
+  $("exam-fill").style.width = `${100 * E.pos / E.items.length}%`;
+  $("exam-question").innerHTML = questionHtml(q.question) + (q.show_translation && q.translation ? `<div class="tr">${esc(q.translation)}</div>` : "");
+  $("exam-choices").innerHTML = choicesHtml(q.choices);
+  if (E.picks[E.pos] !== null) $("exam-choices").querySelectorAll("button")[E.picks[E.pos]].classList.add("picked");
+  $("btn-exam-prev").disabled = E.pos === 0;
+  $("btn-exam-next").disabled = E.pos === E.items.length - 1;
+}
+
+function examPick(i) {
+  if (i >= E.items[E.pos].choices.length) return;
+  E.picks[E.pos] = i;
+  showExamQuestion();
+  if (E.pos < E.items.length - 1) setTimeout(() => { E.pos += 1; showExamQuestion(); }, 250);
+}
+$("exam-choices").addEventListener("click", e => {
+  const b = e.target.closest("button[data-choice]");
+  if (b) examPick(+b.dataset.choice);
+});
+$("btn-exam-prev").addEventListener("click", () => { E.pos = Math.max(0, E.pos - 1); showExamQuestion(); });
+$("btn-exam-next").addEventListener("click", () => { E.pos = Math.min(E.items.length - 1, E.pos + 1); showExamQuestion(); });
+$("btn-exam-finish").addEventListener("click", () => {
+  const missing = E.picks.filter(p => p === null).length;
+  if (missing && !finishExam.confirmed) {
+    finishExam.confirmed = true;
+    toast(`${missing} question(s) sans réponse. Clique encore sur « Terminer » pour rendre ta copie.`);
+    return;
+  }
+  finishExam();
+});
+
+async function finishExam() {
+  if ($("exam-run").hidden) return;
+  finishExam.confirmed = false;
+  clearInterval(E.timer);
+  const seconds = Math.round((Date.now() - E.started) / 1000);
+  const answers = E.items.map((q, i) => ({id: q.id, correct: E.picks[i] === q.answer_index,
+                                          answer: E.picks[i] === null ? "" : q.choices[E.picks[i]]}));
+  let result;
+  try {
+    result = await api("/api/jlpt/exam_result", {level: J.level, answers, seconds});
+  } catch (e) { toast("Résultat non enregistré : " + e.message); return; }
+  $("exam-run").hidden = true;
+  $("exam-result").hidden = false;
+  const pct = Math.round(100 * result.score / Math.max(1, result.total));
+  $("exam-score").textContent = `${result.score} / ${result.total} — ${pct} %`;
+  $("exam-verdict").textContent = (pct >= 60 ? "Très bien : niveau atteint sur cette partie. " : pct >= 45 ? "Pas loin : encore un effort. " : "À retravailler. ")
+    + `Durée : ${Math.round(seconds / 60)} min. Tes erreurs reviendront dans les révisions.`;
+  $("exam-sections").innerHTML = `<tr><th>Section</th><th class="num">Score</th></tr>` +
+    Object.entries(result.detail).map(([t, [ok, n]]) => `<tr><td lang="ja">${esc(TYPE_SHORT[t] || t)}</td>
+      <td class="num">${ok} / ${n} (${Math.round(100 * ok / n)} %)</td></tr>`).join("");
+  const wrong = E.items.map((q, i) => ({q, pick: E.picks[i]})).filter(x => x.pick !== x.q.answer_index);
+  $("exam-mistakes").innerHTML = wrong.length ? wrong.map(({q, pick}) => `<div class="mistake">
+      <div class="jp" lang="ja">${questionHtml(q.question)}</div>
+      <div>Ta réponse : <span lang="ja">${pick === null ? "—" : esc(q.choices[pick])}</span> ·
+        Bonne réponse : <strong lang="ja">${esc(q.answers[0])}</strong></div>
+      ${q.full_sentence ? `<div class="muted" lang="ja">${esc(q.full_sentence)}</div>` : ""}
+      ${q.translation ? `<div class="tr">${esc(q.translation)}</div>` : ""}
+      ${q.explanation ? `<div class="small">${esc(q.explanation).replace(/\n/g, "<br>")}</div>` : ""}
+    </div>`).join("") : "<p>Aucune erreur, bravo !</p>";
+}
+$("btn-exam-back").addEventListener("click", () => {
+  $("exam-result").hidden = true;
+  $("jlpt-home").hidden = false;
+  loadJlpt();
+});
+
+// ======================================================================
+window.JapaneseCoach = {session: S, chat: C, exam: E};  // handy in the browser console, and for tests
 loadStatus();
 loadHome();
+loadSettings();
 api("/api/fill").then(f => { if (f.running) { pollFill.was = true; pollFill(); } else renderFill(f); }).catch(() => {});

@@ -56,6 +56,15 @@ CREATE TABLE IF NOT EXISTS topic_flags (
     known INTEGER NOT NULL,       -- 1 = « Je maîtrise déjà »: the topic counts as passed
     updated TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS exams (
+    id INTEGER PRIMARY KEY,
+    taken_at TEXT NOT NULL,
+    level TEXT NOT NULL,
+    score INTEGER NOT NULL,       -- right answers
+    total INTEGER NOT NULL,
+    seconds INTEGER NOT NULL,
+    detail TEXT NOT NULL          -- JSON: {question type: [right, total]}
+);
 CREATE INDEX IF NOT EXISTS idx_reviews_day ON reviews(day);
 CREATE INDEX IF NOT EXISTS idx_schedule_due ON schedule(due);
 """
@@ -274,6 +283,46 @@ def stats(db, day: datetime.date = None) -> dict:
             GROUP BY e.topic HAVING COUNT(*) >= 5
             ORDER BY 1.0 * SUM(r.correct) / COUNT(*) LIMIT 3""")],
     }
+
+
+# ---------------------------------------------------------------------------
+# JLPT practice and mock exams
+# ---------------------------------------------------------------------------
+
+def pick(db, topics: list, count: int, seed=None) -> list:
+    """Up to `count` exercises of these topics: due reviews first, then unseen, then already-seen ones."""
+    rng = random.Random(seed)
+    chosen = session(db, new_limit=count, due_limit=count, topics=topics, seed=seed)[:count]
+    if len(chosen) < count and topics:
+        ids = {x["id"] for x in chosen}
+        rows = db.execute(f"SELECT * FROM exercises WHERE topic IN ({','.join('?' * len(topics))})", topics).fetchall()
+        rest = [r for r in rows if r["id"] not in ids]
+        rng.shuffle(rest)
+        chosen += [dict(_exercise(r), status="review") for r in rest[:count - len(chosen)]]
+    return chosen
+
+
+def save_exam(db, level: str, answers: list, seconds: int) -> dict:
+    """answers: [{id, correct, answer}] — recorded like normal answers (spaced repetition), plus the exam score."""
+    detail = {}
+    for a in answers:
+        record_answer(db, int(a["id"]), bool(a.get("correct")), str(a.get("answer", ""))[:100])
+        qtype = json.loads(db.execute("SELECT data FROM exercises WHERE id = ?", (int(a["id"]),)).fetchone()[0]).get("qtype", "?")
+        right_total = detail.setdefault(qtype, [0, 0])
+        right_total[0] += bool(a.get("correct"))
+        right_total[1] += 1
+    score = sum(v[0] for v in detail.values())
+    total = sum(v[1] for v in detail.values())
+    db.execute("INSERT INTO exams (taken_at, level, score, total, seconds, detail) VALUES (?, ?, ?, ?, ?, ?)",
+               (datetime.datetime.now().isoformat(timespec="seconds"), level, score, total, int(seconds),
+                json.dumps(detail)))
+    db.commit()
+    return {"score": score, "total": total, "detail": detail}
+
+
+def exams(db, limit: int = 20) -> list:
+    rows = db.execute("SELECT * FROM exams ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return [dict(r, detail=json.loads(r["detail"])) for r in rows]
 
 
 # ---------------------------------------------------------------------------

@@ -160,3 +160,25 @@ table.topics td.level { color: var(--muted); font-size: .85rem; width: 36px; }
 table.topics button { font-size: .78rem; padding: 3px 8px; }
 .log { background: var(--me); border-radius: 8px; padding: 10px 12px; max-height: 260px; overflow: auto; font-size: .8rem;
   white-space: pre-wrap; margin-top: 12px; }
+
+/* ---------- multiple choice / JLPT ---------- */
+.sentence u { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.mcq { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin: 10px 0 4px; }
+.mcq button { font-size: 1.15rem; text-align: left; padding: 10px 14px; }
+.mcq button .n { color: var(--muted); font-size: .85rem; margin-right: 8px; }
+.mcq button.picked { border-color: var(--accent); background: var(--accent-soft); }
+.mcq button.right { border-color: var(--ok); background: var(--ok-bg); }
+.mcq button.wrong { border-color: var(--ko); background: var(--ko-bg); }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.row label { display: flex; flex-direction: column; font-size: .85rem; color: var(--muted); }
+.grid.types { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); margin: 12px 0; }
+.grid.types .stat .value { font-size: 1.3rem; }
+.type-picker { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 8px 0; }
+.type-picker label { font-size: .92rem; cursor: pointer; }
+.exam-bar { display: flex; gap: 14px; align-items: center; font-size: .9rem; }
+.timer { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.1rem; }
+.timer.low { color: var(--ko); }
+#exam-fill { height: 100%; width: 0; background: var(--accent); }
+.mistake { border-top: 1px solid var(--border); padding: 10px 0; }
+.mistake .jp { font-size: 1.15rem; }
+.auto { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; }

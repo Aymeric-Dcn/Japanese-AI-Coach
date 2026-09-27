@@ -12,6 +12,7 @@
   <div class="brand"><span class="dot"></span>Japanese Coach</div>
   <nav class="tabs" role="tablist">
     <button class="tab active" data-tab="session" role="tab">Session</button>
+    <button class="tab" data-tab="jlpt" role="tab">JLPT</button>
     <button class="tab" data-tab="chat" role="tab">Prof</button>
     <button class="tab" data-tab="progress" role="tab">Progrès</button>
   </nav>
@@ -65,6 +66,7 @@
         </div>
         <div class="choices" id="exo-choices"></div>
         <div class="sentence" lang="ja" id="exo-sentence"></div>
+        <div class="mcq" id="exo-mcq" hidden></div>
         <div class="reading" lang="ja" id="exo-reading"></div>
         <div class="tr" id="exo-translation"></div>
         <div class="tr" id="exo-new"></div>
@@ -88,6 +90,77 @@
       <p id="end-text"></p>
       <button class="primary" id="btn-more">5 nouveaux exercices de plus</button>
       <button id="btn-home">Retour</button>
+    </div>
+  </section>
+
+  <!-- ============ JLPT ============ -->
+  <section id="tab-jlpt" class="panel">
+    <div id="jlpt-home">
+      <div class="card">
+        <div class="row">
+          <h2>JLPT</h2>
+          <label class="right">Niveau
+            <select id="jlpt-level"></select>
+          </label>
+        </div>
+        <p class="muted small" id="jlpt-note"></p>
+        <div class="grid types" id="jlpt-types"></div>
+        <div class="row">
+          <button id="btn-jlpt-fill">Générer des questions (10 par type)</button>
+          <span class="muted small" id="jlpt-fill-state"></span>
+        </div>
+        <pre class="log job-log" hidden></pre>
+      </div>
+
+      <div class="card">
+        <h3>Entraînement</h3>
+        <p class="muted small">Questions au choix, avec la correction tout de suite. Les erreurs reviennent en révision.</p>
+        <div class="type-picker" id="jlpt-type-picker"></div>
+        <div class="controls left">
+          <label>Questions
+            <select id="jlpt-count"><option>10</option><option selected>20</option><option>30</option></select>
+          </label>
+        </div>
+        <button class="primary" id="btn-jlpt-practice">S'entraîner</button>
+      </div>
+
+      <div class="card">
+        <h3>Examen blanc</h3>
+        <p class="muted small" id="jlpt-exam-plan"></p>
+        <button class="primary" id="btn-jlpt-exam">Commencer l'examen blanc</button>
+        <div id="jlpt-history"></div>
+      </div>
+    </div>
+
+    <div id="exam-run" hidden>
+      <div class="exam-bar">
+        <span id="exam-section" class="muted"></span>
+        <span id="exam-count" class="muted"></span>
+        <span id="exam-timer" class="timer right"></span>
+      </div>
+      <div class="progressbar"><div id="exam-fill"></div></div>
+      <div class="card exo">
+        <div class="sentence" lang="ja" id="exam-question"></div>
+        <div class="mcq" id="exam-choices"></div>
+        <div class="actions">
+          <button id="btn-exam-prev">← Précédente</button>
+          <button id="btn-exam-next">Suivante →</button>
+          <button class="primary right" id="btn-exam-finish">Terminer l'examen</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="exam-result" hidden>
+      <div class="card start">
+        <h2 id="exam-score"></h2>
+        <p id="exam-verdict" class="muted"></p>
+        <table class="topics" id="exam-sections"></table>
+      </div>
+      <div class="card">
+        <h3>Corrigé des erreurs</h3>
+        <div id="exam-mistakes"></div>
+      </div>
+      <button id="btn-exam-back">Retour au JLPT</button>
     </div>
   </section>
 
@@ -138,7 +211,13 @@
       </div>
       <button class="primary" id="btn-fill">Remplir la réserve</button>
       <button id="btn-fill-stop" hidden>Arrêter</button>
-      <pre class="log" id="fill-log" hidden></pre>
+      <pre class="log job-log" id="fill-log" hidden></pre>
+      <div class="auto">
+        <strong class="small">Au démarrage de l'app :</strong>
+        <label class="check inline"><input type="checkbox" data-setting="auto_sync"> synchroniser Anki (une fois par jour)</label>
+        <label class="check inline"><input type="checkbox" data-setting="auto_fill"> remplir la réserve</label>
+        <label class="check inline"><input type="checkbox" data-setting="jlpt_auto_fill"> générer des questions JLPT</label>
+      </div>
     </div>
     <div class="card" id="weak-card" hidden>
       <h3>À travailler</h3>
