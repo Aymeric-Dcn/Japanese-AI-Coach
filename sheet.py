@@ -14,7 +14,8 @@ A sheet is a dict with this shape (lesson and vocabulary are optional):
           "hint": str, "translation": str, "explanation": str,
           # optional:
           "full_sentence": str, "reading": str, "show_translation": bool,
-          "source": str, "source_url": str, "new_words": [str]
+          "source": str, "source_url": str, "new_words": [str],
+          "cue": str                 # conjugation exercises: the verb's dictionary form, shown after the blank
       }],
       "meta": {"topic": str, "level": str, "model": str, "date": str, "allowed_answers": [str]}
     }
@@ -107,6 +108,7 @@ button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 .sentence input{font:inherit;font-size:1.2rem;width:6em;padding:0 8px;border:none;border-bottom:2px solid var(--accent);
 background:transparent;color:var(--text);text-align:center;outline:none}
 .sentence input:focus{background:var(--hint-bg)}
+.cue{color:var(--muted);font-size:1rem}
 .exo.ok .sentence input{border-color:var(--ok);color:var(--ok)}
 .exo.ko .sentence input{border-color:var(--ko)}
 .exo > .reading, .exo > .tr{margin:-.4rem 0 .6rem}
@@ -184,7 +186,7 @@ DATA.exercises.forEach((ex, i) => {
   const [before, after] = ex.sentence.split(BLANK);
   html += `<div class="card exo" id="exo-${i}">
     <div class="num">${UI.exercise} ${i + 1}</div>
-    <div class="sentence" lang="ja">${esc(before)}<input lang="ja" autocomplete="off" spellcheck="false" data-i="${i}" aria-label="${UI.exercise} ${i + 1}">${esc(after)}</div>
+    <div class="sentence" lang="ja">${esc(before)}<input lang="ja" autocomplete="off" spellcheck="false" data-i="${i}" aria-label="${UI.exercise} ${i + 1}" style="width:${Math.max(4, ex.answers[0].length + 2)}em">${ex.cue ? `<span class="cue">（${esc(ex.cue)}）</span>` : ""}${esc(after)}</div>
     ${ex.reading ? `<div class="reading" lang="ja">${esc(ex.reading)}</div>` : ""}
     ${ex.show_translation ? `<div class="tr">${esc(ex.translation)}</div>` : ""}
     ${(ex.new_words || []).length ? `<div class="tr">${UI.newWords} <span lang="ja">${ex.new_words.map(esc).join("、")}</span></div>` : ""}
