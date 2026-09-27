@@ -1,7 +1,8 @@
-# Feuilles générées
+# Generated sheets (feuilles/ = old name)
+sheets/
 feuilles/
 
-# Données téléchargées ou personnelles (ne jamais publier)
+# Downloaded or personal data (never publish)
 data/
 sources/
 *.db
@@ -15,7 +16,7 @@ __pycache__/
 .venv/
 venv/
 
-# Secrets et divers
+# Secrets and misc
 .env
 .DS_Store
 Thumbs.db

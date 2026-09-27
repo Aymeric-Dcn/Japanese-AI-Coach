@@ -1,109 +1,119 @@
 # Japanese Coach AI
 
-Un prof de japonais personnel qui tourne **en local** : un LLM (via [Ollama](https://ollama.com)) génère des feuilles de cours et des exercices à trous interactifs, avec correction et explications en français.
+*[Version française](README.fr.md)*
 
-> Projet d'apprentissage : apprendre le japonais, et apprendre à configurer un LLM en même temps.
+A personal Japanese tutor that runs **locally**: interactive fill-in-the-blank exercise sheets built from real sentences, with hints and explanations written by a local LLM (via [Ollama](https://ollama.com)).
 
-## Ce qui marche aujourd'hui
+> A learning project: learning Japanese, and learning how to set up an LLM along the way.
 
-Deux façons de créer une feuille d'exercices :
+## What works today
 
-| | `creer_exercices.py` (recommandé) | `generer_feuille.py` |
+Two ways to create an exercise sheet:
+
+| | `make_exercises.py` (recommended) | `generate_sheet.py` |
 | --- | --- | --- |
-| Phrases | vraies phrases de [Tatoeba](https://tatoeba.org) | inventées par le LLM |
-| Réponses et lectures | exactes (phrase d'origine + analyseur SudachiPy) | écrites par le LLM, erreurs possibles |
-| Rôle du LLM | écarter les phrases ambiguës, écrire indices et explications | tout |
-| Cours et vocabulaire | non | oui |
+| Sentences | real sentences from [Tatoeba](https://tatoeba.org) | invented by the LLM |
+| Answers and readings | exact (original sentence + SudachiPy analyzer) | written by the LLM, may contain errors |
+| LLM's role | drop ambiguous sentences, write hints and explanations | everything |
+| Lesson and vocabulary | no | yes |
 
-### Banque de vraies phrases
+Sheets are HTML pages: type the answer in the blank with a Japanese keyboard (IME-friendly), check it, ask for a hint, see the explanation and the score. The page interface and explanations are in French.
 
-`construire_banque.py` télécharge Tatoeba (une seule fois), garde les phrases japonaises traduites, les découpe avec SudachiPy (mots, catégories grammaticales, lectures) et les enregistre dans `data/banque.db`.
+### Bank of real sentences
 
-`creer_exercices.py` y cherche les phrases qui contiennent exactement une des réponses visées, fait le trou lui-même, puis demande au LLM local si une autre réponse serait aussi correcte : si oui, la phrase est écartée. Chaque exercice affiche sa lecture en hiragana, sa traduction et un lien vers la phrase sur Tatoeba.
+`build_bank.py` downloads Tatoeba (once), keeps the Japanese sentences that have a translation, splits them with SudachiPy (words, parts of speech, readings) and stores them in `data/bank.db`.
 
-### Feuilles générées par le LLM
+`make_exercises.py` finds sentences that contain exactly one of the target answers, makes the blank itself, then asks the local LLM whether another answer would also be correct: if so, the sentence is dropped. Each exercise shows its hiragana reading, its translation and a link to the sentence on Tatoeba.
 
-`generer_feuille.py` produit une page HTML avec :
+### LLM-generated sheets
 
-- un **cours** (règles + exemples avec lecture en hiragana et traduction) ;
-- une liste de **vocabulaire** ;
-- des **exercices à trous** à remplir au clavier (IME japonais compatible), avec indice, vérification, explication et score.
-
-Le modèle écrit des phrases complètes en entourant la réponse de `【 】` ; c'est le script qui crée le trou, donc la réponse attendue est toujours exactement ce qui a été retiré. L'option `--reponses` impose une liste fermée de réponses (ex. `に,で`) et écarte tout exercice hors sujet.
+`generate_sheet.py` asks the model for a lesson (rules + examples), a vocabulary list and exercises. The model writes full sentences with the answer in `【 】`; the script makes the blank, so the expected answer is always exactly what was removed. `--answers` sets a closed list of answers (e.g. `に,で`) and drops off-topic exercises.
 
 ## Installation
 
-Configuration testée : Windows, RTX 4070 Super (12 Go VRAM), 32 Go RAM.
+Tested on: Windows, RTX 4070 Super (12 GB VRAM), 32 GB RAM.
 
-1. **Ollama** : installer depuis [ollama.com/download](https://ollama.com/download).
-2. **Un modèle** :
+1. **Ollama**: install from [ollama.com/download](https://ollama.com/download).
+2. **A model**:
    ```
    ollama pull qwen3:14b
    ```
-3. **Python 3.9+** : [python.org](https://www.python.org/downloads/) (cocher *Add python.exe to PATH*), puis les dépendances :
+3. **Python 3.9+**: [python.org](https://www.python.org/downloads/) (tick *Add python.exe to PATH*), then the dependencies:
    ```
    pip install -r requirements.txt
    ```
-4. **Clavier japonais** (pour remplir les exercices) : Paramètres → Heure et langue → Langue et région → ajouter *Japonais*. Basculer avec `Windows + Espace`.
+4. **Japanese keyboard** (to fill in the exercises): Windows Settings → Time & language → Language & region → add *Japanese*. Switch with `Windows + Space`.
 
-## Utilisation
+## Usage
 
-### Exercices à partir de vraies phrases
+### Exercises from real sentences
 
 ```
-python construire_banque.py        # une seule fois (quelques minutes)
-python creer_exercices.py --cibles "に,で" --pos 格助詞 --titre "Les particules に et で"
-python creer_exercices.py --cibles "は,が" --pos 助詞 --max-mots 8
+python build_bank.py        # once (a few minutes)
+python make_exercises.py --targets "に,で" --pos 格助詞 --title "Les particules に et で"
+python make_exercises.py --targets "は,が" --pos 助詞 --max-words 8
 ```
 
-| Option | Rôle | Défaut |
+| Option | Purpose | Default |
 | --- | --- | --- |
-| `--cibles` | les réponses à faire retrouver | — |
-| `--pos` | catégorie grammaticale exigée : `格助詞` (particule de cas), `助詞` (toute particule)… Évite par ex. le で de 読んで | aucune |
-| `--nb` | nombre d'exercices | `10` |
-| `--min-mots` / `--max-mots` | longueur des phrases (≈ difficulté) | `3` / `12` |
-| `--tout-contexte` | particules : accepter aussi すぐに, 親切に, には, でも… (écartés par défaut, seuls les cas « nom + particule » sont gardés) | — |
-| `--sans-llm` | pas de vérification ni d'explication (instantané) | — |
-| `--anglais` | accepter les phrases traduites seulement en anglais (lancer aussi `construire_banque.py --anglais`) | — |
-| `--graine` | retrouver la même sélection de phrases | aléatoire |
+| `--targets` | the answers to find | — |
+| `--pos` | required part of speech: `格助詞` (case particle), `助詞` (any particle)… Avoids e.g. the で of 読んで | none |
+| `--count` | number of exercises | `10` |
+| `--min-words` / `--max-words` | sentence length (≈ difficulty) | `3` / `12` |
+| `--any-context` | particles: also accept すぐに, 親切に, には, でも… (by default only simple « noun + particle » cases are kept) | — |
+| `--no-llm` | no check, no explanation (instant) | — |
+| `--english` | accept sentences translated only into English (also run `build_bank.py --english`) | — |
+| `--level` | student level, for the explanations | `N5` |
+| `--model` | Ollama model | `qwen3:14b` |
+| `--seed` | get the same selection of sentences again | random |
 
-### Exercices inventés par le LLM
+### LLM-generated exercises
 
 ```
-python generer_feuille.py --theme "les particules に et で" --niveau N5 --reponses "に,で"
-python generer_feuille.py --theme "la forme en て" --niveau N5 --nb 12
-python generer_feuille.py --demo        # feuille d'exemple, sans Ollama
+python generate_sheet.py --topic "les particules に et で" --level N5 --answers "に,で"
+python generate_sheet.py --topic "la forme en て" --level N5 --count 12
+python generate_sheet.py --demo        # sample sheet, no Ollama needed
 ```
 
-| Option | Rôle | Défaut |
+| Option | Purpose | Default |
 | --- | --- | --- |
-| `--theme` | le point de grammaire à travailler | — |
-| `--niveau` | N5, N4… ou une description libre | `N5` |
-| `--nb` | nombre d'exercices | `10` |
-| `--reponses` | liste fermée des réponses possibles | aucune |
-| `--modele` | modèle Ollama | `qwen3:14b` |
-| `--temperature` | 0 = strict, 1 = varié | `0.7` |
+| `--topic` | the grammar point to practise | — |
+| `--level` | N5, N4… or a free description | `N5` |
+| `--count` | number of exercises | `10` |
+| `--answers` | closed list of possible answers | none |
+| `--model` | Ollama model | `qwen3:14b` |
+| `--temperature` | 0 = strict, 1 = varied | `0.7` |
 
-Les feuilles sont enregistrées dans `feuilles/` (HTML + JSON) et ouvertes dans le navigateur.
+Sheets are saved in `sheets/` (HTML + JSON) and opened in the browser.
 
-## Feuille de route
+## Project layout
 
-- [x] Génération de feuilles d'exercices à trous par un LLM local
-- [x] **Banque de phrases** Tatoeba découpées par SudachiPy, exercices à trous exacts, le LLM ne fait qu'écarter les phrases ambiguës et expliquer
-- [ ] Exercices sur les formes verbales (forme en て, passé, négatif…) à partir de la banque
-- [ ] Vérification du vocabulaire avec [JMdict](https://www.edrdg.org/jmdict/j_jmdict.html)
-- [ ] **Synchronisation Anki** (AnkiConnect) : choisir des phrases dont je connais déjà tout le vocabulaire sauf un mot
-- [ ] Suivi des erreurs et **répétition espacée**
-- [ ] **Chat** avec le prof (explications, correction de phrases libres)
-- [ ] Jeu de tests pour **mesurer** la fiabilité des modèles et des prompts
-- [ ] Interface d'application unifiée
+```
+build_bank.py       Tatoeba → SudachiPy → data/bank.db
+make_exercises.py   exercise sheet from the bank (+ LLM check and explanations)
+generate_sheet.py   exercise sheet fully generated by the LLM
+sheet.py            shared helpers and the interactive HTML page
+notes/log.md        test log (models, prompts, results)
+```
 
-## Journal des tests
+## Roadmap
 
-Voir [`notes/journal.md`](notes/journal.md).
+- [x] Fill-in-the-blank sheets generated by a local LLM
+- [x] **Sentence bank**: Tatoeba sentences split by SudachiPy, exact blanks, the LLM only drops ambiguous sentences and explains
+- [ ] Exercises on verb forms (て-form, past, negative…) from the bank
+- [ ] Vocabulary checks with [JMdict](https://www.edrdg.org/jmdict/j_jmdict.html)
+- [ ] **Anki sync** (AnkiConnect): pick sentences whose vocabulary I already know
+- [ ] Mistake tracking and **spaced repetition**
+- [ ] **Chat** with the tutor (explanations, correcting free sentences)
+- [ ] Test set to **measure** the reliability of models and prompts
+- [ ] Unified app interface
 
-## Sources de données et droits
+## Test log
 
-Le dépôt ne contient que du code, des prompts et de la documentation. Les données téléchargées ou personnelles (`data/`, `sources/`, bases SQLite, feuilles générées) sont exclues par le `.gitignore`. Aucun contenu tiré de manuels sous droits ne doit être publié ici.
+See [`notes/log.md`](notes/log.md).
 
-Sources libres prévues : Tatoeba (CC BY 2.0 FR), JMdict / KANJIDIC (CC BY-SA 4.0, EDRDG), guide de grammaire de Tae Kim (CC BY-NC-SA 3.0).
+## Data sources and licences
+
+This repository only contains code, prompts and documentation. Downloaded or personal data (`data/`, `sources/`, SQLite databases, generated sheets) is excluded by `.gitignore`. No content taken from copyrighted textbooks may be published here.
+
+Open sources used or planned: Tatoeba (CC BY 2.0 FR), JMdict / KANJIDIC (CC BY-SA 4.0, EDRDG), Tae Kim's grammar guide (CC BY-NC-SA 3.0).
