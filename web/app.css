@@ -182,3 +182,9 @@ table.topics button { font-size: .78rem; padding: 3px 8px; }
 .mistake { border-top: 1px solid var(--border); padding: 10px 0; }
 .mistake .jp { font-size: 1.15rem; }
 .auto { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; }
+
+/* ---------- chat modes ---------- */
+.small-seg { margin: 0; }
+.small-seg .seg { font-size: .85rem; padding: 5px 12px; }
+.refs { align-self: flex-start; font-size: .75rem; color: var(--muted); margin-top: -8px; padding-left: 6px; }
+.chat-start { align-self: center; }

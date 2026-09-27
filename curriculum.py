@@ -20,25 +20,25 @@ FAST_TRACK_MIN = 5       # this many answers, all right → passed straight away
 
 TOPICS = [
     # ---------------- N5 ----------------
-    {"id": "masu", "level": "N5", "title": "Forme polie en ます", "form": "masu"},
-    {"id": "wa-ga", "level": "N5", "title": "Particules は / が", "targets": "は,が", "pos": "係助詞,格助詞"},
-    {"id": "wo-ga", "level": "N5", "title": "Particules を / が", "targets": "を,が", "pos": "格助詞"},
-    {"id": "ni-de", "level": "N5", "title": "Particules に / で", "targets": "に,で", "pos": "格助詞"},
-    {"id": "negative", "level": "N5", "title": "Négatif en ない", "form": "negative"},
-    {"id": "ni-e", "level": "N5", "title": "Particules に / へ", "targets": "に,へ", "pos": "格助詞"},
-    {"id": "past", "level": "N5", "title": "Passé en た", "form": "past"},
-    {"id": "wa-mo", "level": "N5", "title": "Particules は / も", "targets": "は,も", "pos": "係助詞"},
-    {"id": "to-ya", "level": "N5", "title": "Particules と / や", "targets": "と,や", "pos": "格助詞,副助詞"},
-    {"id": "te-form", "level": "N5", "title": "Forme en て", "form": "te"},
-    {"id": "kara-made", "level": "N5", "title": "Particules から / まで", "targets": "から,まで", "pos": "格助詞,副助詞"},
-    {"id": "tai", "level": "N5", "title": "Envie : forme en たい", "form": "tai"},
+    {"id": "masu", "level": "N5", "title": "Forme polie en ます", "form": "masu", "note": "Forme polie non passée : radical en -i + ます (書く → 書きます, 食べる → 食べます, する → します, 来る → 来ます). Négatif poli : ません ; passé poli : ました."},
+    {"id": "wa-ga", "level": "N5", "title": "Particules は / が", "targets": "は,が", "pos": "係助詞,格助詞", "note": "は marque le thème (ce dont on parle, souvent déjà connu, ou un contraste). が marque le sujet grammatical : information nouvelle, mise en avant, réponse à « qui / quoi ? », sujet d'une subordonnée, ce qui existe avec ある / いる, et ce qu'on aime ou sait faire avec 好き / 上手 / 分かる."},
+    {"id": "wo-ga", "level": "N5", "title": "Particules を / が", "targets": "を,が", "pos": "格助詞", "note": "を marque l'objet direct d'un verbe d'action (パンを食べる). が remplace を avec les expressions d'état ou de capacité : 好き, 嫌い, 上手, 分かる, できる, 欲しい, forme potentielle (日本語が話せる)."},
+    {"id": "ni-de", "level": "N5", "title": "Particules に / で", "targets": "に,で", "pos": "格助詞", "note": "に : destination (学校に行く), moment précis (七時に), lieu d'existence avec いる / ある (部屋に猫がいる), destinataire (友達に書く), résultat (医者になる). で : lieu où se déroule une action (図書館で読む), moyen ou instrument (電車で, 箸で), cause (風邪で), langue (日本語で), limite ou total (三つで)."},
+    {"id": "negative", "level": "N5", "title": "Négatif en ない", "form": "negative", "note": "Négatif neutre : verbe en -a + ない pour les godan (書かない, 飲まない ; う → わ : 会わない), radical + ない pour les ichidan (食べない), しない, 来ない. ある → ない."},
+    {"id": "ni-e", "level": "N5", "title": "Particules に / へ", "targets": "に,へ", "pos": "格助詞", "note": "へ (prononcé « e ») insiste sur la direction du mouvement ; に marque la destination atteinte. Avec les verbes de déplacement les deux sont souvent possibles (日本に / へ行く) ; seul に s'emploie pour le lieu d'existence, le moment ou le destinataire."},
+    {"id": "past", "level": "N5", "title": "Passé en た", "form": "past", "note": "Passé neutre : comme la forme en て avec た / だ (書いた, 読んだ, 行った, 食べた, した, 来た). Poli : ました."},
+    {"id": "wa-mo", "level": "N5", "title": "Particules は / も", "targets": "は,も", "pos": "係助詞", "note": "も signifie « aussi / même » et remplace は, が ou を (私も学生です). は pose le thème ou marque un contraste."},
+    {"id": "to-ya", "level": "N5", "title": "Particules と / や", "targets": "と,や", "pos": "格助詞,副助詞", "note": "と : « et » pour une liste complète (パンと卵), « avec » (友達と), citation (と言う). や : liste non exhaustive, « … entre autres » (パンや卵など)."},
+    {"id": "te-form", "level": "N5", "title": "Forme en て", "form": "te", "note": "Forme en て : godan う/つ/る → って, む/ぶ/ぬ → んで, く → いて (sauf 行く → 行って), ぐ → いで, す → して ; ichidan → て ; する → して ; 来る → 来て. Sert à enchaîner des actions, demander (てください), l'action en cours (ている), la permission (てもいい)."},
+    {"id": "kara-made", "level": "N5", "title": "Particules から / まで", "targets": "から,まで", "pos": "格助詞,副助詞", "note": "から : point de départ (« depuis, à partir de ») dans l'espace ou le temps, et après une phrase : la cause. まで : point d'arrivée, « jusqu'à »."},
+    {"id": "tai", "level": "N5", "title": "Envie : forme en たい", "form": "tai", "note": "Envie : radical en -i + たい (食べたい, 行きたい), se conjugue comme un adjectif en い (食べたくない, 食べたかった). Pour une autre personne : たがる."},
     # ---------------- N4 ----------------
-    {"id": "volitional", "level": "N4", "title": "Volitif en う / よう", "form": "volitional"},
-    {"id": "nagara", "level": "N4", "title": "Simultanéité : ながら", "form": "nagara"},
-    {"id": "ba", "level": "N4", "title": "Conditionnel en ば", "form": "ba"},
-    {"id": "tara", "level": "N4", "title": "Conditionnel en たら", "form": "tara"},
-    {"id": "noni-node", "level": "N4", "title": "のに / ので", "targets": "のに,ので", "pos": "接続助詞"},
-    {"id": "causative", "level": "N4", "title": "Causatif en せる / させる", "form": "causative"},
+    {"id": "volitional", "level": "N4", "title": "Volitif en う / よう", "form": "volitional", "note": "Volitif : godan en -o + う (行こう, 飲もう), ichidan + よう (食べよう), しよう, 来よう. « Faisons… / je vais… » ; ようと思う = avoir l'intention de."},
+    {"id": "nagara", "level": "N4", "title": "Simultanéité : ながら", "form": "nagara", "note": "ながら : radical en -i + ながら = deux actions simultanées du même sujet, l'action principale en dernier (音楽を聞きながら勉強する)."},
+    {"id": "ba", "level": "N4", "title": "Conditionnel en ば", "form": "ba", "note": "Conditionnel en ば : godan en -e + ば (行けば), ichidan + れば (食べれば), すれば, 来れば ; adjectifs : 高ければ. Condition générale ou hypothèse : « si… (alors) »."},
+    {"id": "tara", "level": "N4", "title": "Conditionnel en たら", "form": "tara", "note": "Conditionnel en たら : passé + ら (行ったら, 食べたら). « Si / quand… » : condition ponctuelle, ou ce qui arrive une fois l'action faite ; très courant à l'oral."},
+    {"id": "noni-node", "level": "N4", "title": "のに / ので", "targets": "のに,ので", "pos": "接続助詞", "note": "ので : « comme, parce que », cause objective et polie. のに : « alors que, pourtant », résultat contraire à l'attente, souvent avec un regret."},
+    {"id": "causative", "level": "N4", "title": "Causatif en せる / させる", "form": "causative", "note": "Causatif « faire / laisser faire » : godan en -a + せる (行かせる), ichidan + させる (食べさせる), させる, 来させる. La personne qu'on fait agir prend に ou を."},
 ]
 
 BY_ID = {t["id"]: t for t in TOPICS}

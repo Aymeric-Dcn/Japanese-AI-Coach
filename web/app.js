@@ -365,8 +365,10 @@ if (store("hideReadings") === "1") {
 }
 $("btn-ask").addEventListener("click", () => {
   const ex = S.current;
+  if (C.mode !== "prof") setChatMode("prof");
   setChatContext({
-    sentence: ex.sentence, full_sentence: ex.full_sentence, answers: ex.answers, cue: ex.cue,
+    sentence: ex.sentence || ex.question, full_sentence: ex.full_sentence, answers: ex.answers, cue: ex.cue,
+    topic: ex.topic, choices: ex.choices,
     translation: ex.translation, explanation: ex.explanation, given: ex._given || "",
   });
   showTab("chat");
@@ -396,7 +398,14 @@ document.addEventListener("keydown", e => {
 // Chat with the tutor
 // ======================================================================
 
-const C = {id: store("conversation") || "main", loaded: false, busy: false, context: null};
+const C = {mode: store("chatMode") || "prof", id: "", loaded: false, busy: false, context: null,
+           scenario: store("chatScenario") || "free"};
+C.id = store("conversation-" + C.mode) || (C.mode === "prof" ? (store("conversation") || "main") : C.mode + "-1");
+const CHAT_INTRO = {
+  prof: `Sensei est prêt. Pose une question de grammaire, demande des exemples, ou écris une phrase en japonais pour la faire corriger.`,
+  conversation: `Conversation en japonais simple : Sensei répond en japonais avec la traduction, et corrige tes fautes au passage. Choisis une situation, puis clique sur « Commencer » ou écris directement.`,
+  quiz: `Sensei t'interroge sur tes points faibles, une question à la fois. Clique sur « Commencer ».`,
+};
 
 function markdown(text) {
   // Tiny, safe renderer: escape first, then **bold**, `code`, lists and paragraphs.
@@ -440,9 +449,30 @@ function addMessage(role, text) {
 }
 
 function emptyChat() {
-  $("messages").innerHTML = `<div class="empty-chat">Sensei est prêt. Pose une question de grammaire,
-    demande des exemples, ou écris une phrase en japonais pour la faire corriger.</div>`;
+  const start = C.mode === "prof" ? "" : `<br><button class="primary chat-start" id="btn-chat-start">Commencer</button>`;
+  $("messages").innerHTML = `<div class="empty-chat">${CHAT_INTRO[C.mode]}${start}</div>`;
+  const b = $("btn-chat-start");
+  if (b) b.onclick = () => send(C.mode === "quiz" ? "Interroge-moi !" : "よろしくお願いします。");
 }
+
+function setChatMode(mode) {
+  C.mode = mode;
+  store("chatMode", mode);
+  C.id = store("conversation-" + mode) || (mode === "prof" ? (store("conversation") || "main") : mode + "-1");
+  document.querySelectorAll("[data-chat-mode]").forEach(b => b.classList.toggle("active", b.dataset.chatMode === mode));
+  $("chat-scenario").hidden = mode !== "conversation";
+  $("chips").hidden = mode !== "prof";
+  $("messages").innerHTML = "";
+  C.loaded = false;
+  loadChat(true);
+}
+document.querySelectorAll("[data-chat-mode]").forEach(b => b.addEventListener("click", () => setChatMode(b.dataset.chatMode)));
+$("chat-scenario").value = C.scenario;
+$("chat-scenario").addEventListener("change", e => {
+  C.scenario = e.target.value;
+  store("chatScenario", C.scenario);
+  $("btn-new-chat").click();  // a new situation = a new conversation
+});
 
 async function loadChat(force) {
   if (C.loaded && !force) return;
@@ -482,7 +512,8 @@ async function send(text) {
   try {
     const res = await fetch("/api/chat", {
       method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({conversation: C.id, message: text, exercise: context}),
+      body: JSON.stringify({conversation: C.id, message: text, exercise: context, mode: context ? "prof" : C.mode,
+                            scenario: C.scenario}),
     });
     if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
     const reader = res.body.getReader();
@@ -499,6 +530,12 @@ async function send(text) {
         if (!line) continue;
         const msg = JSON.parse(line);
         if (msg.error) throw new Error(msg.error);
+        if (msg.refs) {
+          const refs = document.createElement("div");
+          refs.className = "refs";
+          refs.textContent = "Références : " + msg.refs.join(" · ");
+          bubble.after(refs);
+        }
         if (msg.delta) {
           answer += msg.delta;
           bubble.innerHTML = markdown(answer);
@@ -530,6 +567,7 @@ $("chat-input").addEventListener("keydown", e => {
     $("composer").requestSubmit();
   }
 });
+setChatMode(C.mode);
 $("chips").addEventListener("click", e => {
   const chip = e.target.closest(".chip");
   if (!chip) return;
@@ -538,8 +576,8 @@ $("chips").addEventListener("click", e => {
   if (!chip.dataset.text.endsWith(" ")) $("composer").requestSubmit();
 });
 $("btn-new-chat").addEventListener("click", () => {
-  C.id = "c-" + Date.now();
-  store("conversation", C.id);
+  C.id = C.mode + "-" + Date.now();
+  store("conversation-" + C.mode, C.id);
   setChatContext(null);
   emptyChat();
 });

@@ -195,7 +195,9 @@ class Handler(BaseHTTPRequestHandler):
         if not message:
             return self.send_json({"error": "empty message"}, 400)
         db = store.connect(DB_PATH)
-        messages = tutor.build_messages(db, conversation, message, data.get("exercise"))
+        mode = str(data.get("mode") or "prof")
+        messages, labels = tutor.build_messages(db, conversation, message, data.get("exercise"), mode,
+                                                str(data.get("scenario") or "free"))
 
         self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
@@ -208,6 +210,8 @@ class Handler(BaseHTTPRequestHandler):
 
         answer = []
         try:
+            if labels:
+                emit({"refs": labels})
             for piece in llm.chat_stream(MODEL, messages):
                 answer.append(piece)
                 emit({"delta": piece})

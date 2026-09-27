@@ -168,7 +168,20 @@
   <section id="tab-chat" class="panel">
     <div class="chat">
       <div class="chat-head">
-        <span class="muted">Pose une question, ou écris une phrase en japonais à corriger.</span>
+        <div class="segmented small-seg" id="chat-modes">
+          <button class="seg active" data-chat-mode="prof" title="Questions, explications, corrections">Prof</button>
+          <button class="seg" data-chat-mode="conversation" title="Parler en japonais, avec corrections">Conversation</button>
+          <button class="seg" data-chat-mode="quiz" title="Sensei t'interroge sur tes points faibles">Quiz</button>
+        </div>
+        <select id="chat-scenario" hidden>
+          <option value="free">Sujet libre</option>
+          <option value="intro">Se présenter</option>
+          <option value="restaurant">Au restaurant</option>
+          <option value="konbini">Au konbini</option>
+          <option value="directions">Demander son chemin</option>
+          <option value="hotel">À l'hôtel</option>
+          <option value="weekend">Projets du week-end</option>
+        </select>
         <button class="ghost right" id="btn-new-chat">Nouvelle conversation</button>
       </div>
       <div class="messages" id="messages"></div>
