@@ -55,3 +55,11 @@ Hardware: RTX 4070 Super 12 GB, 32 GB RAM, Ollama.
   - alternative sentences are now built by the script; Qwen only judges them;
   - new `good_example` judgement: Qwen drops idioms / fixed expressions and grammar far above the level, with a reason;
   - compound particles (によって, にとって, について, に対して, に関して…) are skipped before asking the LLM.
+
+## 2026-09-27 — Third run (stricter selection)
+
+- **10 kept, 0 dropped in 54 s.** About 8–9 of 10 are good exercises (日曜日に, 通販で, 家で, 17世紀に, 真夏日になる…).
+- Bad one: 今夜は本当に疲れたよ — 本当に is an adverb (noun that can act as an adjective + に), not a particle use; Qwen still judged it a good example.
+- Fix: the bank now stores SudachiPy's sub-sub-category; に after a « 形状詞可能 » noun (本当に, 大切に, 静かに…) is skipped. Needs `build_bank.py` to be run again.
+- 0 drops out of 10: Qwen may now be too lenient on `good_example`; keep an eye on it.
+- gemma3:12b removed from the machine (`ollama rm gemma3:12b`).

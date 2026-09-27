@@ -61,6 +61,10 @@ def simple_context(tokens: list, k: int) -> bool:
     following = next((t for t in tokens[k + 1:] if t[1] != "空白"), None)
     if previous is None or previous[1] not in BEFORE_PARTICLE:
         return False
+    # 本当に, 静かに, 大切に…: a noun that can act as an adjective + に = adverb, not a particle use.
+    # (index 5 exists in banks built after 2026-09-27; older banks simply skip this check)
+    if len(previous) > 5 and previous[5] == "形状詞可能" and tokens[k][0] == "に":
+        return False
     if following is not None and following[1] == "助詞" and following[0] in STACKED_PARTICLES:
         return False
     if following is not None and following[1] == "動詞" and following[4] in COMPOUND_VERBS:
