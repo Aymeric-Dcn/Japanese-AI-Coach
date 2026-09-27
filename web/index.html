@@ -24,12 +24,26 @@
     <div class="summary" id="summary"></div>
 
     <div id="session-start" class="card start">
-      <h2>Session du jour</h2>
-      <p id="start-text" class="muted"></p>
+      <div class="segmented" role="tablist">
+        <button class="seg active" data-mode="daily">Programme du jour</button>
+        <button class="seg" data-mode="practice">Entraînement libre</button>
+      </div>
+      <div id="mode-daily">
+        <p id="start-text" class="muted"></p>
+        <div class="warn" id="daily-empty" hidden></div>
+      </div>
+      <div id="mode-practice" hidden>
+        <p class="muted">Choisis les thèmes à travailler (révisions et nouveaux exercices de ces thèmes).</p>
+        <div class="quick" id="quick-picks">
+          <button class="chip" data-pick="particle">Toutes les particules</button>
+          <button class="chip" data-pick="conjugation">Toutes les conjugaisons</button>
+          <button class="chip" data-pick="N5">Tout N5</button>
+          <button class="chip" data-pick="N4">Tout N4</button>
+          <button class="chip" data-pick="none">Aucun</button>
+        </div>
+        <div class="topic-picker" id="topic-picker"></div>
+      </div>
       <div class="controls">
-        <label>Thème
-          <select id="topic-select"><option value="">Tous les thèmes (mélangés)</option></select>
-        </label>
         <label>Nouveaux exercices
           <select id="new-select">
             <option value="0">0</option><option value="5">5</option>
@@ -106,11 +120,25 @@
   <section id="tab-progress" class="panel">
     <div class="grid" id="stat-cards"></div>
     <div class="card">
-      <h3>Thèmes de la réserve</h3>
+      <h3>Programme</h3>
+      <p class="muted small">Les nouveaux exercices du jour viennent des thèmes « en cours ». Un thème est validé à
+        80 % de réussite sur ses 10 à 20 dernières réponses, ou d'office après 5 réponses justes d'affilée.
+        Les révisions de tous les thèmes continuent.</p>
       <table class="topics" id="topics-table"></table>
-      <p class="muted small">Pour ajouter des exercices :
-        <code>python make_exercises.py --preset ni-de --known --max-unknown 1 --count 30 --save</code>
-        (liste des thèmes : <code>python make_exercises.py --list-presets</code>)</p>
+    </div>
+    <div class="card">
+      <h3>Réserve d'exercices</h3>
+      <p class="muted small">Ajoute des exercices aux thèmes en cours et au suivant (plus sur tes points faibles).
+        Il faut qu'Ollama tourne ; compte environ 5 secondes par exercice. Tu peux continuer à travailler pendant ce temps.</p>
+      <div class="controls left">
+        <label>Exercices par thème
+          <select id="fill-target"><option>10</option><option selected>15</option><option>25</option></select>
+        </label>
+        <label class="check inline"><input type="checkbox" id="fill-all"> Tous les thèmes du programme</label>
+      </div>
+      <button class="primary" id="btn-fill">Remplir la réserve</button>
+      <button id="btn-fill-stop" hidden>Arrêter</button>
+      <pre class="log" id="fill-log" hidden></pre>
     </div>
     <div class="card" id="weak-card" hidden>
       <h3>À travailler</h3>

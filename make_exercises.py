@@ -34,26 +34,15 @@ import urllib.error
 import webbrowser
 from pathlib import Path
 
+import curriculum
 import llm
 from sheet import BLANK, normalize, save_sheet, split_list
 
 BANK_PATH = Path("data") / "bank.db"
 KNOWN_PATH = Path("data") / "known.json"
 
-# Ready-made topics. Titles are what the app shows.
-PRESETS = {
-    "ni-de":     {"targets": "に,で", "pos": "格助詞", "title": "Particules に / で"},
-    "ni-e":      {"targets": "に,へ", "pos": "格助詞", "title": "Particules に / へ"},
-    "wa-ga":     {"targets": "は,が", "pos": "係助詞,格助詞", "title": "Particules は / が"},
-    "wo-ga":     {"targets": "を,が", "pos": "格助詞", "title": "Particules を / が"},
-    "to-ya":     {"targets": "と,や", "pos": "格助詞,副助詞", "title": "Particules と / や"},
-    "kara-made": {"targets": "から,まで", "pos": "格助詞,副助詞", "title": "Particules から / まで"},
-    "te-form":   {"form": "te", "title": "Forme en て"},
-    "past":      {"form": "past", "title": "Passé en た"},
-    "negative":  {"form": "negative", "title": "Négatif en ない"},
-    "masu":      {"form": "masu", "title": "Forme polie en ます"},
-    "tai":       {"form": "tai", "title": "Envie : forme en たい"},
-}
+# Ready-made topics = the study programme (curriculum.py). Titles are what the app shows.
+PRESETS = curriculum.BY_ID
 
 # Conjugated forms: the verb followed by one of these tokens (surface, allowed parts of speech).
 FORMS = {
@@ -62,9 +51,17 @@ FORMS = {
     "negative": ({"ない"}, {"助動詞"}),
     "masu":     ({"ます"}, {"助動詞"}),
     "tai":      ({"たい"}, {"助動詞"}),
+    "volitional": ({"う", "よう"}, {"助動詞"}),
+    "nagara":   ({"ながら"}, {"助詞"}),
+    "ba":       ({"ば"}, {"助詞"}),
+    "tara":     ({"たら", "だら"}, {"助動詞"}),
+    "causative": ({"せる", "させる"}, {"助動詞"}),
 }
 FORM_NAMES = {"te": "la forme en て", "past": "le passé en た", "negative": "le négatif en ない",
-              "masu": "la forme polie en ます", "tai": "la forme en たい (envie)"}
+              "masu": "la forme polie en ます", "tai": "la forme en たい (envie)",
+              "volitional": "le volitif en う / よう", "nagara": "la forme en ながら (simultanéité)",
+              "ba": "le conditionnel en ば", "tara": "le conditionnel en たら",
+              "causative": "le causatif en せる / させる"}
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +121,8 @@ def pos_matches(token: list, pos: set) -> bool:
 def simple_particle_context(tokens: list, k: int) -> bool:
     """For a particle, keep only simple « noun + particle » cases.
     Drops すぐに / 親切に (after an adverb or adjective) and には / でも (stacked particles)."""
+    if tokens[k][2] == "接続助詞":
+        return True  # のに / ので… follow a verb or an adjective: nothing to filter here
     previous = next((t for t in reversed(tokens[:k]) if t[1] != "空白"), None)
     following = next((t for t in tokens[k + 1:] if t[1] != "空白"), None)
     if previous is None or previous[1] not in BEFORE_PARTICLE:
@@ -209,7 +208,7 @@ def build_exercise(id_: int, jp: str, fr: str, en: str, tokens: list, span: tupl
 def find_candidates(targets: list = None, form: str = None, pos: str = "", min_words: int = 3,
                     max_words: int = 12, french_only: bool = True, any_context: bool = False,
                     known: dict = None, max_unknown: int = 0, known_kanji_only: bool = False,
-                    skip_keys: set = frozenset()) -> dict:
+                    skip_keys: set = frozenset(), stats: dict = None) -> dict:
     """Returns {group: [exercise, …]}; group = the answer (particles) or the form (conjugations)."""
     if not BANK_PATH.exists():
         sys.exit(f"Bank not found ({BANK_PATH}). Run first: python build_bank.py")
@@ -232,6 +231,8 @@ def find_candidates(targets: list = None, form: str = None, pos: str = "", min_w
         answer = "".join(t[0] for t in tokens[a:b])
         key = f"tatoeba:{id_}:{form or 'particle'}:{answer}"
         if key in skip_keys:
+            if stats is not None:
+                stats["already_saved"] = stats.get("already_saved", 0) + 1
             continue
         new_words = []
         if known is not None:
@@ -360,6 +361,75 @@ def check_exercise(ex: dict, level: str, model: str, targets: list = None, form:
     return True, ""
 
 
+class GenerationError(Exception):
+    pass
+
+
+def generate(targets: list, form: str, pos: str, count: int, *, level: str = "N5", model: str = llm.DEFAULT_MODEL,
+             no_llm: bool = False, english: bool = False, any_context: bool = False, known: dict = None,
+             max_unknown: int = 0, known_kanji: bool = False, min_words: int = 3, max_words: int = 12,
+             seed=None, skip_keys=frozenset(), log=print) -> list:
+    """Finds, checks and explains up to `count` exercises. Raises GenerationError when nothing can be made."""
+    stats = {}
+    groups = find_candidates(targets, form, pos, min_words, max_words, not english,
+                             any_context, known, max_unknown, known_kanji, set(skip_keys), stats)
+    for g, pool in groups.items():
+        log(f"  {g}: {len(pool)} candidate sentence(s)")
+    order = balanced_order(groups, seed)
+    if not order and stats.get("already_saved"):
+        raise GenerationError("No new sentence: every match is already in the reserve. Try a larger --max-words, "
+                              "or allow more unknown words with --max-unknown.")
+    if not order:
+        raise GenerationError("No sentence found. Try a larger --max-words, remove --pos, add --english"
+                              + (", or allow unknown words with --max-unknown 1." if known else "."))
+
+    kept, dropped = [], 0
+    if no_llm:
+        kept = order[:count]
+    else:
+        log(f"→ Checking and explaining with {model}…")
+        t0 = time.time()
+        for ex in order:
+            if len(kept) >= count or dropped >= count * 4:
+                break
+            try:
+                ok, reason = check_exercise(ex, level, model, targets, form)
+            except llm.OllamaUnavailable:
+                raise GenerationError("Cannot reach Ollama on localhost:11434. Start Ollama, or use --no-llm.")
+            except urllib.error.HTTPError as e:
+                raise GenerationError(f"Ollama error {e.code}. Is the model installed? Try: ollama pull {model}")
+            if ok:
+                kept.append(ex)
+                log(f"  ✓ {len(kept)}/{count}  {ex['full_sentence']}")
+            else:
+                dropped += 1
+                log(f"  ✗ dropped: {ex['full_sentence']}  ({reason})")
+        log(f"  {len(kept)} kept, {dropped} dropped in {time.time() - t0:.0f} s")
+    if not kept:
+        raise GenerationError("No exercise kept.")
+    random.Random(seed).shuffle(kept)  # so the order does not give the alternation away
+    return kept
+
+
+def save_to_reserve(db, title: str, kind: str, targets: list, exercises: list) -> int:
+    import store
+    added = 0
+    for ex in exercises:
+        key = ex.pop("key", None)
+        ex["allowed_answers"] = targets
+        added += store.add_exercise(db, title, kind, ex, key)
+    return added
+
+
+def generate_topic(topic: dict, count: int, db, **options) -> int:
+    """Generates exercises for one curriculum topic and adds them to the reserve; returns how many were added."""
+    import store
+    targets = split_list(topic.get("targets", ""))
+    kept = generate(targets, topic.get("form"), topic.get("pos", ""), count, level=topic["level"],
+                    skip_keys=store.existing_keys(db), **options)
+    return save_to_reserve(db, topic["title"], curriculum.kind(topic), targets, kept)
+
+
 # ---------------------------------------------------------------------------
 # 4. Entry point
 # ---------------------------------------------------------------------------
@@ -400,7 +470,7 @@ def main() -> None:
     if args.list_presets:
         for name, preset in PRESETS.items():
             what = f"form {preset['form']}" if "form" in preset else f"{preset['targets']}  (pos {preset['pos']})"
-            print(f"  {name:10} {preset['title']:28} {what}")
+            print(f"  {name:11} {preset['level']}  {preset['title']:28} {what}")
         return
     if args.preset:
         preset = PRESETS[args.preset]
@@ -408,65 +478,29 @@ def main() -> None:
         args.form = args.form or preset.get("form")
         args.pos = args.pos or preset.get("pos", "")
         args.title = args.title or preset["title"]
+        args.level = preset["level"] if args.level == "N5" else args.level
     targets = split_list(args.targets)
     if bool(targets) == bool(args.form):
         p.error("give either --targets (particles) or --form (conjugation), or a --preset")
     title = args.title or (f"Particules {' / '.join(targets)}" if targets else PRESETS.get(args.form, {}).get(
         "title", f"Forme {args.form}"))
 
-    skip_keys = set()
+    db = None
     if args.save:
         import store
         db = store.connect()
-        skip_keys = store.existing_keys(db)
-
     known = load_known() if args.known else None
-    groups = find_candidates(targets, args.form, args.pos, args.min_words, args.max_words, not args.english,
-                             args.any_context, known, args.max_unknown, args.known_kanji, skip_keys)
-    for g, pool in groups.items():
-        print(f"  {g}: {len(pool)} candidate sentence(s)")
-    order = balanced_order(groups, args.seed)
-    if not order and skip_keys:
-        sys.exit("No new sentence: every match is already in the reserve. Try a larger --max-words, "
-                 "or allow more unknown words with --max-unknown.")
-    if not order:
-        sys.exit("No sentence found. Try a larger --max-words, remove --pos, add --english"
-                 + (", or allow unknown words with --max-unknown 1." if known else "."))
-
-    kept, dropped = [], 0
-    if args.no_llm:
-        kept = order[: args.count]
-    else:
-        print(f"→ Checking and explaining with {args.model}…")
-        t0 = time.time()
-        for ex in order:
-            if len(kept) >= args.count or dropped >= args.count * 4:
-                break
-            try:
-                ok, reason = check_exercise(ex, args.level, args.model, targets, args.form)
-            except llm.OllamaUnavailable:
-                sys.exit("Cannot reach Ollama on localhost:11434. Start Ollama, or use --no-llm.")
-            except urllib.error.HTTPError as e:
-                sys.exit(f"Ollama error {e.code}. Is the model installed? Try: ollama pull {args.model}")
-            if ok:
-                kept.append(ex)
-                print(f"  ✓ {len(kept)}/{args.count}  {ex['full_sentence']}")
-            else:
-                dropped += 1
-                print(f"  ✗ dropped: {ex['full_sentence']}  ({reason})")
-        print(f"  {len(kept)} kept, {dropped} dropped in {time.time() - t0:.0f} s")
-    if not kept:
-        sys.exit("No exercise kept.")
-
-    random.Random(args.seed).shuffle(kept)  # so the order does not give the alternation away
+    try:
+        kept = generate(targets, args.form, args.pos, args.count, level=args.level, model=args.model,
+                        no_llm=args.no_llm, english=args.english, any_context=args.any_context, known=known,
+                        max_unknown=args.max_unknown, known_kanji=args.known_kanji, min_words=args.min_words,
+                        max_words=args.max_words, seed=args.seed,
+                        skip_keys=store.existing_keys(db) if db else frozenset())
+    except GenerationError as e:
+        sys.exit(str(e))
 
     if args.save:
-        kind = "conjugation" if args.form else "particle"
-        added = 0
-        for ex in kept:
-            key = ex.pop("key")
-            ex["allowed_answers"] = targets
-            added += store.add_exercise(db, title, kind, ex, key)
+        added = save_to_reserve(db, title, "conjugation" if args.form else "particle", targets, kept)
         topic_row = next((t for t in store.topics(db) if t["topic"] == title), {"total": 0, "unseen": 0})
         print(f"✓ {added} exercise(s) added to « {title} » "
               f"({topic_row['unseen']} not seen yet, {topic_row['total']} in total). Start the app: python server.py")

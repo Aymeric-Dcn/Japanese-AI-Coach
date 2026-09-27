@@ -46,12 +46,18 @@ Configuration testée : Windows, RTX 4070 Super (12 Go VRAM), 32 Go RAM.
 ```
 python build_bank.py                       # une fois : télécharger et analyser Tatoeba
 python anki_sync.py                        # Anki ouvert : tes mots connus → data/known.json
-python make_exercises.py --preset ni-de --known --max-unknown 1 --count 30 --save
-python make_exercises.py --preset te-form --known --max-unknown 1 --count 30 --save
 python server.py --open                    # l'app, sur http://localhost:8000
 ```
 
-Remplis la réserve quand tu veux (environ 5 s par exercice avec Qwen) ; les sessions sont ensuite instantanées. Relance `anki_sync.py` quand ton Anki avance.
+Puis dans l'app : **Progrès → Remplir la réserve** (ou `python fill_reserve.py` dans un terminal). Des exercices sont ajoutés aux thèmes en cours (environ 5 s chacun avec Qwen) ; les sessions sont ensuite instantanées. Relance `anki_sync.py` quand ton Anki avance.
+
+### Le programme
+
+`curriculum.py` liste 18 thèmes dans l'ordre d'apprentissage, JLPT N5 puis N4. La session du jour propose les révisions de tout, plus des nouveaux exercices des **deux thèmes en cours**. Un thème est validé à 80 % de réussite sur ses 10 à 20 dernières réponses, ou d'office après 5 réponses justes d'affilée ; « Je maîtrise déjà » dans l'onglet Progrès le valide à la main. Le thème suivant se débloque alors.
+
+`fill_reserve.py` complète les thèmes en cours et le suivant (15 exercices non vus par thème par défaut, le double pour un point faible) : `--target 25`, `--all`, `--topics wa-ga,past`, `--no-llm`.
+
+**Entraînement libre** (onglet Session) : choisis n'importe quels thèmes (« Toutes les particules », « Tout N4 »…) ; le « Mode difficile » masque les réponses possibles.
 
 ### Thèmes (`--preset`)
 
@@ -59,8 +65,9 @@ Remplis la réserve quand tu veux (environ 5 s par exercice avec Qwen) ; les ses
 
 | Preset | Thème |
 | --- | --- |
-| `ni-de`, `ni-e`, `wa-ga`, `wo-ga`, `to-ya`, `kara-made` | particules (le trou est l'une des deux) |
-| `te-form`, `past`, `negative`, `masu`, `tai` | conjugaisons (le verbe est caché, sa forme du dictionnaire est affichée comme indice) |
+| `wa-ga`, `wo-ga`, `ni-de`, `ni-e`, `wa-mo`, `to-ya`, `kara-made` | particules N5 (le trou est l'une des deux) |
+| `te-form`, `past`, `negative`, `masu`, `tai` | conjugaisons N5 (le verbe est caché, sa forme du dictionnaire et sa lecture sont affichées) |
+| `volitional`, `nagara`, `ba`, `tara`, `causative`, `noni-node` | N4 |
 
 Thèmes sur mesure : `--targets "に,で" --pos 格助詞 --title "…"` pour les particules, `--form te` pour les conjugaisons.
 
@@ -85,9 +92,9 @@ Thèmes sur mesure : `--targets "に,で" --pos 格助詞 --title "…"` pour le
 
 `python server.py [--open] [--port 8000] [--model qwen3:14b]`, puis http://localhost:8000.
 
-- **Session** : les révisions du jour, puis des nouveaux exercices (thèmes mélangés, ou un seul thème). Entrée = vérifier / suivant.
+- **Session** : « Programme du jour » (révisions + nouveaux exercices des thèmes en cours) ou « Entraînement libre » (thèmes au choix). Entrée = vérifier / suivant.
 - **Prof** : le chat. Il faut qu'Ollama tourne ; l'état en haut à droite indique s'il est joignable.
-- **Progrès** : travail du jour, série de jours, révisions de demain, taux de réussite, thèmes.
+- **Progrès** : travail du jour, série de jours, révisions de demain, taux de réussite, le programme (état de chaque thème, « Je maîtrise déjà »), « Remplir la réserve ».
 
 Tout est enregistré dans `data/coach.db` (SQLite). Rien ne quitte ton ordinateur.
 
@@ -112,6 +119,8 @@ server.py           l'app : serveur web + API JSON (bibliothèque standard uniqu
 web/                l'interface (index.html, app.css, app.js)
 store.py            base de progression : réserve, réponses, révisions, chat
 srs.py              intervalles de répétition espacée
+curriculum.py       le programme : thèmes N5 → N4, règles de progression
+fill_reserve.py     complète la réserve en suivant le programme
 tutor.py            le prof du chat : prompt, contexte de l'élève, analyse des phrases
 llm.py              client Ollama (réponses structurées, streaming)
 build_bank.py       Tatoeba → SudachiPy → data/bank.db
@@ -133,7 +142,8 @@ notes/log.md        journal des tests (en anglais)
 - [x] **Jeu de tests** pour mesurer la vérification du LLM
 - [ ] Améliorer la vérification grâce au jeu de tests (prompt, modèle)
 - [ ] Vérification du vocabulaire avec [JMdict](https://www.edrdg.org/jmdict/j_jmdict.html)
-- [ ] Remplir la réserve depuis l'app (au lieu du terminal)
+- [x] **Programme** N5 → N4 avec progression, entraînement libre, « Je maîtrise déjà »
+- [x] Remplir la réserve depuis l'app
 - [ ] D'autres types d'exercices (traduction, remise en ordre, écoute)
 
 ## Sources de données et droits

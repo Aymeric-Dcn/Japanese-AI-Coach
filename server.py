@@ -11,7 +11,11 @@ progress in data/coach.db, the LLM through Ollama on localhost.
 
 API (JSON):
     GET  /api/status                   Ollama reachable? bank / reserve / Anki sync present?
-    GET  /api/session?new=10&topic=…   today's exercises: reviews due, then new ones
+    GET  /api/session?new=10                     programme session: reviews due + new ones from current topics
+    GET  /api/session?mode=practice&topics=a|b   free practice on chosen topics
+    GET  /api/topics                   programme topics with their state (passed / current / locked)
+    POST /api/topic_known              {title, known} « Je maîtrise déjà »
+    POST /api/fill  |  GET /api/fill   top up the reserve in the background / follow its progress
     POST /api/answer                   {id, correct, answer} → next review date
     GET  /api/stats                    progress numbers
     GET  /api/chat/history?conversation=…
@@ -23,6 +27,7 @@ import json
 import mimetypes
 import sys
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -30,6 +35,8 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import curriculum
+import fill_reserve
 import llm
 import store
 import tutor
@@ -90,14 +97,24 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_file(WEB_DIR / name)
             if url.path == "/api/status":
                 return self.send_json(status())
+            if url.path == "/api/fill":
+                return self.send_json(fill_status())
             db = store.connect(DB_PATH)
             try:
                 if url.path == "/api/session":
-                    items = store.session(db, new_limit=int(query.get("new", 10)), topic=query.get("topic") or None)
-                    for ex in items:  # exercises saved before cue readings existed
+                    new = int(query.get("new", 10))
+                    if query.get("mode") == "practice":
+                        topics = [t for t in query.get("topics", "").split("|") if t]
+                        data = {"items": store.session(db, new_limit=new, topics=topics or None)}
+                    else:
+                        data = store.daily_session(db, new_limit=new)
+                    for ex in data["items"]:  # exercises saved before cue readings existed
                         if ex.get("cue") and "cue_reading" not in ex:
                             ex["cue_reading"] = tutor.reading(ex["cue"])
-                    return self.send_json({"items": items, "stats": store.stats(db)})
+                    data["stats"] = store.stats(db)
+                    return self.send_json(data)
+                if url.path == "/api/topics":
+                    return self.send_json({"topics": store.topic_states(db)})
                 if url.path == "/api/stats":
                     return self.send_json(store.stats(db))
                 if url.path == "/api/chat/history":
@@ -122,6 +139,18 @@ class Handler(BaseHTTPRequestHandler):
                     db.close()
             if url.path == "/api/chat":
                 return self.chat(data)
+            if url.path == "/api/topic_known":
+                db = store.connect(DB_PATH)
+                try:
+                    store.set_topic_known(db, str(data["title"]), bool(data.get("known")))
+                    return self.send_json({"topics": store.topic_states(db)})
+                finally:
+                    db.close()
+            if url.path == "/api/fill":
+                return self.send_json(start_fill(data))
+            if url.path == "/api/fill/stop":
+                FILL["stop"] = True
+                return self.send_json(fill_status())
             self.send_json({"error": "not found"}, 404)
         except KeyError as e:
             self.send_json({"error": f"missing or unknown: {e}"}, 400)
@@ -162,6 +191,44 @@ class Handler(BaseHTTPRequestHandler):
             pass  # the page was closed
         finally:
             db.close()
+
+
+# ---------------------------------------------------------------------------
+# Filling the reserve in the background (« Remplir la réserve »)
+# ---------------------------------------------------------------------------
+
+FILL = {"running": False, "stop": False, "log": [], "started": None, "finished": None, "added": None}
+FILL_LOCK = threading.Lock()
+
+
+def fill_status() -> dict:
+    return {k: (v[-300:] if k == "log" else v) for k, v in FILL.items()}
+
+
+def start_fill(options: dict) -> dict:
+    with FILL_LOCK:
+        if FILL["running"]:
+            return fill_status()
+        FILL.update(running=True, stop=False, log=[], started=time.strftime("%H:%M:%S"), finished=None, added=None)
+
+    def log(line):
+        FILL["log"].extend(str(line).splitlines() or [""])
+
+    def run():
+        db = store.connect(DB_PATH)
+        try:
+            ids = [i for i in options.get("topics", []) if i in curriculum.BY_ID]
+            results = fill_reserve.fill(db, target=int(options.get("target", 15)), all_topics=bool(options.get("all")),
+                                        ids=ids or None, model=MODEL, log=log, should_stop=lambda: FILL["stop"])
+            FILL["added"] = sum(a for _, a in results)
+        except Exception as e:  # keep the server alive, show the error in the page
+            log(f"! {type(e).__name__}: {e}")
+        finally:
+            db.close()
+            FILL.update(running=False, finished=time.strftime("%H:%M:%S"))
+
+    threading.Thread(target=run, daemon=True).start()
+    return fill_status()
 
 
 def status() -> dict:

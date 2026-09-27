@@ -105,3 +105,12 @@ Hardware: RTX 4070 Super 12 GB, 32 GB RAM, Ollama.
 - Layout: long sentences and inputs no longer overflow their card.
 - Odd one: 彼女は茶色い目をしている (て-form of する in 目をしている, « to have brown eyes »): correct but idiomatic.
 - Ideas for next steps: JLPT levels, choose what to work on, free particle mode (any particle, none shown), a curriculum for the daily session with progression, extra exercises by topic, more practice on weak points.
+
+## 2026-09-27 — Programme, free practice, filling from the app
+
+- `curriculum.py`: 18 topics, N5 (masu, は/が, を/が, に/で, ない, に/へ, た, は/も, と/や, て, から/まで, たい) then N4 (volitional, ながら, ば, たら, のに/ので, causative).
+- Progression (store.topic_states): passed = ≥ 80 % over the last 10–20 answers, or ≥ 5 answers all right (fast track for easy topics), or « Je maîtrise déjà »; the first 2 topics not passed are « current »; the rest are locked. Daily session = all reviews due + new exercises from the current topics.
+- `fill_reserve.py` (and « Remplir la réserve » in the app, background job with live log): tops up current topics + the next one to 15 unseen exercises (30 for a weak topic < 70 %).
+- Free practice: choose topics, quick picks (all particles → hard mode, all conjugations, N5, N4).
+- New conjugation forms (volitional, ながら, ば, たら, causative) and のに/ので: tokenization assumptions not checked on real SudachiPy yet — some may find few or no sentences.
+- make_exercises refactored: generate() / generate_topic() reusable by fill_reserve and the server.

@@ -6,6 +6,7 @@ Tables:
   reviews    — every answer (first attempt only)
   schedule   — when each exercise already seen comes back (spaced repetition)
   messages   — chat history with the tutor
+  topic_flags — topics marked « Je maîtrise déjà » in the app
 """
 
 import datetime
@@ -14,6 +15,7 @@ import random
 import sqlite3
 from pathlib import Path
 
+import curriculum
 import srs
 
 DB_PATH = Path("data") / "coach.db"
@@ -48,6 +50,11 @@ CREATE TABLE IF NOT EXISTS messages (
     role TEXT NOT NULL,           -- "user" or "assistant"
     content TEXT NOT NULL,
     created TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS topic_flags (
+    topic TEXT PRIMARY KEY,
+    known INTEGER NOT NULL,       -- 1 = « Je maîtrise déjà »: the topic counts as passed
+    updated TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_reviews_day ON reviews(day);
 CREATE INDEX IF NOT EXISTS idx_schedule_due ON schedule(due);
@@ -105,17 +112,24 @@ def topics(db) -> list:
 # ---------------------------------------------------------------------------
 
 def session(db, day: datetime.date = None, new_limit: int = 10, due_limit: int = 50,
-            topic: str = None, seed=None) -> list:
-    """Exercises due today (oldest first), then up to `new_limit` never-seen exercises mixed across topics."""
+            topics: list = None, seed=None, topic: str = None) -> list:
+    """Exercises due today (oldest first), then up to `new_limit` never-seen exercises mixed across topics.
+    `topics`: only these topics (None = all)."""
     day = (day or today()).isoformat()
-    where_topic = " AND e.topic = ?" if topic else ""
-    params = [day] + ([topic] if topic else []) + [due_limit]
+    if topic:
+        topics = [topic]
+    where_topic, topic_params = "", []
+    if topics is not None:
+        if not topics:
+            return []
+        where_topic = f" AND e.topic IN ({','.join('?' * len(topics))})"
+        topic_params = list(topics)
     due = db.execute(f"""
         SELECT e.* FROM exercises e JOIN schedule s ON s.exercise_id = e.id
-        WHERE s.due <= ?{where_topic} ORDER BY s.due, e.id LIMIT ?""", params).fetchall()
+        WHERE s.due <= ?{where_topic} ORDER BY s.due, e.id LIMIT ?""", [day] + topic_params + [due_limit]).fetchall()
     unseen = db.execute(f"""
         SELECT e.* FROM exercises e LEFT JOIN schedule s ON s.exercise_id = e.id
-        WHERE s.exercise_id IS NULL{where_topic}""", [topic] if topic else []).fetchall()
+        WHERE s.exercise_id IS NULL{where_topic}""", topic_params).fetchall()
 
     # Mix new exercises across topics: shuffle each topic, then take them in turn.
     rng = random.Random(seed)
@@ -133,6 +147,75 @@ def session(db, day: datetime.date = None, new_limit: int = 10, due_limit: int =
     items = [dict(_exercise(r), status="review") for r in due]
     items += [dict(_exercise(r), status="new") for r in new]
     return items
+
+
+def daily_session(db, day: datetime.date = None, new_limit: int = 10, seed=None) -> dict:
+    """The programme's session: every review due, new exercises from the current topics only."""
+    states = topic_states(db)
+    current = [t["title"] for t in states if t["state"] == "current"]
+    due = session(db, day, new_limit=0, seed=seed)
+    new = [x for x in session(db, day, new_limit=new_limit, topics=current, seed=seed) if x["status"] == "new"]
+    return {"items": due + new, "current": current,
+            "empty_current": [t["title"] for t in states if t["state"] == "current" and not t["unseen"]]}
+
+
+# ---------------------------------------------------------------------------
+# Programme progression
+# ---------------------------------------------------------------------------
+
+def topic_performance(db, title: str) -> dict:
+    """First-attempt results of the topic's last answers."""
+    rows = db.execute("""
+        SELECT r.correct FROM reviews r JOIN exercises e ON e.id = r.exercise_id
+        WHERE e.topic = ? ORDER BY r.id DESC LIMIT ?""", (title, curriculum.MASTERY_WINDOW)).fetchall()
+    answers = len(rows)
+    right = sum(r[0] for r in rows)
+    return {"answers": answers, "right": right, "rate": right / answers if answers else None}
+
+
+def is_passed(perf: dict, flagged: bool) -> tuple:
+    if flagged:
+        return True, "marqué comme maîtrisé"
+    n, rate = perf["answers"], perf["rate"]
+    if n >= curriculum.MASTERY_MIN and rate >= curriculum.MASTERY_RATE:
+        return True, f"maîtrisé ({round(100 * rate)} % sur {n} réponses)"
+    if n >= curriculum.FAST_TRACK_MIN and rate == 1:
+        return True, f"validé d'office ({n} réponses justes)"
+    return False, ""
+
+
+def topic_states(db) -> list:
+    """Every programme topic with its state: passed, current (new exercises come from here) or locked.
+    Reserve topics that are not in the programme are listed at the end with the state « custom »."""
+    flags = {r["topic"]: bool(r["known"]) for r in db.execute("SELECT topic, known FROM topic_flags")}
+    reserve = {t["topic"]: t for t in topics(db)}
+    states, current = [], 0
+    for t in curriculum.TOPICS:
+        perf = topic_performance(db, t["title"])
+        passed, why = is_passed(perf, flags.get(t["title"], False))
+        if passed:
+            state = "passed"
+        elif current < curriculum.MAX_CURRENT:
+            state, current = "current", current + 1
+        else:
+            state = "locked"
+        res = reserve.get(t["title"], {"total": 0, "unseen": 0})
+        states.append({"id": t["id"], "title": t["title"], "level": t["level"], "kind": curriculum.kind(t),
+                       "state": state, "why": why, "flagged": flags.get(t["title"], False),
+                       "total": res["total"], "unseen": res["unseen"], **perf})
+    for title, res in reserve.items():
+        if title not in curriculum.BY_TITLE:
+            perf = topic_performance(db, title)
+            states.append({"id": None, "title": title, "level": "", "kind": "", "state": "custom", "why": "",
+                           "flagged": False, "total": res["total"], "unseen": res["unseen"], **perf})
+    return states
+
+
+def set_topic_known(db, title: str, known: bool) -> None:
+    db.execute("""INSERT INTO topic_flags (topic, known, updated) VALUES (?, ?, ?)
+                  ON CONFLICT(topic) DO UPDATE SET known = excluded.known, updated = excluded.updated""",
+               (title, int(known), datetime.datetime.now().isoformat(timespec="seconds")))
+    db.commit()
 
 
 def record_answer(db, exercise_id: int, correct: bool, answer: str = "", day: datetime.date = None) -> dict:

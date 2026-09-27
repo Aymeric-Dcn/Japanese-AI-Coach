@@ -139,3 +139,24 @@ table.topics td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .sentence { font-size: 1.3rem; }
   .card { padding: 16px; }
 }
+
+/* ---------- programme / practice ---------- */
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; padding: 3px; margin-bottom: 14px; }
+.seg { border: none; background: transparent; color: var(--muted); }
+.seg.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.warn { background: var(--hint-bg); border-radius: 8px; padding: 10px 14px; text-align: left; font-size: .92rem; }
+.quick { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
+.topic-picker { text-align: left; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 16px; margin: 10px 0; }
+.topic-picker h4 { grid-column: 1 / -1; margin: 8px 0 0; font-size: .85rem; color: var(--muted); font-weight: 600; }
+.topic-picker label { font-size: .92rem; cursor: pointer; }
+.topic-picker label.empty { color: var(--muted); }
+.controls.left { justify-content: flex-start; margin: 10px 0; align-items: flex-end; }
+.check.inline { display: inline-block; margin: 0 0 6px; }
+.state { font-size: .75rem; font-weight: 600; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.state.passed { background: var(--ok-bg); color: var(--ok); }
+.state.current { background: var(--accent-soft); color: var(--accent); }
+.state.locked, .state.custom { background: var(--me); color: var(--muted); }
+table.topics td.level { color: var(--muted); font-size: .85rem; width: 36px; }
+table.topics button { font-size: .78rem; padding: 3px 8px; }
+.log { background: var(--me); border-radius: 8px; padding: 10px 12px; max-height: 260px; overflow: auto; font-size: .8rem;
+  white-space: pre-wrap; margin-top: 12px; }

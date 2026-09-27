@@ -48,12 +48,18 @@ Tested on: Windows, RTX 4070 Super (12 GB VRAM), 32 GB RAM.
 ```
 python build_bank.py                       # once: download and analyze Tatoeba (a few minutes)
 python anki_sync.py                        # with Anki open: your known words → data/known.json
-python make_exercises.py --preset ni-de --known --max-unknown 1 --count 30 --save
-python make_exercises.py --preset te-form --known --max-unknown 1 --count 30 --save
 python server.py --open                    # the app, on http://localhost:8000
 ```
 
-Fill the reserve whenever you like (it takes ~5 s per exercise with Qwen); sessions are then instant. Run `anki_sync.py` again when your Anki progresses.
+Then in the app: **Progrès → Remplir la réserve** (or `python fill_reserve.py` in a terminal). It adds exercises to the topics in progress (~5 s each with Qwen); sessions are then instant. Run `anki_sync.py` again when your Anki progresses.
+
+### The programme
+
+`curriculum.py` lists 18 topics in teaching order, JLPT N5 then N4. The daily session brings reviews of everything plus new exercises from the **two current topics**. A topic is passed at 80 % right over its last 10–20 answers, or straight away after 5 right answers in a row; « Je maîtrise déjà » in the Progrès tab passes it by hand. The next topic then unlocks.
+
+`fill_reserve.py` tops up the current topics and the next one (15 unseen exercises each by default, twice as many for a weak topic): `--target 25`, `--all`, `--topics wa-ga,past`, `--no-llm`.
+
+**Entraînement libre** (Session tab): pick any topics (« Toutes les particules », « Tout N4 »…); « Mode difficile » hides the possible answers.
 
 ### Topics (`--preset`)
 
@@ -61,8 +67,9 @@ Fill the reserve whenever you like (it takes ~5 s per exercise with Qwen); sessi
 
 | Preset | Topic |
 | --- | --- |
-| `ni-de`, `ni-e`, `wa-ga`, `wo-ga`, `to-ya`, `kara-made` | particles (the blank is one of the two) |
-| `te-form`, `past`, `negative`, `masu`, `tai` | conjugations (the verb is blanked, its dictionary form is shown as a cue) |
+| `wa-ga`, `wo-ga`, `ni-de`, `ni-e`, `wa-mo`, `to-ya`, `kara-made` | N5 particles (the blank is one of the two) |
+| `te-form`, `past`, `negative`, `masu`, `tai` | N5 conjugations (the verb is blanked, its dictionary form and reading are shown) |
+| `volitional`, `nagara`, `ba`, `tara`, `causative`, `noni-node` | N4 |
 
 Custom topics: `--targets "に,で" --pos 格助詞 --title "…"` for particles, `--form te` for conjugations.
 
@@ -87,9 +94,9 @@ Custom topics: `--targets "に,で" --pos 格助詞 --title "…"` for particles
 
 `python server.py [--open] [--port 8000] [--model qwen3:14b]`, then http://localhost:8000.
 
-- **Session**: reviews due today, then new exercises (mixed topics, or one topic). Enter = check / next.
+- **Session**: « Programme du jour » (reviews + new exercises of the current topics) or « Entraînement libre » (chosen topics). Enter = check / next.
 - **Prof**: chat with the tutor. Needs Ollama running; the status in the top right says whether it is reachable.
-- **Progrès**: today's work, streak, reviews due tomorrow, success rate, topics.
+- **Progrès**: today's work, streak, reviews due tomorrow, success rate, the programme (state of each topic, « Je maîtrise déjà »), « Remplir la réserve ».
 
 Everything is stored in `data/coach.db` (SQLite). Nothing leaves your computer.
 
@@ -114,6 +121,8 @@ server.py           the app: web server + JSON API (standard library only)
 web/                the interface (index.html, app.css, app.js)
 store.py            progress database: reserve, answers, schedule, chat
 srs.py              spaced repetition intervals
+curriculum.py       the study programme: topics N5 → N4, progression rules
+fill_reserve.py     tops up the reserve following the programme
 tutor.py            the chat tutor: prompt, student context, sentence analysis
 llm.py              Ollama client (structured answers, streaming)
 build_bank.py       Tatoeba → SudachiPy → data/bank.db
@@ -135,7 +144,8 @@ notes/log.md        test log (models, prompts, results)
 - [x] **Test set** to measure the LLM check
 - [ ] Improve the check using the test set (prompt, model)
 - [ ] Vocabulary checks with [JMdict](https://www.edrdg.org/jmdict/j_jmdict.html)
-- [ ] Fill the reserve from the app (instead of the terminal)
+- [x] **Programme** N5 → N4 with progression, free practice, « Je maîtrise déjà »
+- [x] Fill the reserve from the app
 - [ ] More exercise types (translation, reordering, listening)
 
 ## Data sources and licences

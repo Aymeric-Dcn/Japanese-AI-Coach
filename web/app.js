@@ -73,36 +73,87 @@ function renderSummary(stats) {
   ].join("");
 }
 
+const P = {mode: store("mode") || "daily", topics: [], picked: new Set(JSON.parse(store("picked") || "[]"))};
+const STATE_LABEL = {passed: "validé", current: "en cours", locked: "🔒 à venir", custom: "hors programme"};
+
+function setMode(mode) {
+  P.mode = mode;
+  store("mode", mode);
+  document.querySelectorAll(".seg").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
+  $("mode-daily").hidden = mode !== "daily";
+  $("mode-practice").hidden = mode !== "practice";
+  updateStartButton();
+}
+document.querySelectorAll(".seg").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
+
+function updateStartButton() {
+  const reserve = P.topics.reduce((n, t) => n + t.total, 0);
+  $("btn-start").disabled = !reserve || (P.mode === "practice" && !P.picked.size);
+}
+
+function renderPicker() {
+  const levels = {};
+  for (const t of P.topics) {
+    if (!t.total) continue;  // nothing to practise yet
+    (levels[t.level || "Autres"] = levels[t.level || "Autres"] || []).push(t);
+  }
+  const html = Object.entries(levels).map(([level, list]) => `<h4>${esc(level)}</h4>` + list.map(t =>
+    `<label><input type="checkbox" value="${esc(t.title)}"${P.picked.has(t.title) ? " checked" : ""}>
+      ${esc(t.title)} <span class="muted small">(${t.unseen} nouveaux)</span></label>`).join("")).join("");
+  $("topic-picker").innerHTML = html || `<p class="muted">Aucun exercice dans la réserve pour l'instant.</p>`;
+}
+
+$("topic-picker").addEventListener("change", e => {
+  if (e.target.type !== "checkbox") return;
+  e.target.checked ? P.picked.add(e.target.value) : P.picked.delete(e.target.value);
+  store("picked", JSON.stringify([...P.picked]));
+  updateStartButton();
+});
+$("quick-picks").addEventListener("click", e => {
+  const pick = e.target.closest("[data-pick]")?.dataset.pick;
+  if (!pick) return;
+  P.picked = new Set(pick === "none" ? [] : P.topics.filter(t => t.total &&
+    (t.kind === pick || t.level === pick)).map(t => t.title));
+  if (pick === "particle") { $("hard-mode").checked = true; store("hardMode", "1"); }  // « toutes les particules » = sans liste
+  store("picked", JSON.stringify([...P.picked]));
+  renderPicker();
+  updateStartButton();
+});
+
 async function loadHome() {
   try {
-    const stats = await api("/api/stats");
+    const [stats, topics] = await Promise.all([api("/api/stats"), api("/api/topics")]);
     renderSummary(stats);
-    const select = $("topic-select");
-    const current = select.value;
-    select.innerHTML = `<option value="">Tous les thèmes (mélangés)</option>` +
-      stats.topics.map(t => `<option value="${esc(t.topic)}">${esc(t.topic)} (${t.unseen} nouveaux)</option>`).join("");
-    select.value = current;
-    if (!stats.topics.length) {
-      $("start-text").innerHTML = `La réserve d'exercices est vide. Remplis-la depuis le terminal, par exemple :<br>
-        <code>python make_exercises.py --preset ni-de --known --max-unknown 1 --count 30 --save</code>`;
-      $("btn-start").disabled = true;
-    } else {
-      $("start-text").textContent = stats.due_now
-        ? `${stats.due_now} exercice${stats.due_now > 1 ? "s" : ""} à revoir aujourd'hui, puis des nouveaux.`
-        : "Rien à revoir aujourd'hui : place aux nouveaux exercices.";
-      $("btn-start").disabled = false;
-    }
+    P.topics = topics.topics;
+    const current = P.topics.filter(t => t.state === "current");
+    const reserve = P.topics.reduce((n, t) => n + t.total, 0);
+    const names = current.map(t => `<strong>${esc(t.title)}</strong>`).join(" et ");
+    $("start-text").innerHTML = !reserve
+      ? `La réserve d'exercices est vide : va dans <strong>Progrès → Remplir la réserve</strong>.`
+      : (stats.due_now ? `${stats.due_now} exercice${stats.due_now > 1 ? "s" : ""} à revoir, puis des nouveaux` : "Rien à revoir aujourd'hui ; nouveaux exercices")
+        + (current.length ? ` sur ${names}.` : ".");
+    const empty = current.filter(t => !t.unseen);
+    $("daily-empty").hidden = !empty.length || !reserve;
+    $("daily-empty").innerHTML = empty.length ? `Plus d'exercices nouveaux pour ${empty.map(t => esc(t.title)).join(", ")}.
+      <button class="ghost" id="btn-goto-fill">Remplir la réserve →</button>` : "";
+    const goto = $("btn-goto-fill");
+    if (goto) goto.onclick = () => showTab("progress");
+    renderPicker();
+    setMode(P.mode);
   } catch (e) { toast("Impossible de charger les statistiques : " + e.message); }
 }
 
 async function startSession(newCount) {
-  const topic = $("topic-select").value;
   const n = newCount ?? $("new-select").value;
+  const url = P.mode === "practice"
+    ? `/api/session?mode=practice&new=${n}&topics=${encodeURIComponent([...P.picked].join("|"))}`
+    : `/api/session?new=${n}`;
   try {
-    const data = await api(`/api/session?new=${n}&topic=${encodeURIComponent(topic)}`);
+    const data = await api(url);
     renderSummary(data.stats);
     if (!data.items.length) {
-      toast(data.stats.unseen ? "Rien à revoir. Choisis au moins 5 nouveaux exercices." : "Plus rien à faire aujourd'hui : bravo !");
+      toast(P.mode === "practice" ? "Rien de nouveau ni à revoir dans ces thèmes." :
+        data.stats.unseen ? "Rien à revoir. Choisis au moins 5 nouveaux exercices, ou remplis la réserve." : "Plus rien à faire aujourd'hui : bravo !");
       return;
     }
     Object.assign(S, {queue: data.items, pos: 0, done: 0, firstTry: 0});
@@ -459,16 +510,73 @@ async function loadProgress() {
       card(s.mastered, "maîtrisés (≥ 21 jours)"),
       card(`${pct} %`, `justes du premier coup (${s.all_time.done} au total)`),
     ].join("");
-    $("topics-table").innerHTML = `<tr><th>Thème</th><th class="num">Total</th><th class="num">Pas encore vus</th></tr>` +
-      (s.topics.length ? s.topics.map(t => `<tr><td>${esc(t.topic)}</td><td class="num">${t.total}</td><td class="num">${t.unseen}</td></tr>`).join("")
-        : `<tr><td colspan="3" class="muted">Aucun exercice pour l'instant.</td></tr>`);
+    await loadProgramme();
     $("weak-card").hidden = !s.weakest.length;
     $("weak-list").innerHTML = s.weakest.map(w =>
       `<li>${esc(w.topic)} : ${Math.round(100 * w.correct / w.done)} % de réussite (${w.done} réponses)</li>`).join("");
   } catch (e) { toast("Impossible de charger les statistiques : " + e.message); }
 }
 
+async function loadProgramme() {
+  const data = await api("/api/topics");
+  P.topics = data.topics;
+  $("topics-table").innerHTML = `<tr><th></th><th>Thème</th><th>État</th><th class="num">Réussite</th>
+      <th class="num">Nouveaux / total</th><th></th></tr>` +
+    P.topics.map(t => {
+      const rate = t.answers ? `${Math.round(100 * t.rate)} % <span class="muted small">(${t.answers})</span>` : "—";
+      const action = t.state === "custom" ? "" : t.flagged
+        ? `<button data-known="0" data-title="${esc(t.title)}">Annuler</button>`
+        : t.state !== "passed" ? `<button data-known="1" data-title="${esc(t.title)}" title="Le thème compte comme validé">Je maîtrise déjà</button>` : "";
+      return `<tr><td class="level">${esc(t.level)}</td><td>${esc(t.title)}</td>
+        <td><span class="state ${t.state}" title="${esc(t.why)}">${STATE_LABEL[t.state]}</span></td>
+        <td class="num">${rate}</td><td class="num">${t.unseen} / ${t.total}</td><td>${action}</td></tr>`;
+    }).join("");
+}
+
+$("topics-table").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-known]");
+  if (!b) return;
+  try {
+    await api("/api/topic_known", {title: b.dataset.title, known: b.dataset.known === "1"});
+    await loadProgramme();
+    loadHome();
+  } catch (err) { toast(err.message); }
+});
+
+// ---------------- filling the reserve ----------------
+
+function renderFill(f) {
+  const log = $("fill-log");
+  log.hidden = !f.log.length;
+  log.textContent = f.log.join("\n");
+  log.scrollTop = log.scrollHeight;
+  $("btn-fill").disabled = f.running;
+  $("btn-fill").textContent = f.running ? "Remplissage en cours…" : "Remplir la réserve";
+  $("btn-fill-stop").hidden = !f.running;
+}
+
+async function pollFill() {
+  try {
+    const f = await api("/api/fill");
+    renderFill(f);
+    if (f.running) { setTimeout(pollFill, 1500); return; }
+    if (pollFill.was) { toast(`Réserve remplie : ${f.added ?? 0} exercice(s) ajouté(s).`); loadHome(); loadProgramme(); }
+    pollFill.was = false;
+  } catch (e) { /* server restarting */ }
+}
+
+$("btn-fill").addEventListener("click", async () => {
+  try {
+    const f = await api("/api/fill", {target: +$("fill-target").value, all: $("fill-all").checked});
+    renderFill(f);
+    pollFill.was = true;
+    setTimeout(pollFill, 1000);
+  } catch (e) { toast(e.message); }
+});
+$("btn-fill-stop").addEventListener("click", () => api("/api/fill/stop", {}).catch(() => {}));
+
 // ======================================================================
 window.JapaneseCoach = {session: S, chat: C};  // handy in the browser console, and for tests
 loadStatus();
 loadHome();
+api("/api/fill").then(f => { if (f.running) { pollFill.was = true; pollFill(); } else renderFill(f); }).catch(() => {});
