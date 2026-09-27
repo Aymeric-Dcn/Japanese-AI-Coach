@@ -146,14 +146,16 @@ def reading_variants(reading: str) -> list:
     return list(dict.fromkeys(v for v in out if v and v != reading))
 
 
-_homophones = None
+_homophones, _homophones_mtime = None, None
 
 
 def homophones() -> dict:
     """{kanji: [other kanji sharing an on'yomi]} from data/kanji.json (Anki kanji notes)."""
-    global _homophones
-    if _homophones is None:
-        _homophones = {}
+    global _homophones, _homophones_mtime
+    mtime = KANJI_PATH.stat().st_mtime if KANJI_PATH.exists() else 0
+    if _homophones is None or mtime != _homophones_mtime:
+        _homophones, _homophones_mtime = {}, mtime
+        _noun_pool.clear()
         if KANJI_PATH.exists():
             data = json.loads(KANJI_PATH.read_text(encoding="utf-8"))
             by_on = {}
@@ -233,10 +235,11 @@ _noun_pool = {}
 
 
 def noun_pool(level: str) -> list:
-    if level not in _noun_pool:
-        _noun_pool[level] = [w["word"] for w in lexicon.words(level)
+    key = (level, lexicon._mtime())
+    if key not in _noun_pool:
+        _noun_pool[key] = [w["word"] for w in lexicon.words(level)
                              if len(w["word"]) <= 4 and all(KANJI.match(c) for c in w["word"])] if lexicon.available() else []
-    return _noun_pool[level]
+    return _noun_pool[key]
 
 
 def q_vocab(id_, jp, fr, tokens, level, rng):

@@ -16,8 +16,16 @@ def available() -> bool:
     return LEXICON_PATH.exists()
 
 
-@lru_cache(maxsize=1)
+def _mtime() -> float:
+    return LEXICON_PATH.stat().st_mtime if LEXICON_PATH.exists() else 0
+
+
 def _index() -> dict:
+    return _build_index(_mtime())  # rebuilt when anki_sync.py / jlpt_data.py update the file
+
+
+@lru_cache(maxsize=1)
+def _build_index(mtime: float) -> dict:
     """{form: {"word", "reading", "meaning", "level", "known"}} — Anki entries win over the open lists,
     and a word listed at several levels keeps the easiest one."""
     index = {}

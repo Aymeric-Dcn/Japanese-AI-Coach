@@ -25,8 +25,12 @@ JAPANESE_RUN = re.compile(r"[぀-ヿ㐀-鿿々ー]+")
 CONTENT_POS = {"名詞", "動詞", "形容詞", "形状詞", "副詞"}
 
 
-@lru_cache(maxsize=1)
 def grammar_points() -> list:
+    return _grammar_points(GRAMMAR_PATH.stat().st_mtime if GRAMMAR_PATH.exists() else 0)
+
+
+@lru_cache(maxsize=1)
+def _grammar_points(mtime: float) -> list:
     """[(search keys, point)] — keys are the Japanese forms of the point without 〜 and brackets."""
     if not GRAMMAR_PATH.exists():
         return []
