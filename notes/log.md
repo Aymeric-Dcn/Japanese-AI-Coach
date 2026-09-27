@@ -84,3 +84,13 @@ Hardware: RTX 4070 Super 12 GB, 32 GB RAM, Ollama.
 - `--known --max-unknown 1`: 4,287 に and 1,090 で candidates (was 6,855 / 1,908 without the filter). 10 kept, 0 dropped in 55 s.
 - ~9/10 good (日本に帰る, 交通事故で, 一人で, この点で, タクシーで…). Weak one: 楽しみにしています (fixed expression 楽しみにする), let through by Qwen.
 - Qwen dropped nothing for the third run in a row: its `good_example` check looks weak; a test set is needed to measure it.
+
+## 2026-09-27 — The app: sessions, spaced repetition, chat, test set
+
+- New `data/coach.db` (store.py): exercise reserve, every answer, review schedule, chat history.
+- Spaced repetition (srs.py): first attempt only; wrong → tomorrow (and once more at the end of the session); right → 1, 3, 7, 16 days, then ×2.3 (max 180).
+- `make_exercises.py --save` fills the reserve; presets for particles (ni-de, wa-ga…) and conjugations (te-form, past, negative, masu, tai: verb + ending blanked, dictionary form as cue, kana spelling accepted).
+- `server.py` + `web/`: standard library only, so no install needed. Tabs Session / Prof / Progrès.
+- Chat (tutor.py): French tutor prompt, student context (vocabulary size from Anki, last 8 mistakes), SudachiPy analysis of Japanese sentences sent for correction, « Demander au prof » from an exercise; answers streamed from Ollama.
+- `evaluate.py` + `eval/particle_cases.json`: 29 hand-made に/で cases (18 keep, 4 ambiguous, 7 not_example) to score the LLM check.
+- Tested here with simulated SudachiPy / Ollama and headless Chromium (session flow, requeue of missed exercises, schedule, chat streaming, progress). Not yet tested with the real Qwen, SudachiPy and Anki.

@@ -2,131 +2,142 @@
 
 *[English version](README.md)*
 
-Un prof de japonais personnel qui tourne **en local** : des feuilles d'exercices à trous interactives construites à partir de vraies phrases, avec indices et explications écrits par un LLM local (via [Ollama](https://ollama.com)).
+Un prof de japonais personnel qui tourne **entièrement sur ton ordinateur** : une petite app web avec des exercices à trous quotidiens construits à partir de vraies phrases, la répétition espacée de tes erreurs, et un chat avec un prof animé par un LLM local ([Ollama](https://ollama.com)).
 
 > Projet d'apprentissage : apprendre le japonais, et apprendre à configurer un LLM en même temps.
 
-## Ce qui marche aujourd'hui
+## Comment ça marche
 
-Deux façons de créer une feuille d'exercices :
+```
+Tatoeba ──► build_bank.py ──► data/bank.db (vraies phrases, découpées par SudachiPy)
+Anki ─────► anki_sync.py ───► data/known.json (mots et kanji connus)
+                    │
+                    ▼
+            make_exercises.py --save   (choisit les phrases, fait le trou,
+                    │                   Qwen écarte les douteuses et explique)
+                    ▼
+            data/coach.db ◄──► server.py + web/  →  http://localhost:8000
+            (réserve, réponses,         Session · Prof (chat) · Progrès
+             révisions, chat)
+```
 
-| | `make_exercises.py` (recommandé) | `generate_sheet.py` |
-| --- | --- | --- |
-| Phrases | vraies phrases de [Tatoeba](https://tatoeba.org) | inventées par le LLM |
-| Réponses et lectures | exactes (phrase d'origine + analyseur SudachiPy) | écrites par le LLM, erreurs possibles |
-| Rôle du LLM | écarter les phrases ambiguës, écrire indices et explications | tout |
-| Cours et vocabulaire | non | oui |
-
-Les feuilles sont des pages HTML : on tape la réponse dans le trou au clavier japonais (compatible IME), on vérifie, on demande un indice, on voit l'explication et le score.
-
-### Banque de vraies phrases
-
-`build_bank.py` télécharge Tatoeba (une seule fois), garde les phrases japonaises traduites, les découpe avec SudachiPy (mots, catégories grammaticales, lectures) et les enregistre dans `data/bank.db`.
-
-`make_exercises.py` y cherche les phrases qui contiennent exactement une des réponses visées, fait le trou lui-même, puis demande au LLM local si une autre réponse serait aussi correcte : si oui, la phrase est écartée. Chaque exercice affiche sa lecture en hiragana, sa traduction et un lien vers la phrase sur Tatoeba.
-
-### Feuilles générées par le LLM
-
-`generate_sheet.py` demande au modèle un cours (règles + exemples), du vocabulaire et des exercices. Le modèle écrit des phrases complètes en entourant la réponse de `【 】` ; c'est le script qui crée le trou, donc la réponse attendue est toujours exactement ce qui a été retiré. `--answers` impose une liste fermée de réponses (ex. `に,で`) et écarte les exercices hors sujet.
+- **Des exercices sur de vraies phrases** : la réponse est le texte d'origine, les lectures viennent de l'analyseur ; le LLM n'invente rien, il filtre et explique.
+- **À ton niveau** : avec la synchronisation Anki, seulement des phrases dont tu connais les mots (ou tous sauf un : « i+1 »).
+- **Répétition espacée** : un exercice raté revient en fin de session et le lendemain ; un exercice réussi revient après 1, 3, 7, 16 jours, puis de plus en plus tard.
+- **Chat avec le prof** : questions, explications, correction de tes propres phrases (analysées d'abord par SudachiPy), « Demander au prof » depuis un exercice. Le prof connaît tes erreurs récentes.
 
 ## Installation
 
 Configuration testée : Windows, RTX 4070 Super (12 Go VRAM), 32 Go RAM.
 
-1. **Ollama** : installer depuis [ollama.com/download](https://ollama.com/download).
-2. **Un modèle** :
+1. **Ollama** : installer depuis [ollama.com/download](https://ollama.com/download), puis un modèle :
    ```
    ollama pull qwen3:14b
    ```
-3. **Python 3.9+** : [python.org](https://www.python.org/downloads/) (cocher *Add python.exe to PATH*), puis les dépendances :
+2. **Python 3.9+** : [python.org](https://www.python.org/downloads/) (cocher *Add python.exe to PATH*), puis :
    ```
    pip install -r requirements.txt
    ```
-4. **Clavier japonais** (pour remplir les exercices) : Paramètres → Heure et langue → Langue et région → ajouter *Japonais*. Basculer avec `Windows + Espace`.
+3. **Clavier japonais** : Paramètres → Heure et langue → Langue et région → ajouter *Japonais*. Basculer avec `Windows + Espace`.
+4. **Anki** (facultatif) : installer le module [AnkiConnect](https://ankiweb.net/shared/info/2055492159) (Outils → Greffons → Obtenir des greffons, code `2055492159`).
 
-## Utilisation
-
-### Exercices à partir de vraies phrases
+## Démarrer
 
 ```
-python build_bank.py        # une seule fois (quelques minutes)
-python make_exercises.py --targets "に,で" --pos 格助詞 --title "Les particules に et で"
-python make_exercises.py --targets "は,が" --pos 助詞 --max-words 8
+python build_bank.py                       # une fois : télécharger et analyser Tatoeba
+python anki_sync.py                        # Anki ouvert : tes mots connus → data/known.json
+python make_exercises.py --preset ni-de --known --max-unknown 1 --count 30 --save
+python make_exercises.py --preset te-form --known --max-unknown 1 --count 30 --save
+python server.py --open                    # l'app, sur http://localhost:8000
 ```
+
+Remplis la réserve quand tu veux (environ 5 s par exercice avec Qwen) ; les sessions sont ensuite instantanées. Relance `anki_sync.py` quand ton Anki avance.
+
+### Thèmes (`--preset`)
+
+`python make_exercises.py --list-presets` les affiche tous :
+
+| Preset | Thème |
+| --- | --- |
+| `ni-de`, `ni-e`, `wa-ga`, `wo-ga`, `to-ya`, `kara-made` | particules (le trou est l'une des deux) |
+| `te-form`, `past`, `negative`, `masu`, `tai` | conjugaisons (le verbe est caché, sa forme du dictionnaire est affichée comme indice) |
+
+Thèmes sur mesure : `--targets "に,で" --pos 格助詞 --title "…"` pour les particules, `--form te` pour les conjugaisons.
+
+### Options de `make_exercises.py`
 
 | Option | Rôle | Défaut |
 | --- | --- | --- |
-| `--targets` | les réponses à faire retrouver | — |
-| `--pos` | catégorie grammaticale exigée : `格助詞` (particule de cas), `助詞` (toute particule)… Évite par ex. le で de 読んで | aucune |
+| `--preset` / `--targets` / `--form` | ce qu'on travaille | — |
+| `--save` | ajouter à la réserve de l'app (sinon, une feuille HTML est créée) | — |
 | `--count` | nombre d'exercices | `10` |
-| `--min-words` / `--max-words` | longueur des phrases (≈ difficulté) | `3` / `12` |
-| `--any-context` | particules : accepter aussi すぐに, 親切に, には, でも… (par défaut, seuls les cas simples « nom + particule » sont gardés) | — |
-| `--no-llm` | pas de vérification ni d'explication (instantané) | — |
-| `--english` | accepter les phrases traduites seulement en anglais (lancer aussi `build_bank.py --english`) | — |
-| `--level` | niveau de l'élève, pour les explications | `N5` |
-| `--model` | modèle Ollama | `qwen3:14b` |
-| `--known` | seulement les phrases construites avec les mots connus dans Anki (voir plus bas) | — |
-| `--max-unknown` | avec `--known` : nombre de mots inconnus autorisés par phrase (affichés « Nouveau » sur la feuille) | `0` |
+| `--known` | seulement des phrases construites avec tes mots Anki | — |
+| `--max-unknown` | avec `--known` : mots inconnus autorisés par phrase (affichés « Nouveau ») | `0` |
 | `--known-kanji` | avec `--known` : tous les kanji doivent aussi être connus | — |
-| `--seed` | retrouver la même sélection de phrases | aléatoire |
+| `--min-words` / `--max-words` | longueur des phrases (≈ difficulté) | `3` / `12` |
+| `--pos` | catégorie grammaticale exigée, ex. `格助詞` — évite le で de 読んで | selon le preset |
+| `--any-context` | particules : accepter aussi すぐに, には, でも… (par défaut, seulement « nom + particule ») | — |
+| `--no-llm` | pas de vérification ni d'explication (instantané) | — |
+| `--english` | accepter les phrases traduites seulement en anglais (après `build_bank.py --english`) | — |
+| `--level`, `--model`, `--seed` | niveau pour les explications, modèle Ollama, sélection reproductible | `N5`, `qwen3:14b`, aléatoire |
 
-### Synchronisation Anki
+### L'app (`server.py`)
 
-Avec Anki ouvert et le module [AnkiConnect](https://ankiweb.net/shared/info/2055492159) installé (Outils → Greffons → Obtenir des greffons, code `2055492159`) :
+`python server.py [--open] [--port 8000] [--model qwen3:14b]`, puis http://localhost:8000.
+
+- **Session** : les révisions du jour, puis des nouveaux exercices (thèmes mélangés, ou un seul thème). Entrée = vérifier / suivant.
+- **Prof** : le chat. Il faut qu'Ollama tourne ; l'état en haut à droite indique s'il est joignable.
+- **Progrès** : travail du jour, série de jours, révisions de demain, taux de réussite, thèmes.
+
+Tout est enregistré dans `data/coach.db` (SQLite). Rien ne quitte ton ordinateur.
+
+### Mesurer le LLM (`evaluate.py`)
 
 ```
-python anki_sync.py                      # cartes matures (intervalle ≥ 21 jours) → data/known.json
-python anki_sync.py --min-interval 0     # toutes les cartes déjà révisées
-python make_exercises.py --targets "に,で" --pos 格助詞 --known --max-unknown 1
+python evaluate.py                    # 29 cas écrits à la main dans eval/particle_cases.json
+python evaluate.py --model qwen3:8b --runs 3
 ```
 
-`anki_sync.py` lit les notes de mots et de kanji du *Full Japanese Study Deck* (types `FJSD-Word`, `FJSD-Kanji` ; d'autres avec `--word-type` / `--kanji-type`) et garde toutes les formes écrites et lectures. `--max-unknown 1` donne des phrases « i+1 » : tout est connu sauf un mot nouveau. Relancer la synchronisation quand Anki avance. `anki_inspect.py` liste les paquets, le nombre de cartes et les champs.
+Mesure à quelle fréquence la vérification garde les bons exercices et écarte les phrases ambiguës et les expressions figées. À relancer après chaque changement de prompt ou de modèle, et à noter dans `notes/log.md`.
 
-### Exercices inventés par le LLM
+### Autres outils
 
-```
-python generate_sheet.py --topic "les particules に et で" --level N5 --answers "に,で"
-python generate_sheet.py --topic "la forme en て" --level N5 --count 12
-python generate_sheet.py --demo        # feuille d'exemple, sans Ollama
-```
-
-| Option | Rôle | Défaut |
-| --- | --- | --- |
-| `--topic` | le point de grammaire à travailler | — |
-| `--level` | N5, N4… ou une description libre | `N5` |
-| `--count` | nombre d'exercices | `10` |
-| `--answers` | liste fermée des réponses possibles | aucune |
-| `--model` | modèle Ollama | `qwen3:14b` |
-| `--temperature` | 0 = strict, 1 = varié | `0.7` |
-
-Les feuilles sont enregistrées dans `sheets/` (HTML + JSON) et ouvertes dans le navigateur.
+- `generate_sheet.py` : cours + exercices entièrement écrits par le LLM (première version du projet, moins fiable).
+- `anki_inspect.py` : liste les paquets Anki, le nombre de cartes et les champs.
 
 ## Organisation du projet
 
 ```
+server.py           l'app : serveur web + API JSON (bibliothèque standard uniquement)
+web/                l'interface (index.html, app.css, app.js)
+store.py            base de progression : réserve, réponses, révisions, chat
+srs.py              intervalles de répétition espacée
+tutor.py            le prof du chat : prompt, contexte de l'élève, analyse des phrases
+llm.py              client Ollama (réponses structurées, streaming)
 build_bank.py       Tatoeba → SudachiPy → data/bank.db
-make_exercises.py   feuille d'exercices à partir de la banque (+ vérification et explications par le LLM)
-generate_sheet.py   feuille d'exercices entièrement générée par le LLM
-sheet.py            fonctions communes et page HTML interactive
+make_exercises.py   exercices depuis la banque → réserve (--save) ou feuille HTML
 anki_sync.py        mots et kanji connus dans Anki → data/known.json
-anki_inspect.py     liste les paquets Anki, le nombre de cartes et les champs (AnkiConnect)
-notes/log.md        journal des tests (modèles, prompts, résultats), en anglais
+evaluate.py, eval/  jeu de tests pour mesurer la vérification du LLM
+generate_sheet.py   feuille générée par le LLM ;  sheet.py : feuilles HTML
+notes/log.md        journal des tests (en anglais)
 ```
 
 ## Feuille de route
 
 - [x] Feuilles d'exercices à trous générées par un LLM local
-- [x] **Banque de phrases** Tatoeba découpées par SudachiPy, trous exacts, le LLM ne fait qu'écarter les phrases ambiguës et expliquer
-- [ ] Exercices sur les formes verbales (forme en て, passé, négatif…) à partir de la banque
+- [x] **Banque de phrases** : Tatoeba + SudachiPy, trous exacts, le LLM filtre et explique
+- [x] **Synchronisation Anki** : phrases construites avec mes mots (i+1)
+- [x] Thèmes de particules et de **conjugaison** (forme en て, passé, négatif, ます, たい)
+- [x] **App locale** : sessions quotidiennes, **répétition espacée**, progrès
+- [x] **Chat** avec le prof (explications, correction de mes phrases, questions sur un exercice)
+- [x] **Jeu de tests** pour mesurer la vérification du LLM
+- [ ] Améliorer la vérification grâce au jeu de tests (prompt, modèle)
 - [ ] Vérification du vocabulaire avec [JMdict](https://www.edrdg.org/jmdict/j_jmdict.html)
-- [x] **Synchronisation Anki** (AnkiConnect) : choisir des phrases dont je connais déjà le vocabulaire (i+1)
-- [ ] Suivi des erreurs et **répétition espacée**
-- [ ] **Chat** avec le prof (explications, correction de phrases libres)
-- [ ] Jeu de tests pour **mesurer** la fiabilité des modèles et des prompts
-- [ ] Interface d'application unifiée
+- [ ] Remplir la réserve depuis l'app (au lieu du terminal)
+- [ ] D'autres types d'exercices (traduction, remise en ordre, écoute)
 
 ## Sources de données et droits
 
 Le dépôt ne contient que du code, des prompts et de la documentation. Les données téléchargées ou personnelles (`data/`, `sources/`, bases SQLite, feuilles générées) sont exclues par le `.gitignore`. Aucun contenu tiré de manuels sous droits ne doit être publié ici.
 
-Sources libres utilisées ou prévues : Tatoeba (CC BY 2.0 FR), JMdict / KANJIDIC (CC BY-SA 4.0, EDRDG), guide de grammaire de Tae Kim (CC BY-NC-SA 3.0).
+Sources libres : Tatoeba (CC BY 2.0 FR), JMdict / KANJIDIC (CC BY-SA 4.0, EDRDG), guide de grammaire de Tae Kim (CC BY-NC-SA 3.0).
