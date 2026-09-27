@@ -63,3 +63,9 @@ Hardware: RTX 4070 Super 12 GB, 32 GB RAM, Ollama.
 - Fix: the bank now stores SudachiPy's sub-sub-category; に after a « 形状詞可能 » noun (本当に, 大切に, 静かに…) is skipped. Needs `build_bank.py` to be run again.
 - 0 drops out of 10: Qwen may now be too lenient on `good_example`; keep an eye on it.
 - gemma3:12b removed from the machine (`ollama rm gemma3:12b`).
+
+## 2026-09-27 — Fourth run
+
+- 10 kept, 0 dropped in 53 s. 7/10 good. Bad: それで (conjunction « so »), 何で (« why »), 私のために (ために = purpose, separate grammar point). Qwen's `good_example` check lets these through.
+- Fix: nouns forming fixed words with the particle (それ, 何/なん, ため) are skipped by the script.
+- AnkiConnect installed and reachable. Added `anki_inspect.py` to list decks, card counts and note fields before writing the sync.

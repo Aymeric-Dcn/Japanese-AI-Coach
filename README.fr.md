@@ -93,6 +93,7 @@ build_bank.py       Tatoeba → SudachiPy → data/bank.db
 make_exercises.py   feuille d'exercices à partir de la banque (+ vérification et explications par le LLM)
 generate_sheet.py   feuille d'exercices entièrement générée par le LLM
 sheet.py            fonctions communes et page HTML interactive
+anki_inspect.py     liste les paquets Anki, le nombre de cartes et les champs (AnkiConnect)
 notes/log.md        journal des tests (modèles, prompts, résultats), en anglais
 ```
 

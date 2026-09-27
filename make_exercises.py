@@ -48,6 +48,9 @@ def token_matches(token: list, targets: set, pos: str) -> bool:
 
 BEFORE_PARTICLE = {"名詞", "代名詞", "接尾辞"}   # the particle must follow a noun
 STACKED_PARTICLES = {"は", "も"}                 # には, では, にも, でも…
+# Nouns that form fixed words with the particle: それで / それに (so, moreover), 何で (why),
+# ために (in order to, a separate grammar point)
+FIXED_BEFORE = {"それ", "何", "なん", "ため", "為"}
 # Verbs that turn に into a compound particle: によって, にとって, について, に対して, に関して…
 COMPOUND_VERBS = {"よる", "因る", "依る", "拠る", "とる", "取る", "つく", "就く", "付く", "対する", "関する"}
 
@@ -60,6 +63,8 @@ def simple_context(tokens: list, k: int) -> bool:
     previous = next((t for t in reversed(tokens[:k]) if t[1] != "空白"), None)
     following = next((t for t in tokens[k + 1:] if t[1] != "空白"), None)
     if previous is None or previous[1] not in BEFORE_PARTICLE:
+        return False
+    if previous[0] in FIXED_BEFORE:
         return False
     # 本当に, 静かに, 大切に…: a noun that can act as an adjective + に = adverb, not a particle use.
     # (index 5 exists in banks built after 2026-09-27; older banks simply skip this check)
