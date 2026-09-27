@@ -121,13 +121,14 @@ def reading(analyzer, text: str) -> str:
 
 
 def analyze(analyzer, text: str) -> list:
-    """Each token: [surface, part of speech, sub-category, reading in hiragana, dictionary form, sub-sub-category]."""
+    """Each token: [surface, part of speech, sub-category, reading in hiragana, dictionary form, sub-sub-category,
+    conjugation type (e.g. 五段-カ行, 下一段-バ行)]."""
     tokens = []
     for m in analyzer(text):
         pos = m.part_of_speech()
         surface = m.surface()
         reading = m.reading_form() if pos[0] not in NON_WORDS else ""
-        tokens.append([surface, pos[0], pos[1], to_hiragana(reading) or surface, m.dictionary_form(), pos[2]])
+        tokens.append([surface, pos[0], pos[1], to_hiragana(reading) or surface, m.dictionary_form(), pos[2], pos[4]])
     return tokens
 
 
@@ -167,7 +168,7 @@ def main() -> None:
         fr TEXT,
         en TEXT,
         word_count INTEGER NOT NULL,
-        tokens TEXT NOT NULL      -- JSON: [[surface, pos, sub-category, reading, dictionary form, sub-sub-category], …]
+        tokens TEXT NOT NULL      -- JSON: [[surface, pos, sub-category, reading, dictionary form, sub-sub-category, conjugation type], …]
     )""")
 
     print(f"Analyzing {len(japanese)} sentences…")

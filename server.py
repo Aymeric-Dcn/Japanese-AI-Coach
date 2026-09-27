@@ -16,6 +16,8 @@ API (JSON):
     GET  /api/topics                   programme topics with their state (passed / current / locked)
     POST /api/topic_known              {title, known} « Je maîtrise déjà »
     POST /api/fill  |  GET /api/fill   top up the reserve in the background / follow its progress
+    GET|POST /api/settings             automatic Anki sync / reserve filling at startup
+At startup (unless --no-maintenance): Anki sync once a day, then the reserve is topped up when Ollama answers.
     POST /api/answer                   {id, correct, answer} → next review date
     GET  /api/stats                    progress numbers
     GET  /api/chat/history?conversation=…
@@ -99,6 +101,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(status())
             if url.path == "/api/fill":
                 return self.send_json(fill_status())
+            if url.path == "/api/settings":
+                return self.send_json(load_settings())
             db = store.connect(DB_PATH)
             try:
                 if url.path == "/api/session":
@@ -148,6 +152,8 @@ class Handler(BaseHTTPRequestHandler):
                     db.close()
             if url.path == "/api/fill":
                 return self.send_json(start_fill(data))
+            if url.path == "/api/settings":
+                return self.send_json(save_settings(data))
             if url.path == "/api/fill/stop":
                 FILL["stop"] = True
                 return self.send_json(fill_status())
@@ -197,30 +203,50 @@ class Handler(BaseHTTPRequestHandler):
 # Filling the reserve in the background (« Remplir la réserve »)
 # ---------------------------------------------------------------------------
 
-FILL = {"running": False, "stop": False, "log": [], "started": None, "finished": None, "added": None}
+FILL = {"running": False, "stop": False, "log": [], "started": None, "finished": None, "added": None, "title": ""}
 FILL_LOCK = threading.Lock()
+SETTINGS_PATH = Path("data") / "settings.json"
+DEFAULT_SETTINGS = {"auto_sync": True, "auto_fill": True, "fill_target": 15, "jlpt_level": "N4", "jlpt_auto_fill": True}
+
+
+def load_settings() -> dict:
+    settings = dict(DEFAULT_SETTINGS)
+    if SETTINGS_PATH.exists():
+        try:
+            settings.update(json.loads(SETTINGS_PATH.read_text(encoding="utf-8")))
+        except ValueError:
+            pass
+    return settings
+
+
+def save_settings(changes: dict) -> dict:
+    settings = load_settings()
+    settings.update({k: v for k, v in changes.items() if k in DEFAULT_SETTINGS})
+    SETTINGS_PATH.parent.mkdir(exist_ok=True)
+    SETTINGS_PATH.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+    return settings
 
 
 def fill_status() -> dict:
     return {k: (v[-300:] if k == "log" else v) for k, v in FILL.items()}
 
 
-def start_fill(options: dict) -> dict:
+def run_job(title: str, work) -> dict:
+    """Runs work(log, should_stop, db) → number of exercises added, in the background (one job at a time)."""
     with FILL_LOCK:
         if FILL["running"]:
             return fill_status()
-        FILL.update(running=True, stop=False, log=[], started=time.strftime("%H:%M:%S"), finished=None, added=None)
+        FILL.update(running=True, stop=False, log=[], started=time.strftime("%H:%M:%S"), finished=None,
+                    added=None, title=title)
 
     def log(line):
         FILL["log"].extend(str(line).splitlines() or [""])
+        print(line)
 
     def run():
         db = store.connect(DB_PATH)
         try:
-            ids = [i for i in options.get("topics", []) if i in curriculum.BY_ID]
-            results = fill_reserve.fill(db, target=int(options.get("target", 15)), all_topics=bool(options.get("all")),
-                                        ids=ids or None, model=MODEL, log=log, should_stop=lambda: FILL["stop"])
-            FILL["added"] = sum(a for _, a in results)
+            FILL["added"] = work(log, lambda: FILL["stop"], db)
         except Exception as e:  # keep the server alive, show the error in the page
             log(f"! {type(e).__name__}: {e}")
         finally:
@@ -229,6 +255,65 @@ def start_fill(options: dict) -> dict:
 
     threading.Thread(target=run, daemon=True).start()
     return fill_status()
+
+
+def start_fill(options: dict) -> dict:
+    def work(log, should_stop, db):
+        ids = [i for i in options.get("topics", []) if i in curriculum.BY_ID]
+        results = fill_reserve.fill(db, target=int(options.get("target", 15)), all_topics=bool(options.get("all")),
+                                    ids=ids or None, model=MODEL, log=log, should_stop=should_stop)
+        return sum(a for _, a in results)
+    return run_job("Remplissage de la réserve", work)
+
+
+def ollama_up() -> bool:
+    try:
+        with urllib.request.urlopen(llm.OLLAMA_URL + "/api/tags", timeout=2):
+            return True
+    except Exception:
+        return False
+
+
+def start_maintenance() -> dict:
+    """At startup: Anki sync (once a day), then top up the reserve as soon as Ollama answers."""
+    def work(log, should_stop, db):
+        settings = load_settings()
+        if settings["auto_sync"]:
+            known = tutor.KNOWN_PATH
+            synced_today = known.exists() and json.loads(known.read_text(encoding="utf-8")).get("date") == \
+                time.strftime("%Y-%m-%d")
+            if synced_today:
+                log("Anki : déjà synchronisé aujourd'hui.")
+            else:
+                log("Synchronisation Anki…")
+                try:
+                    import anki_sync
+                    anki_sync.sync(log=log)
+                except Exception as e:
+                    log(f"! Anki : {e}")
+        added = 0
+        if settings["auto_fill"] and (Path("data") / "bank.db").exists():
+            waited = 0
+            while not ollama_up() and waited < 900 and not should_stop():
+                if waited == 0:
+                    log("En attente d'Ollama…")
+                time.sleep(15)
+                waited += 15
+            if ollama_up() and not should_stop():
+                results = fill_reserve.fill(db, target=int(settings["fill_target"]), model=MODEL, log=log,
+                                            should_stop=should_stop)
+                added += sum(a for _, a in results)
+                if settings.get("jlpt_auto_fill"):
+                    try:
+                        import jlpt_questions
+                        added += jlpt_questions.fill(db, settings.get("jlpt_level", "N4"), model=MODEL, log=log,
+                                                     should_stop=should_stop)
+                    except ImportError:
+                        pass
+            elif not should_stop():
+                log("Ollama ne répond pas : réserve non remplie (bouton « Remplir la réserve » plus tard).")
+        return added
+    return run_job("Maintenance au démarrage", work)
 
 
 def status() -> dict:
@@ -256,6 +341,9 @@ def status() -> dict:
 
 def main() -> None:
     global MODEL, DB_PATH
+    if sys.stdout is None:  # started with pythonw (no console): log to a file
+        Path("data").mkdir(exist_ok=True)
+        sys.stdout = sys.stderr = open(Path("data") / "server.log", "a", encoding="utf-8", buffering=1)
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
@@ -265,6 +353,8 @@ def main() -> None:
     p.add_argument("--model", default=llm.DEFAULT_MODEL, help=f"Ollama model for the chat (default: {llm.DEFAULT_MODEL})")
     p.add_argument("--db", default=None, help="progress database (default: data/coach.db)")
     p.add_argument("--open", action="store_true", help="open the app in the browser")
+    p.add_argument("--no-maintenance", action="store_true",
+                   help="do not sync Anki / fill the reserve at startup (see data/settings.json)")
     args = p.parse_args()
     MODEL, DB_PATH = args.model, args.db
 
@@ -273,6 +363,8 @@ def main() -> None:
     print(f"✓ Japanese Coach running on {url}  (Ctrl+C to stop)")
     if args.open:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
+    if not args.no_maintenance:
+        start_maintenance()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
