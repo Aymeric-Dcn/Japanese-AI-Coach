@@ -28,3 +28,14 @@ Matériel : RTX 4070 Super 12 Go, 32 Go RAM, Ollama.
 - `creer_exercices.py` : trous faits par le script sur la phrase d'origine, filtrage par catégorie grammaticale (`--pos 格助詞` écarte le で de 読んで), une seule cible par phrase, alternance équilibrée des réponses.
 - Le LLM (qwen3:14b, sans mode réflexion) ne fait plus que : signaler si une autre réponse serait possible (phrase écartée), écrire indice et explication.
 - Testé sur données simulées ; reste à tester sur la vraie banque.
+
+## 2026-09-27 — Premier essai sur la vraie banque
+
+- Banque : 40 396 phrases avec traduction française, analysées en 5 s.
+- に/で : 8 508 et 2 446 phrases candidates. 10 exercices retenus, **28 écartés** en 187 s (~5 s par phrase).
+- Problèmes : Qwen écarte beaucoup trop (ex. 彼は車で来た) ; trous peu pédagogiques (すぐに, 日本語には, 誰でも) ; vocabulaire parfois difficile (患者, 病名, 通知).
+- Correctifs :
+  - particules : seuls les cas « nom + particule » sont gardés, sans particule collée (には, でも…) ; `--tout-contexte` pour désactiver ;
+  - vérification : Qwen écrit chaque phrase alternative et juge si elle est correcte, naturelle et fidèle à la traduction (au lieu d'une liste de « possibles ») ; la raison du rejet est affichée ;
+  - avertissement SudachiPy 0.7 corrigé (`tokenizer()` au lieu de `create()`).
+- Prochaine étape pour le niveau : filtrer le vocabulaire avec Anki.

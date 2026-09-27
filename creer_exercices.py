@@ -52,7 +52,26 @@ def mot_correspond(mot: list, cibles: set, pos: str) -> bool:
     return not pos or pos in (cat, sous_cat)
 
 
-def candidats(cibles: list, pos: str, min_mots: int, max_mots: int, francais_seul: bool) -> dict:
+AVANT_PARTICULE = {"名詞", "代名詞", "接尾辞"}   # la particule doit suivre un nom
+PARTICULES_COLLEES = {"は", "も"}                  # には, では, にも, でも…
+
+
+def contexte_simple(mots: list, k: int) -> bool:
+    """Pour une particule : on garde les cas « nom + particule » simples.
+    Écarte すぐに / 親切に (après un adverbe ou un adjectif) et には / でも (particules composées)."""
+    if mots[k][1] != "助詞":
+        return True  # le filtre ne concerne que les particules
+    precedent = next((m for m in reversed(mots[:k]) if m[1] != "空白"), None)
+    suivant = next((m for m in mots[k + 1:] if m[1] != "空白"), None)
+    if precedent is None or precedent[1] not in AVANT_PARTICULE:
+        return False
+    if suivant is not None and suivant[1] == "助詞" and suivant[0] in PARTICULES_COLLEES:
+        return False
+    return True
+
+
+def candidats(cibles: list, pos: str, min_mots: int, max_mots: int, francais_seul: bool,
+              tout_contexte: bool = False) -> dict:
     """Renvoie {cible: [exercice, …]} pour les phrases qui contiennent exactement UNE des cibles."""
     if not CHEMIN_BANQUE.exists():
         sys.exit(f"Banque introuvable ({CHEMIN_BANQUE}). Lance d'abord : python construire_banque.py")
@@ -68,6 +87,8 @@ def candidats(cibles: list, pos: str, min_mots: int, max_mots: int, francais_seu
         if len(positions) != 1:
             continue  # aucune cible, ou plusieurs (trou ambigu)
         k = positions[0]
+        if not tout_contexte and not contexte_simple(mots, k):
+            continue
         cible = norm(mots[k][0])
         avant = "".join(m[0] for m in mots[:k])
         apres = "".join(m[0] for m in mots[k + 1:])
@@ -107,11 +128,22 @@ def melanger_equilibre(par_cible: dict, graine) -> list:
 SCHEMA_VERIF = {
     "type": "object",
     "properties": {
-        "autres_possibles": {"type": "array", "items": {"type": "string"}},
+        "alternatives": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "reponse": {"type": "string"},
+                    "phrase": {"type": "string"},
+                    "correcte": {"type": "boolean"},
+                },
+                "required": ["reponse", "phrase", "correcte"],
+            },
+        },
         "indice": {"type": "string"},
         "explication": {"type": "string"},
     },
-    "required": ["autres_possibles", "indice", "explication"],
+    "required": ["alternatives", "indice", "explication"],
 }
 
 PROMPT_SYSTEME = """Tu es un professeur de japonais rigoureux qui enseigne à un élève francophone.
@@ -127,8 +159,10 @@ Phrase complète : {ex["phrase_complete"]}
 Traduction : {ex["traduction"]}
 La réponse d'origine est « {bonne} ». Niveau de l'élève : {niveau}.
 
-1. "autres_possibles" : parmi {", ".join(autres) or "(aucune)"}, lesquelles donneraient AUSSI une phrase
-   grammaticale et naturelle à la place de {MARQUEUR} (même si le sens change un peu) ? Liste vide si aucune.
+1. "alternatives" : pour CHAQUE autre réponse possible ({", ".join(autres) or "aucune"}), écris la phrase
+   obtenue en la mettant à la place de {MARQUEUR} ("phrase"), puis indique dans "correcte" si cette phrase
+   est à la fois grammaticale, naturelle pour un Japonais ET fidèle à la traduction ci-dessus.
+   Sois exigeant : une phrase maladroite, rare ou qui change le sens n'est PAS correcte.
 2. "indice" : une piste courte en français qui aide à trouver « {bonne} » sans la donner.
 3. "explication" : en 1 à 3 phrases, pourquoi « {bonne} » est la bonne réponse ici."""
 
@@ -149,20 +183,27 @@ def appeler_ollama(modele: str, messages: list, sans_reflexion: bool = True) -> 
         raise
 
 
-def verifier(ex: dict, cibles: list, niveau: str, modele: str) -> bool:
+def verifier(ex: dict, cibles: list, niveau: str, modele: str) -> tuple:
+    """Renvoie (gardée ?, raison si écartée)."""
     messages = [{"role": "system", "content": PROMPT_SYSTEME},
                 {"role": "user", "content": demande_verif(ex, cibles, niveau)}]
     brut = appeler_ollama(modele, messages)
     brut = re.sub(r"<think>.*?</think>", "", brut, flags=re.S)
-    reponse = json.loads(brut[brut.find("{"): brut.rfind("}") + 1])
+    try:
+        reponse = json.loads(brut[brut.find("{"): brut.rfind("}") + 1])
+    except (ValueError, json.JSONDecodeError):
+        return False, "réponse illisible"
     bonne = norm(ex["reponses"][0])
     ensemble = {norm(c) for c in cibles}
-    autres = {norm(a) for a in reponse.get("autres_possibles", [])} & ensemble - {bonne}
-    if autres:
-        return False
+    for alt in reponse.get("alternatives", []) or []:
+        if not isinstance(alt, dict):
+            continue
+        r = norm(alt.get("reponse", ""))
+        if r in ensemble and r != bonne and alt.get("correcte") is True:
+            return False, f"« {alt.get('phrase', r)} » jugée correcte aussi"
     ex["indice"] = str(reponse.get("indice", "")).strip()
     ex["explication"] = str(reponse.get("explication", "")).strip()
-    return True
+    return True, ""
 
 
 # ---------------------------------------------------------------------------
@@ -186,12 +227,15 @@ def main() -> None:
     p.add_argument("--modele", default=MODELE_PAR_DEFAUT, help=f"modèle Ollama (défaut : {MODELE_PAR_DEFAUT})")
     p.add_argument("--sans-llm", action="store_true", help="ne pas utiliser Ollama (pas de vérification ni d'explication)")
     p.add_argument("--anglais", action="store_true", help="accepter les phrases traduites seulement en anglais")
+    p.add_argument("--tout-contexte", action="store_true",
+                   help="pour les particules : accepter aussi すぐに, には, でも… (écartés par défaut)")
     p.add_argument("--graine", type=int, default=None, help="pour retrouver la même sélection de phrases")
     p.add_argument("--pas-ouvrir", action="store_true", help="ne pas ouvrir la feuille dans le navigateur")
     args = p.parse_args()
 
     cibles = [c.strip() for c in re.split(r"[,，、/\s]+", args.cibles) if c.strip()]
-    par_cible = candidats(cibles, args.pos, args.min_mots, args.max_mots, not args.anglais)
+    par_cible = candidats(cibles, args.pos, args.min_mots, args.max_mots, not args.anglais,
+                          args.tout_contexte)
     for c, liste in par_cible.items():
         print(f"  {c} : {len(liste)} phrase(s) candidate(s)")
     ordre = melanger_equilibre(par_cible, args.graine)
@@ -208,17 +252,15 @@ def main() -> None:
             if len(retenus) >= args.nb or ecartes >= args.nb * 4:
                 break
             try:
-                ok = verifier(ex, cibles, args.niveau, args.modele)
+                ok, raison = verifier(ex, cibles, args.niveau, args.modele)
             except urllib.error.URLError:
                 sys.exit("Impossible de joindre Ollama sur localhost:11434. Lance Ollama, ou utilise --sans-llm.")
-            except (ValueError, json.JSONDecodeError):
-                ok = False
             if ok:
                 retenus.append(ex)
                 print(f"  ✓ {len(retenus)}/{args.nb}  {ex['phrase_complete']}")
             else:
                 ecartes += 1
-                print(f"  ✗ écartée (ambiguë ou réponse illisible) : {ex['phrase_complete']}")
+                print(f"  ✗ écartée : {ex['phrase_complete']}  ({raison})")
         print(f"  {len(retenus)} retenue(s), {ecartes} écartée(s) en {time.time() - t0:.0f} s")
     if not retenus:
         sys.exit("Aucun exercice retenu.")

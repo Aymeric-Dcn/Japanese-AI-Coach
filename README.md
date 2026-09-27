@@ -62,6 +62,7 @@ python creer_exercices.py --cibles "は,が" --pos 助詞 --max-mots 8
 | `--pos` | catégorie grammaticale exigée : `格助詞` (particule de cas), `助詞` (toute particule)… Évite par ex. le で de 読んで | aucune |
 | `--nb` | nombre d'exercices | `10` |
 | `--min-mots` / `--max-mots` | longueur des phrases (≈ difficulté) | `3` / `12` |
+| `--tout-contexte` | particules : accepter aussi すぐに, 親切に, には, でも… (écartés par défaut, seuls les cas « nom + particule » sont gardés) | — |
 | `--sans-llm` | pas de vérification ni d'explication (instantané) | — |
 | `--anglais` | accepter les phrases traduites seulement en anglais (lancer aussi `construire_banque.py --anglais`) | — |
 | `--graine` | retrouver la même sélection de phrases | aléatoire |

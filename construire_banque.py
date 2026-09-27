@@ -106,7 +106,8 @@ def creer_analyseur():
         dico = Dictionary(dict="core")
     except TypeError:  # anciennes versions de SudachiPy
         dico = Dictionary(dict_type="core")
-    tokenizer = dico.create()
+    # SudachiPy ≥ 0.7 : tokenizer() ; versions précédentes : create()
+    tokenizer = dico.tokenizer() if hasattr(dico, "tokenizer") else dico.create()
     return lambda texte: tokenizer.tokenize(texte, SplitMode.C)
 
 
