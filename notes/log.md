@@ -45,3 +45,13 @@ Hardware: RTX 4070 Super 12 GB, 32 GB RAM, Ollama.
 - Files, identifiers, CLI options, console messages and JSON keys renamed to English: `build_bank.py`, `make_exercises.py`, `generate_sheet.py`, shared `sheet.py`; bank is now `data/bank.db`, sheets go to `sheets/`.
 - LLM prompts are now written in English, still asking for French explanations. To watch: does this change the quality of Qwen's answers?
 - Docs: `README.md` (English) and `README.fr.md` (French). The sheet interface stays in French.
+
+## 2026-09-27 — Second run on the real bank (after the fixes)
+
+- に/で: 7,128 and 1,908 candidates. **10 kept, 1 dropped in 58 s** (was 10 kept / 28 dropped in 187 s).
+- The only drop was a Qwen mistake: asked to write the に variant, it copied the original で sentence and judged it correct.
+- Some kept sentences were poor examples: fixed expressions (人によって, お目にかかる, 当てにする).
+- Fixes:
+  - alternative sentences are now built by the script; Qwen only judges them;
+  - new `good_example` judgement: Qwen drops idioms / fixed expressions and grammar far above the level, with a reason;
+  - compound particles (によって, にとって, について, に対して, に関して…) are skipped before asking the LLM.

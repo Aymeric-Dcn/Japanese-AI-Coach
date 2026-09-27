@@ -48,6 +48,8 @@ def token_matches(token: list, targets: set, pos: str) -> bool:
 
 BEFORE_PARTICLE = {"名詞", "代名詞", "接尾辞"}   # the particle must follow a noun
 STACKED_PARTICLES = {"は", "も"}                 # には, では, にも, でも…
+# Verbs that turn に into a compound particle: によって, にとって, について, に対して, に関して…
+COMPOUND_VERBS = {"よる", "因る", "依る", "拠る", "とる", "取る", "つく", "就く", "付く", "対する", "関する"}
 
 
 def simple_context(tokens: list, k: int) -> bool:
@@ -60,6 +62,8 @@ def simple_context(tokens: list, k: int) -> bool:
     if previous is None or previous[1] not in BEFORE_PARTICLE:
         return False
     if following is not None and following[1] == "助詞" and following[0] in STACKED_PARTICLES:
+        return False
+    if following is not None and following[1] == "動詞" and following[4] in COMPOUND_VERBS:
         return False
     return True
 
@@ -127,16 +131,17 @@ CHECK_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "answer": {"type": "string"},
-                    "sentence": {"type": "string"},
                     "correct": {"type": "boolean"},
                 },
-                "required": ["answer", "sentence", "correct"],
+                "required": ["answer", "correct"],
             },
         },
+        "good_example": {"type": "boolean"},
+        "problem": {"type": "string"},
         "hint": {"type": "string"},
         "explanation": {"type": "string"},
     },
-    "required": ["alternatives", "hint", "explanation"],
+    "required": ["alternatives", "good_example", "problem", "hint", "explanation"],
 }
 
 SYSTEM_PROMPT = """You are a rigorous Japanese teacher for a French-speaking student.
@@ -144,21 +149,34 @@ Hints and explanations are written in FRENCH, clearly and concretely.
 You answer only with the requested JSON."""
 
 
+def alternative_sentences(ex: dict, targets: list) -> dict:
+    """{other answer: full sentence with that answer in the blank}, built by the script
+    (the model is only asked to judge them, not to write them)."""
+    answer = normalize(ex["answers"][0])
+    return {t: ex["sentence"].replace(BLANK, t) for t in targets if normalize(t) != answer}
+
+
 def build_check_request(ex: dict, targets: list, level: str) -> str:
     answer = ex["answers"][0]
-    others = [t for t in targets if normalize(t) != normalize(answer)]
-    return f"""Here is a real Japanese sentence (Tatoeba corpus) where one word was replaced by {BLANK}:
+    alternatives = alternative_sentences(ex, targets)
+    listed = "\n".join(f"   - « {a} » → {s}" for a, s in alternatives.items()) or "   (none)"
+    return f"""Here is a real Japanese sentence (Tatoeba corpus) used for a fill-in-the-blank exercise:
 {ex["sentence"]}
-Full sentence: {ex["full_sentence"]}
+Original sentence: {ex["full_sentence"]}
 Translation: {ex["translation"]}
-The original answer is « {answer} ». Student level: {level}.
+The expected answer is « {answer} ». Student level: {level}.
 
-1. "alternatives": for EACH other possible answer ({", ".join(others) or "none"}), write the sentence obtained
-   by putting it in place of {BLANK} ("sentence"), then say in "correct" whether that sentence is
-   grammatical, natural for a native speaker AND faithful to the translation above.
+1. "alternatives": here are the same sentence with each OTHER possible answer in the blank:
+{listed}
+   For each one, give "answer" and say in "correct" whether that exact sentence is grammatical,
+   natural for a native speaker AND faithful to the translation above.
    Be demanding: an awkward or rare sentence, or one that changes the meaning, is NOT correct.
-2. "hint": a short clue in French that helps find « {answer} » without giving it away.
-3. "explanation": in 1 to 3 sentences in French, why « {answer} » is the right answer here."""
+2. "good_example": true if this sentence is a good exercise on « {answer} » for a {level} student:
+   the particle has its normal, basic meaning here. false if « {answer} » is part of a fixed
+   expression or idiom (e.g. お目にかかる, 当てにする, によって), or if the grammar is far above the level.
+   "problem": if false, a few words in English saying why; otherwise an empty string.
+3. "hint": a short clue in French that helps find « {answer} » without giving it away.
+4. "explanation": in 1 to 3 sentences in French, why « {answer} » is the right answer here."""
 
 
 def call_ollama(model: str, messages: list, no_thinking: bool = True) -> str:
@@ -187,14 +205,15 @@ def check_exercise(ex: dict, targets: list, level: str, model: str) -> tuple:
         result = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
     except (ValueError, json.JSONDecodeError):
         return False, "unreadable answer"
-    answer = normalize(ex["answers"][0])
-    target_set = {normalize(t) for t in targets}
+    alternatives = {normalize(a): s for a, s in alternative_sentences(ex, targets).items()}
     for alt in result.get("alternatives", []) or []:
         if not isinstance(alt, dict):
             continue
         a = normalize(alt.get("answer", ""))
-        if a in target_set and a != answer and alt.get("correct") is True:
-            return False, f"« {alt.get('sentence', a)} » judged correct too"
+        if a in alternatives and alt.get("correct") is True:
+            return False, f"« {alternatives[a]} » judged correct too"
+    if result.get("good_example") is False:
+        return False, f"not a good example: {str(result.get('problem', '')).strip() or '?'}"
     ex["hint"] = str(result.get("hint", "")).strip()
     ex["explanation"] = str(result.get("explanation", "")).strip()
     return True, ""
