@@ -69,3 +69,11 @@ Hardware: RTX 4070 Super 12 GB, 32 GB RAM, Ollama.
 - 10 kept, 0 dropped in 53 s. 7/10 good. Bad: それで (conjunction « so »), 何で (« why »), 私のために (ために = purpose, separate grammar point). Qwen's `good_example` check lets these through.
 - Fix: nouns forming fixed words with the particle (それ, 何/なん, ため) are skipped by the script.
 - AnkiConnect installed and reachable. Added `anki_inspect.py` to list decks, card counts and note fields before writing the sync.
+
+## 2026-09-27 — Anki sync
+
+- Collection: Full Japanese Study Deck. Mature (interval ≥ 21 d): 723 N5 + 571 N4 vocab cards, 311 kanji (79 N5, 160 N4, 72 N3). Note types: FJSD-Word, FJSD-Kanji, FJSD-Grammar, FJSD-Kana, FJSD-Radical.
+- `anki_inspect.py` was too slow (read every note, ~50k); now reads one sample note per note type.
+- `anki_sync.py`: known FJSD-Word / FJSD-Kanji notes → `data/known.json` (every kanji form and reading from the ruby HTML).
+- `make_exercises.py --known --max-unknown N [--known-kanji]`: content words (nouns, verbs, adjectives, adverbs…) checked by dictionary form, surface and reading; particles, auxiliaries, numbers, proper nouns and light verbs always count as known. Unknown words are shown on the sheet as « Nouveau ».
+- Tested with a simulated AnkiConnect and bank; to test on the real collection.

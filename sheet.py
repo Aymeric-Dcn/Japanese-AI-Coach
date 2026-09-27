@@ -14,7 +14,7 @@ A sheet is a dict with this shape (lesson and vocabulary are optional):
           "hint": str, "translation": str, "explanation": str,
           # optional:
           "full_sentence": str, "reading": str, "show_translation": bool,
-          "source": str, "source_url": str
+          "source": str, "source_url": str, "new_words": [str]
       }],
       "meta": {"topic": str, "level": str, "model": str, "date": str, "allowed_answers": [str]}
     }
@@ -132,7 +132,7 @@ const UI = {
   choices: "Réponses possibles :", hideReadings: "Masquer les lectures", showReadings: "Afficher les lectures",
   checkAll: "Tout vérifier", reset: "Recommencer", check: "Vérifier", hint: "Indice", showAnswer: "Voir la réponse",
   correct: "✓ <strong>Correct !</strong>", wrong: "✗ Pas tout à fait. Réessaie, demande un indice ou affiche la réponse.",
-  answer: "Réponse :", accepted: "Réponses acceptées :",
+  answer: "Réponse :", accepted: "Réponses acceptées :", newWords: "Nouveau :",
   score: (ok, n, done) => `${ok} / ${n} du premier coup · ${done}/${n} terminés`,
   finished: (ok, n) => `Terminé ! ${ok} / ${n} du premier coup.`,
 };
@@ -187,6 +187,7 @@ DATA.exercises.forEach((ex, i) => {
     <div class="sentence" lang="ja">${esc(before)}<input lang="ja" autocomplete="off" spellcheck="false" data-i="${i}" aria-label="${UI.exercise} ${i + 1}">${esc(after)}</div>
     ${ex.reading ? `<div class="reading" lang="ja">${esc(ex.reading)}</div>` : ""}
     ${ex.show_translation ? `<div class="tr">${esc(ex.translation)}</div>` : ""}
+    ${(ex.new_words || []).length ? `<div class="tr">${UI.newWords} <span lang="ja">${ex.new_words.map(esc).join("、")}</span></div>` : ""}
     <div class="actions">
       <button class="primary" data-action="check" data-i="${i}">${UI.check}</button>
       <button data-action="hint" data-i="${i}"${ex.hint ? "" : " hidden"}>${UI.hint}</button>

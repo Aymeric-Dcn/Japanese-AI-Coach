@@ -65,7 +65,22 @@ python make_exercises.py --targets "は,が" --pos 助詞 --max-words 8
 | `--english` | accepter les phrases traduites seulement en anglais (lancer aussi `build_bank.py --english`) | — |
 | `--level` | niveau de l'élève, pour les explications | `N5` |
 | `--model` | modèle Ollama | `qwen3:14b` |
+| `--known` | seulement les phrases construites avec les mots connus dans Anki (voir plus bas) | — |
+| `--max-unknown` | avec `--known` : nombre de mots inconnus autorisés par phrase (affichés « Nouveau » sur la feuille) | `0` |
+| `--known-kanji` | avec `--known` : tous les kanji doivent aussi être connus | — |
 | `--seed` | retrouver la même sélection de phrases | aléatoire |
+
+### Synchronisation Anki
+
+Avec Anki ouvert et le module [AnkiConnect](https://ankiweb.net/shared/info/2055492159) installé (Outils → Greffons → Obtenir des greffons, code `2055492159`) :
+
+```
+python anki_sync.py                      # cartes matures (intervalle ≥ 21 jours) → data/known.json
+python anki_sync.py --min-interval 0     # toutes les cartes déjà révisées
+python make_exercises.py --targets "に,で" --pos 格助詞 --known --max-unknown 1
+```
+
+`anki_sync.py` lit les notes de mots et de kanji du *Full Japanese Study Deck* (types `FJSD-Word`, `FJSD-Kanji` ; d'autres avec `--word-type` / `--kanji-type`) et garde toutes les formes écrites et lectures. `--max-unknown 1` donne des phrases « i+1 » : tout est connu sauf un mot nouveau. Relancer la synchronisation quand Anki avance. `anki_inspect.py` liste les paquets, le nombre de cartes et les champs.
 
 ### Exercices inventés par le LLM
 
@@ -93,6 +108,7 @@ build_bank.py       Tatoeba → SudachiPy → data/bank.db
 make_exercises.py   feuille d'exercices à partir de la banque (+ vérification et explications par le LLM)
 generate_sheet.py   feuille d'exercices entièrement générée par le LLM
 sheet.py            fonctions communes et page HTML interactive
+anki_sync.py        mots et kanji connus dans Anki → data/known.json
 anki_inspect.py     liste les paquets Anki, le nombre de cartes et les champs (AnkiConnect)
 notes/log.md        journal des tests (modèles, prompts, résultats), en anglais
 ```
@@ -103,7 +119,7 @@ notes/log.md        journal des tests (modèles, prompts, résultats), en anglai
 - [x] **Banque de phrases** Tatoeba découpées par SudachiPy, trous exacts, le LLM ne fait qu'écarter les phrases ambiguës et expliquer
 - [ ] Exercices sur les formes verbales (forme en て, passé, négatif…) à partir de la banque
 - [ ] Vérification du vocabulaire avec [JMdict](https://www.edrdg.org/jmdict/j_jmdict.html)
-- [ ] **Synchronisation Anki** (AnkiConnect) : choisir des phrases dont je connais déjà le vocabulaire
+- [x] **Synchronisation Anki** (AnkiConnect) : choisir des phrases dont je connais déjà le vocabulaire (i+1)
 - [ ] Suivi des erreurs et **répétition espacée**
 - [ ] **Chat** avec le prof (explications, correction de phrases libres)
 - [ ] Jeu de tests pour **mesurer** la fiabilité des modèles et des prompts

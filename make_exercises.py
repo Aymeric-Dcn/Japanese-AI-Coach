@@ -31,6 +31,7 @@ from pathlib import Path
 from sheet import BLANK, normalize, save_sheet, split_list
 
 BANK_PATH = Path("data") / "bank.db"
+KNOWN_PATH = Path("data") / "known.json"
 OLLAMA_URL = "http://localhost:11434/api/chat"
 DEFAULT_MODEL = "qwen3:14b"
 
@@ -77,9 +78,48 @@ def simple_context(tokens: list, k: int) -> bool:
     return True
 
 
+# ---------------------------------------------------------------------------
+# Known vocabulary (from anki_sync.py)
+# ---------------------------------------------------------------------------
+
+# Parts of speech checked against the known vocabulary. Particles, auxiliaries, suffixes,
+# pronouns, numbers, proper nouns and "light" verbs (いる, ある, する…) always count as known.
+CONTENT_POS = {"名詞", "動詞", "形容詞", "形状詞", "副詞", "連体詞", "接続詞"}
+ALWAYS_KNOWN_SUB = {"数詞", "固有名詞", "非自立可能"}
+KANJI = re.compile(r"[\u3400-\u9fff々]")
+
+
+def load_known() -> dict:
+    if not KNOWN_PATH.exists():
+        sys.exit(f"Known vocabulary not found ({KNOWN_PATH}). Open Anki and run: python anki_sync.py")
+    data = json.loads(KNOWN_PATH.read_text(encoding="utf-8"))
+    words = {normalize(w) for w in data.get("words", [])}
+    kanji = set(data.get("kanji", [])) | {c for w in words for c in w if KANJI.match(c)}
+    print(f"  known vocabulary: {len(words)} forms, {len(kanji)} kanji (Anki sync of {data.get('date', '?')})")
+    return {"words": words, "kanji": kanji}
+
+
+def unknown_words(tokens: list, skip: int, known: dict) -> list:
+    """Content words of the sentence that are not in the known vocabulary (the blank is skipped)."""
+    unknown = []
+    for k, t in enumerate(tokens):
+        if k == skip or t[1] not in CONTENT_POS or t[2] in ALWAYS_KNOWN_SUB:
+            continue
+        forms = {normalize(t[0]), normalize(t[4]), normalize(t[3])}
+        if not forms & known["words"]:
+            unknown.append(t[4] or t[0])
+    return list(dict.fromkeys(unknown))
+
+
+def unknown_kanji(sentence: str, known: dict) -> list:
+    return sorted({c for c in sentence if KANJI.match(c) and c not in known["kanji"]})
+
+
 def find_candidates(targets: list, pos: str, min_words: int, max_words: int, french_only: bool,
-                    any_context: bool = False) -> dict:
-    """Returns {target: [exercise, …]} for sentences containing exactly ONE of the targets."""
+                    any_context: bool = False, known: dict = None, max_unknown: int = 0,
+                    known_kanji_only: bool = False) -> dict:
+    """Returns {target: [exercise, …]} for sentences containing exactly ONE of the targets.
+    With `known`, sentences with more than `max_unknown` unknown words are skipped."""
     if not BANK_PATH.exists():
         sys.exit(f"Bank not found ({BANK_PATH}). Run first: python build_bank.py")
     target_set = {normalize(t) for t in targets}
@@ -96,6 +136,13 @@ def find_candidates(targets: list, pos: str, min_words: int, max_words: int, fre
         k = positions[0]
         if not any_context and not simple_context(tokens, k):
             continue
+        new_words = []
+        if known is not None:
+            new_words = unknown_words(tokens, k, known)
+            if len(new_words) > max_unknown:
+                continue
+            if known_kanji_only and unknown_kanji(jp, known):
+                continue
         before = "".join(t[0] for t in tokens[:k])
         after = "".join(t[0] for t in tokens[k + 1:])
         reading = "".join(t[3] for t in tokens[:k]) + BLANK + "".join(t[3] for t in tokens[k + 1:])
@@ -110,6 +157,7 @@ def find_candidates(targets: list, pos: str, min_words: int, max_words: int, fre
             "explanation": "",
             "source": f"Tatoeba #{id_}",
             "source_url": f"https://tatoeba.org/fr/sentences/show/{id_}",
+            "new_words": new_words,
         })
     db.close()
     return by_target
@@ -251,18 +299,26 @@ def main() -> None:
     p.add_argument("--english", action="store_true", help="accept sentences translated only into English")
     p.add_argument("--any-context", action="store_true",
                    help="particles: also accept すぐに, には, でも… (dropped by default)")
+    p.add_argument("--known", action="store_true",
+                   help="only sentences built from the words you know in Anki (run anki_sync.py first)")
+    p.add_argument("--max-unknown", type=int, default=0,
+                   help="with --known: number of unknown words allowed per sentence (default: 0)")
+    p.add_argument("--known-kanji", action="store_true",
+                   help="with --known: also require every kanji of the sentence to be known")
     p.add_argument("--seed", type=int, default=None, help="to get the same selection of sentences again")
     p.add_argument("--no-open", action="store_true", help="do not open the sheet in the browser")
     args = p.parse_args()
 
     targets = split_list(args.targets)
+    known = load_known() if args.known else None
     by_target = find_candidates(targets, args.pos, args.min_words, args.max_words, not args.english,
-                                args.any_context)
+                                args.any_context, known, args.max_unknown, args.known_kanji)
     for t, pool in by_target.items():
         print(f"  {t}: {len(pool)} candidate sentence(s)")
     order = balanced_order(by_target, args.seed)
     if not order:
-        sys.exit("No sentence found. Try a larger --max-words, remove --pos, or add --english.")
+        sys.exit("No sentence found. Try a larger --max-words, remove --pos, add --english"
+                 + (", or allow unknown words with --max-unknown 1." if known else "."))
 
     kept, dropped = [], 0
     if args.no_llm:
