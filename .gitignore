@@ -1,0 +1,21 @@
+# Feuilles générées
+feuilles/
+
+# Données téléchargées ou personnelles (ne jamais publier)
+data/
+sources/
+*.db
+*.sqlite
+*.apkg
+*.colpkg
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets et divers
+.env
+.DS_Store
+Thumbs.db
