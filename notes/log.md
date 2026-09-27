@@ -114,3 +114,14 @@ Hardware: RTX 4070 Super 12 GB, 32 GB RAM, Ollama.
 - Free practice: choose topics, quick picks (all particles → hard mode, all conjugations, N5, N4).
 - New conjugation forms (volitional, ながら, ば, たら, causative) and のに/ので: tokenization assumptions not checked on real SudachiPy yet — some may find few or no sentences.
 - make_exercises refactored: generate() / generate_topic() reusable by fill_reserve and the server.
+
+## 2026-09-28 — Anki without Anki, JLPT, deeper chat, autostart
+
+- Reserve fill from the app worked: ます, は/が, を/が +15 each, 0 dropped, ~77 s per topic. Suspicious: Qwen still drops nothing; は/が sentences like 私は来週出発します may accept が too.
+- `anki_db.py` + new `anki_sync.py`: reads a copy of collection.anki2 (Anki closed or open), detects note types of any deck (data/anki.json), exports lexicon (forms, reading, meaning, JLPT level from the deck path or tags), grammar points (FJSD-Grammar: 644 points), kanji with on/kun'yomi. AnkiConnect kept as a fallback.
+- `jlpt_data.py`: open JLPT vocabulary lists (open-anki-jlpt-decks, MIT, from tanos.co.uk CC BY) into the lexicon.
+- `jlpt_questions.py`: 漢字読み (rule-based wrong readings), 表記 (kanji sharing an on'yomi), 文脈規定 and 文法形式 (LLM-checked), 並べ替え ★ (sentence pieces). `conjugate.py` for verb-form choices; the bank now stores the conjugation type (rebuild).
+- JLPT tab: practice (multiple choice in the session, keys 1–4) and timed mock exams with score per section and history.
+- Chat: `knowledge.py` injects references (Anki grammar notes, programme notes, lexicon, Tatoeba sentences) and shows which were used; modes Prof / Conversation (7 situations) / Quiz.
+- `install_autostart.py` + startup maintenance (Anki sync once a day, reserve and JLPT top-up when Ollama answers), settings in the app.
+- Tested with a simulated Anki collection (new and old formats), SudachiPy, Ollama and headless Chromium. To check on the real machine: FJSD field parsing, JLPT question quality (especially 並べ替え and 文脈規定), conjugation types from SudachiPy.

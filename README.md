@@ -2,7 +2,7 @@
 
 *[Version française](README.fr.md)*
 
-A personal Japanese tutor that runs **entirely on your computer**: a small web app with daily fill-in-the-blank exercises built from real sentences, spaced repetition of your mistakes, and a chat with a tutor powered by a local LLM ([Ollama](https://ollama.com)).
+A personal Japanese tutor that runs **entirely on your computer**: a small web app with daily exercises built from real sentences following a JLPT N5 → N4 programme, spaced repetition of your mistakes, JLPT-style questions and timed mock exams, and a chat with a tutor powered by a local LLM ([Ollama](https://ollama.com)).
 
 > A learning project: learning Japanese, and learning how to set up an LLM along the way.
 
@@ -10,21 +10,24 @@ A personal Japanese tutor that runs **entirely on your computer**: a small web a
 
 ```
 Tatoeba ──► build_bank.py ──► data/bank.db (real sentences, split by SudachiPy)
-Anki ─────► anki_sync.py ───► data/known.json (words and kanji you know)
+Anki ─────► anki_sync.py ───► data/known.json, lexicon.db, grammar.json, kanji.json
+(file read directly, Anki can be closed; any deck)   + jlpt_data.py: open JLPT word lists
                     │
                     ▼
             make_exercises.py --save   (picks sentences, makes the blank,
                     │                   Qwen drops doubtful ones and explains)
                     ▼
             data/coach.db ◄──► server.py + web/  →  http://localhost:8000
-            (reserve, answers,          Session · Prof (chat) · Progrès
+            (reserve, answers,          Session · JLPT · Prof (chat) · Progrès
              review schedule, chat)
 ```
 
 - **Exercises from real sentences**: the answer is the original text, readings come from the analyzer; the LLM invents nothing, it only filters and explains.
 - **Your level**: with the Anki sync, only sentences whose words you already know (or all but one: « i+1 »).
 - **Spaced repetition**: a missed exercise comes back at the end of the session and the next day; a right one after 1, 3, 7, 16 days, then longer.
-- **Tutor chat**: questions, explanations, correction of your own sentences (analyzed by SudachiPy first), « Demander au prof » from any exercise. The tutor knows your recent mistakes.
+- **JLPT**: 漢字読み, 表記, 文脈規定, 文法形式 and 並べ替え ★ questions by level, practice with instant correction or timed mock exams scored by section.
+- **Tutor chat**, three modes: « Prof » (questions, explanations, corrections), « Conversation » (simple Japanese with translation and corrections, 7 situations), « Quiz » (on your weak points). Before answering, the tutor gets reliable references: your Anki grammar notes, the programme's notes, your lexicon, real Tatoeba sentences.
+- **Hands-off**: the app can start with Windows; at each start it syncs Anki (once a day) and tops up the exercises.
 
 The app interface, hints and explanations are in French.
 
@@ -47,7 +50,9 @@ Tested on: Windows, RTX 4070 Super (12 GB VRAM), 32 GB RAM.
 
 ```
 python build_bank.py                       # once: download and analyze Tatoeba (a few minutes)
-python anki_sync.py                        # with Anki open: your known words → data/known.json
+python jlpt_data.py                        # once: open JLPT word lists (levels of words)
+python anki_sync.py                        # your known words, lexicon, grammar (Anki can be closed)
+python install_autostart.py                # optional: start the app with Windows, in the background
 python server.py --open                    # the app, on http://localhost:8000
 ```
 
@@ -100,6 +105,18 @@ Custom topics: `--targets "に,で" --pos 格助詞 --title "…"` for particles
 
 Everything is stored in `data/coach.db` (SQLite). Nothing leaves your computer.
 
+### Anki (`anki_sync.py`)
+
+The collection file (`%APPDATA%\Anki2\<profile>\collection.anki2`) is copied and read directly: Anki can be closed, nothing is ever written to it. The first run detects which note types hold words, kanji and grammar and saves it in `data/anki.json`; `python anki_sync.py --setup` shows what was detected, and you can edit the file (role `ignore` skips a note type). It works with any deck, several decks, or a friend's collection (`--collection path`). `--source ankiconnect` goes through the add-on instead.
+
+### JLPT (`jlpt_questions.py`, JLPT tab)
+
+`python jlpt_questions.py --level N4` (or « Générer des questions » in the app) adds 10 questions of each type for the level. The level of a question is the JLPT level of its words (your Anki deck's JLPT sub-decks, or the open lists of `jlpt_data.py`). 表記 needs kanji notes with on'yomi (Anki). 文法形式 and 文脈規定 are checked by the LLM (another choice must not fit too). Mock exam: questions per type like the real test (without reading comprehension), 1 minute per question, score per section, mistakes back into the reviews.
+
+### Background start (`install_autostart.py`)
+
+Adds a launcher to the Windows Startup folder: `pythonw server.py` runs without a window; open http://localhost:8000. At startup the server syncs Anki (once a day), waits for Ollama, then tops up the reserve and the JLPT questions (checkboxes in Progrès, or `data/settings.json`). Logs: `data/server.log`. Remove with `--uninstall`.
+
 ### Measuring the LLM (`evaluate.py`)
 
 ```
@@ -121,7 +138,11 @@ server.py           the app: web server + JSON API (standard library only)
 web/                the interface (index.html, app.css, app.js)
 store.py            progress database: reserve, answers, schedule, chat
 srs.py              spaced repetition intervals
-curriculum.py       the study programme: topics N5 → N4, progression rules
+curriculum.py       the study programme: topics N5 → N4, progression rules, grammar notes
+jlpt_questions.py   JLPT-style multiple choice by level; conjugate.py: verb conjugator
+knowledge.py        references for the chat (grammar notes, lexicon, real sentences)
+anki_db.py          reads an Anki collection file;  lexicon.py: word levels and meanings
+jlpt_data.py        open JLPT word lists;  install_autostart.py: start with Windows
 fill_reserve.py     tops up the reserve following the programme
 tutor.py            the chat tutor: prompt, student context, sentence analysis
 llm.py              Ollama client (structured answers, streaming)
@@ -143,6 +164,11 @@ notes/log.md        test log (models, prompts, results)
 - [x] **Chat** with the tutor (explanations, correcting my sentences, questions about an exercise)
 - [x] **Test set** to measure the LLM check
 - [ ] Improve the check using the test set (prompt, model)
+- [x] Anki without Anki (collection file), any deck, lexicon and grammar import
+- [x] **JLPT** questions (5 types) by level, practice and timed mock exams
+- [x] Chat with references (grammar, lexicon, real sentences) and conversation / quiz modes
+- [x] Start with Windows, daily Anki sync and reserve top-up
+- [ ] Reading comprehension (読解) and listening questions
 - [ ] Vocabulary checks with [JMdict](https://www.edrdg.org/jmdict/j_jmdict.html)
 - [x] **Programme** N5 → N4 with progression, free practice, « Je maîtrise déjà »
 - [x] Fill the reserve from the app
@@ -152,4 +178,4 @@ notes/log.md        test log (models, prompts, results)
 
 This repository only contains code, prompts and documentation. Downloaded or personal data (`data/`, `sources/`, SQLite databases, generated sheets) is excluded by `.gitignore`. No content taken from copyrighted textbooks may be published here.
 
-Open sources: Tatoeba (CC BY 2.0 FR), JMdict / KANJIDIC (CC BY-SA 4.0, EDRDG), Tae Kim's grammar guide (CC BY-NC-SA 3.0).
+Open sources: Tatoeba (CC BY 2.0 FR), open-anki-jlpt-decks (MIT) built from Jonathan Waller's JLPT lists on tanos.co.uk (CC BY), JMdict / KANJIDIC (CC BY-SA 4.0, EDRDG, planned). Your own Anki decks stay on your computer (`data/`, never committed).
