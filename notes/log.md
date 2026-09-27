@@ -77,3 +77,10 @@ Hardware: RTX 4070 Super 12 GB, 32 GB RAM, Ollama.
 - `anki_sync.py`: known FJSD-Word / FJSD-Kanji notes → `data/known.json` (every kanji form and reading from the ruby HTML).
 - `make_exercises.py --known --max-unknown N [--known-kanji]`: content words (nouns, verbs, adjectives, adverbs…) checked by dictionary form, surface and reading; particles, auxiliaries, numbers, proper nouns and light verbs always count as known. Unknown words are shown on the sheet as « Nouveau ».
 - Tested with a simulated AnkiConnect and bank; to test on the real collection.
+
+## 2026-09-27 — First run with the Anki sync
+
+- `anki_sync.py`: 1,294 known word notes → 2,776 forms; 311 kanji (1,014 kanji counting those inside known words).
+- `--known --max-unknown 1`: 4,287 に and 1,090 で candidates (was 6,855 / 1,908 without the filter). 10 kept, 0 dropped in 55 s.
+- ~9/10 good (日本に帰る, 交通事故で, 一人で, この点で, タクシーで…). Weak one: 楽しみにしています (fixed expression 楽しみにする), let through by Qwen.
+- Qwen dropped nothing for the third run in a row: its `good_example` check looks weak; a test set is needed to measure it.
