@@ -21,3 +21,10 @@ Matériel : RTX 4070 Super 12 Go, 32 Go RAM, Ollama.
 - Génération de quelques exercices en plus et nouvel essai si besoin, pour atteindre le nombre demandé.
 
 **Conclusion** : un modèle local invente des phrases *et* leurs réponses avec des erreurs. Piste retenue : banque d'exercices à partir de vraies phrases (Tatoeba) + analyseur morphologique, le LLM servant seulement à annoter et expliquer.
+
+## 2026-09-27 — Banque de vraies phrases
+
+- `construire_banque.py` : Tatoeba (japonais avec traduction française) → SudachiPy → `data/banque.db`.
+- `creer_exercices.py` : trous faits par le script sur la phrase d'origine, filtrage par catégorie grammaticale (`--pos 格助詞` écarte le で de 読んで), une seule cible par phrase, alternance équilibrée des réponses.
+- Le LLM (qwen3:14b, sans mode réflexion) ne fait plus que : signaler si une autre réponse serait possible (phrase écartée), écrire indice et explication.
+- Testé sur données simulées ; reste à tester sur la vraie banque.

@@ -387,6 +387,8 @@ background:transparent;color:var(--text);text-align:center;outline:none}
 .exo.ko .feedback{background:var(--ko-bg)}
 [hidden]{display:none!important}
 .fin{text-align:center;font-size:1.1rem;margin-top:24px}
+.exo > .lecture, .exo > .fr{margin:-.4rem 0 .6rem}
+.source{color:var(--muted);font-size:.8rem}
 .choix{margin:.4rem 0 0}
 .choix span{display:inline-block;font-size:1.2rem;padding:0 10px;margin:0 4px;border:1px solid var(--border);
 border-radius:6px;background:var(--card)}
@@ -404,14 +406,17 @@ const meta = DATA.meta || {};
 let html = `<p class="meta">${esc(meta.niveau || "")}${meta.date ? " · " + esc(meta.date) : ""}${meta.modele ? " · " + esc(meta.modele) : ""}</p>
 <h1>${esc(DATA.titre)}</h1>`;
 
-html += `<h2>Cours</h2><div class="card"><p>${esc(DATA.cours.introduction)}</p></div>`;
-for (const p of DATA.cours.points) {
-  html += `<div class="card"><div class="regle">${esc(p.regle)}</div>`;
-  for (const e of p.exemples) {
-    html += `<div class="exemple"><div class="jp" lang="ja">${esc(e.jp)}</div>
-      <div class="lecture" lang="ja">${esc(e.lecture)}</div><div class="fr">${esc(e.fr)}</div></div>`;
+if (DATA.cours && (DATA.cours.introduction || (DATA.cours.points || []).length)) {
+  html += `<h2>Cours</h2>`;
+  if (DATA.cours.introduction) html += `<div class="card"><p>${esc(DATA.cours.introduction)}</p></div>`;
+  for (const p of DATA.cours.points || []) {
+    html += `<div class="card"><div class="regle">${esc(p.regle)}</div>`;
+    for (const e of p.exemples || []) {
+      html += `<div class="exemple"><div class="jp" lang="ja">${esc(e.jp)}</div>
+        <div class="lecture" lang="ja">${esc(e.lecture)}</div><div class="fr">${esc(e.fr)}</div></div>`;
+    }
+    html += `</div>`;
   }
-  html += `</div>`;
 }
 
 if (DATA.vocabulaire && DATA.vocabulaire.length) {
@@ -439,9 +444,11 @@ DATA.exercices.forEach((ex, i) => {
   html += `<div class="card exo" id="exo-${i}">
     <div class="num">Exercice ${i + 1}</div>
     <div class="phrase" lang="ja">${esc(avant)}<input lang="ja" autocomplete="off" spellcheck="false" data-i="${i}" aria-label="Réponse exercice ${i + 1}">${esc(apres)}</div>
+    ${ex.lecture ? `<div class="lecture" lang="ja">${esc(ex.lecture)}</div>` : ""}
+    ${ex.traduction_avant ? `<div class="fr">${esc(ex.traduction)}</div>` : ""}
     <div class="actions">
       <button class="primary" data-action="verifier" data-i="${i}">Vérifier</button>
-      <button data-action="indice" data-i="${i}">Indice</button>
+      <button data-action="indice" data-i="${i}"${ex.indice ? "" : " hidden"}>Indice</button>
       <button data-action="reponse" data-i="${i}" hidden>Voir la réponse</button>
     </div>
     <div class="indice" hidden>💡 ${esc(ex.indice)}</div>
@@ -459,7 +466,10 @@ const champ = i => exo(i).querySelector("input");
 function corrige(i, message) {
   const ex = DATA.exercices[i];
   const autres = ex.reponses.length > 1 ? `<br>Réponses acceptées : <span lang="ja">${ex.reponses.map(esc).join(" / ")}</span>` : "";
-  return `${message}${autres}<br><span class="fr">${esc(ex.traduction)}</span><br>${esc(ex.explication)}`;
+  const trad = ex.traduction && !ex.traduction_avant ? `<br><span class="fr">${esc(ex.traduction)}</span>` : "";
+  const expl = ex.explication ? `<br>${esc(ex.explication)}` : "";
+  const src = ex.source_url ? `<br><a class="source" href="${esc(ex.source_url)}" target="_blank" rel="noopener">${esc(ex.source || "source")}</a>` : "";
+  return `${message}${autres}${trad}${expl}${src}`;
 }
 
 function verifier(i) {
