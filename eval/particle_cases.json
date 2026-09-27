@@ -1,0 +1,37 @@
+{
+  "description": "Test set for the LLM check in make_exercises.py (particles に / で). expected: keep = good exercise, one single answer; ambiguous = the other particle is also natural, the sentence must be dropped; not_example = idiom, fixed expression or adverb, the sentence must be dropped.",
+  "targets": ["に", "で"],
+  "cases": [
+    {"sentence": "電車___学校へ行きます。", "answer": "で", "translation": "Je vais à l'école en train.", "expected": "keep"},
+    {"sentence": "毎朝七時___起きます。", "answer": "に", "translation": "Je me lève à sept heures tous les matins.", "expected": "keep"},
+    {"sentence": "図書館___本を読みます。", "answer": "で", "translation": "Je lis des livres à la bibliothèque.", "expected": "keep"},
+    {"sentence": "兄は東京___住んでいます。", "answer": "に", "translation": "Mon grand frère habite à Tokyo.", "expected": "keep"},
+    {"sentence": "箸___ご飯を食べます。", "answer": "で", "translation": "Je mange le riz avec des baguettes.", "expected": "keep"},
+    {"sentence": "友達___手紙を書きました。", "answer": "に", "translation": "J'ai écrit une lettre à un ami.", "expected": "keep"},
+    {"sentence": "公園___子供たちが遊んでいる。", "answer": "で", "translation": "Des enfants jouent dans le parc.", "expected": "keep"},
+    {"sentence": "机の上___本があります。", "answer": "に", "translation": "Il y a un livre sur le bureau.", "expected": "keep"},
+    {"sentence": "日本語___話してください。", "answer": "で", "translation": "Parlez en japonais, s'il vous plaît.", "expected": "keep"},
+    {"sentence": "駅___着いたら電話してください。", "answer": "に", "translation": "Appelle-moi quand tu arrives à la gare.", "expected": "keep"},
+    {"sentence": "風邪___学校を休んだ。", "answer": "で", "translation": "J'ai manqué l'école à cause d'un rhume.", "expected": "keep"},
+    {"sentence": "将来、医者___なりたい。", "answer": "に", "translation": "Plus tard, je veux devenir médecin.", "expected": "keep"},
+    {"sentence": "母は台所___料理をしています。", "answer": "で", "translation": "Ma mère fait la cuisine dans la cuisine.", "expected": "keep"},
+    {"sentence": "明日三時___会いましょう。", "answer": "に", "translation": "Retrouvons-nous demain à trois heures.", "expected": "keep"},
+    {"sentence": "部屋___猫がいる。", "answer": "に", "translation": "Il y a un chat dans la chambre.", "expected": "keep"},
+    {"sentence": "バス___会社に行きます。", "answer": "で", "translation": "Je vais au bureau en bus.", "expected": "keep"},
+    {"sentence": "来年、日本___行きたいです。", "answer": "に", "translation": "L'année prochaine, je voudrais aller au Japon.", "expected": "keep"},
+    {"sentence": "レストラン___晩ご飯を食べました。", "answer": "で", "translation": "J'ai dîné au restaurant.", "expected": "keep"},
+
+    {"sentence": "ここ___名前を書いてください。", "answer": "に", "translation": "Écrivez votre nom ici, s'il vous plaît.", "expected": "ambiguous"},
+    {"sentence": "授業は三時___終わります。", "answer": "に", "translation": "Le cours se termine à trois heures.", "expected": "ambiguous"},
+    {"sentence": "明日は駅___集まりましょう。", "answer": "に", "translation": "Demain, retrouvons-nous à la gare.", "expected": "ambiguous"},
+    {"sentence": "庭___花を植えました。", "answer": "に", "translation": "J'ai planté des fleurs dans le jardin.", "expected": "ambiguous"},
+
+    {"sentence": "夏休みを楽しみ___しています。", "answer": "に", "translation": "J'attends les vacances d'été avec impatience.", "expected": "not_example"},
+    {"sentence": "そんなこと、気___しないでください。", "answer": "に", "translation": "Ne vous en faites pas pour ça.", "expected": "not_example"},
+    {"sentence": "本当___ありがとうございました。", "answer": "に", "translation": "Merci vraiment beaucoup.", "expected": "not_example"},
+    {"sentence": "それ___、どうしたの？", "answer": "で", "translation": "Et alors, qu'est-ce qui s'est passé ?", "expected": "not_example"},
+    {"sentence": "先生にお目___かかりました。", "answer": "に", "translation": "J'ai rencontré le professeur.", "expected": "not_example"},
+    {"sentence": "急___雨が降り出した。", "answer": "に", "translation": "Il s'est soudain mis à pleuvoir.", "expected": "not_example"},
+    {"sentence": "これは私___とって大切なことです。", "answer": "に", "translation": "C'est une chose importante pour moi.", "expected": "not_example"}
+  ]
+}
