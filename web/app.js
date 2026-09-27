@@ -129,13 +129,19 @@ function showExercise() {
   $("progress-fill").style.width = `${100 * S.pos / S.queue.length}%`;
 
   const allowed = ex.allowed_answers || [];
-  $("exo-choices").innerHTML = allowed.length && ex.kind !== "conjugation"
-    ? "Réponses possibles : " + allowed.map(a => `<span lang="ja">${esc(a)}</span>`).join("") : "";
+  if (ex.cue) {
+    $("exo-choices").innerHTML = `Verbe à conjuguer : <span class="ans" lang="ja">${esc(ex.cue)}</span>` +
+      (ex.cue_reading ? ` <span class="muted" lang="ja">（${esc(ex.cue_reading)}）</span>` : "") +
+      ` <span class="muted small">· réponse en kanji ou en kana</span>`;
+  } else {
+    $("exo-choices").innerHTML = allowed.length && !$("hard-mode").checked
+      ? "Réponses possibles : " + allowed.map(a => `<span class="ans" lang="ja">${esc(a)}</span>`).join("") : "";
+  }
 
   const [before, after] = ex.sentence.split(BLANK);
   const width = Math.max(4, (ex.answers[0] || "").length + 2);
   $("exo-sentence").innerHTML = `${esc(before)}<input id="answer" lang="ja" autocomplete="off" spellcheck="false"
-    aria-label="Réponse" style="width:${width}em">${ex.cue ? `<span class="cue">（${esc(ex.cue)}）</span>` : ""}${esc(after ?? "")}`;
+    aria-label="Réponse" style="width:${width}em">${esc(after ?? "")}`;
   $("exo-reading").textContent = ex.reading || "";
   $("exo-translation").textContent = ex.show_translation ? (ex.translation || "") : "";
   $("exo-new").innerHTML = (ex.new_words || []).length ? `Nouveau : <span lang="ja">${ex.new_words.map(esc).join("、")}</span>` : "";
@@ -258,6 +264,8 @@ $("btn-readings").addEventListener("click", e => {
   e.target.textContent = hidden ? "Afficher la lecture" : "Masquer la lecture";
   store("hideReadings", hidden ? "1" : "0");
 });
+$("hard-mode").checked = store("hardMode") === "1";
+$("hard-mode").addEventListener("change", e => store("hardMode", e.target.checked ? "1" : "0"));
 if (store("hideReadings") === "1") {
   document.body.classList.add("hide-readings");
   $("btn-readings").textContent = "Afficher la lecture";
@@ -292,14 +300,19 @@ function markdown(text) {
   let html = "", list = null, para = [];
   const inline = s => s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
   const flushPara = () => { if (para.length) { html += `<p>${para.map(inline).join("<br>")}</p>`; para = []; } };
-  const flushList = () => { if (list) { html += `<${list.tag}>${list.items.map(i => `<li>${inline(i)}</li>`).join("")}</${list.tag}>`; list = null; } };
+  const flushList = () => {
+    if (!list) return;
+    const start = list.tag === "ol" && list.start > 1 ? ` start="${list.start}"` : "";
+    html += `<${list.tag}${start}>${list.items.map(i => `<li>${inline(i)}</li>`).join("")}</${list.tag}>`;
+    list = null;
+  };
   for (const line of lines) {
-    const bullet = line.match(/^\s*[-*・]\s+(.*)/), num = line.match(/^\s*\d+[.)]\s+(.*)/);
+    const bullet = line.match(/^\s*[-*・]\s+(.*)/), num = line.match(/^\s*(\d+)[.)]\s+(.*)/);
     if (bullet || num) {
       flushPara();
       const tag = bullet ? "ul" : "ol";
-      if (!list || list.tag !== tag) { flushList(); list = {tag, items: []}; }
-      list.items.push((bullet || num)[1]);
+      if (!list || list.tag !== tag) { flushList(); list = {tag, items: [], start: num ? +num[1] : 1}; }
+      list.items.push(bullet ? bullet[1] : num[2]);
     } else if (!line.trim()) {
       flushPara(); flushList();
     } else {

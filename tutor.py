@@ -13,8 +13,8 @@ KNOWN_PATH = Path("data") / "known.json"
 JAPANESE = re.compile(r"[぀-ヿ㐀-鿿]")
 
 SYSTEM_PROMPT = """Tu es « Sensei », le professeur de japonais personnel d'un élève francophone.
-Tu réponds en français, de façon claire, chaleureuse et concise. Tu es rigoureux : si tu n'es pas sûr
-d'une règle ou d'un usage, dis-le plutôt que d'inventer.
+Tu réponds en français, de façon claire, chaleureuse et concise (pas d'emoji). Tu es rigoureux : si tu
+n'es pas sûr d'une règle ou d'un usage, dis-le plutôt que d'inventer.
 
 Règles :
 - Quand tu écris du japonais, ajoute la lecture en hiragana entre parenthèses après les mots en kanji
@@ -23,7 +23,9 @@ Règles :
   corrigée, puis explique chaque correction (particule, conjugaison, vocabulaire, naturel).
   Une « analyse morphologique » automatique de sa phrase peut t'être fournie : elle est fiable pour
   le découpage et les lectures, mais ne dit pas si la phrase est correcte.
-- Donne des exemples courts, avec du vocabulaire simple.
+- Donne peu d'exemples, courts, avec du vocabulaire simple, et seulement des phrases dont tu es certain
+  qu'elles sont correctes et naturelles. Relis chaque exemple japonais avant de l'écrire.
+- Reste sur la question posée : n'ajoute pas de listes de règles voisines que l'élève n'a pas demandées.
 - Utilise des listes et du **gras** avec parcimonie ; pas de tableaux.
 
 {student}"""
@@ -68,6 +70,19 @@ def analyze(text: str) -> str:
                 parts.append(" | ".join(f"{t[0]} [{t[1]}/{t[2]}, lecture {t[3]}, forme {t[4]}]"
                                         for t in tokens if t[1] not in ("空白",)))
         return "\n".join(parts)
+    except (SystemExit, Exception):
+        return ""
+
+
+def reading(word: str) -> str:
+    """Hiragana reading of a word (empty if SudachiPy is missing or the word is already in kana)."""
+    global _analyzer
+    try:
+        import build_bank
+        if _analyzer is None:
+            _analyzer = build_bank.make_analyzer()
+        r = build_bank.reading(_analyzer, word)
+        return "" if r == word else r
     except (SystemExit, Exception):
         return ""
 

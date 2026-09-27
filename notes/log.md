@@ -94,3 +94,14 @@ Hardware: RTX 4070 Super 12 GB, 32 GB RAM, Ollama.
 - Chat (tutor.py): French tutor prompt, student context (vocabulary size from Anki, last 8 mistakes), SudachiPy analysis of Japanese sentences sent for correction, « Demander au prof » from an exercise; answers streamed from Ollama.
 - `evaluate.py` + `eval/particle_cases.json`: 29 hand-made に/で cases (18 keep, 4 ambiguous, 7 not_example) to score the LLM check.
 - Tested here with simulated SudachiPy / Ollama and headless Chromium (session flow, requeue of missed exercises, schedule, chat streaming, progress). Not yet tested with the real Qwen, SudachiPy and Anki.
+
+## 2026-09-27 — First real use of the app
+
+- Reserve: 20 に/で (0 dropped, 101 s) and 20 て-form (0 dropped, 96 s). First session: 10 exercises, 6 right on the first try. Conjugation exercises and the overall feedback: good.
+- Chat: answer on 手伝ってくれる was on the right track but with a wrong example (彼は私を待ってください) and dubious extra rules on 〜ていく / 〜てくる; numbered list shown as 1., 1., 1.
+- Fixes: tutor prompt (few, simple, checked examples; stay on the question; no emoji), chat temperature 0.5 → 0.3; numbered lists keep their numbers.
+- Conjugations: the verb to conjugate is now shown above the sentence with its reading (手伝う（てつだう）), and « réponse en kanji ou en kana » (the kana spelling was already accepted).
+- « Mode difficile » checkbox: hides the possible answers for particle exercises.
+- Layout: long sentences and inputs no longer overflow their card.
+- Odd one: 彼女は茶色い目をしている (て-form of する in 目をしている, « to have brown eyes »): correct but idiomatic.
+- Ideas for next steps: JLPT levels, choose what to work on, free particle mode (any particle, none shown), a curriculum for the daily session with progression, extra exercises by topic, more practice on weak points.

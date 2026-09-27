@@ -53,7 +53,7 @@ code { font-size: .85em; background: var(--me); padding: 1px 5px; border-radius:
 main { max-width: 820px; margin: 0 auto; padding: 20px 16px 60px; }
 .panel { display: none; }
 .panel.active { display: block; }
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; margin: 14px 0; }
+.card { min-width: 0; overflow-wrap: anywhere; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; margin: 14px 0; }
 h2 { margin: 0 0 6px; font-size: 1.35rem; }
 h3 { margin: 0 0 10px; font-size: 1.05rem; }
 
@@ -65,6 +65,8 @@ h3 { margin: 0 0 10px; font-size: 1.05rem; }
 .controls { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; margin: 16px 0 20px; }
 .controls label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); text-align: left; }
 .start button + button { margin-left: 8px; }
+.check { display: block; margin: -6px 0 18px; font-size: .88rem; color: var(--muted); cursor: pointer; }
+.check input { vertical-align: middle; margin-right: 6px; }
 
 .progressbar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 6px; }
 #progress-fill { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
@@ -72,9 +74,9 @@ h3 { margin: 0 0 10px; font-size: 1.05rem; }
 .badge { font-size: .75rem; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
 .badge.review { background: var(--hint-bg); color: var(--text); }
 .choices { margin-bottom: 4px; font-size: .9rem; color: var(--muted); }
-.choices span { display: inline-block; font-size: 1.15rem; color: var(--text); padding: 0 10px; margin: 0 3px; border: 1px solid var(--border); border-radius: 6px; }
-.sentence { font-size: 1.6rem; line-height: 2.3; margin: 6px 0; word-break: break-all; }
-.sentence input {
+.choices .ans { display: inline-block; font-size: 1.15rem; color: var(--text); padding: 0 10px; margin: 0 3px; border: 1px solid var(--border); border-radius: 6px; }
+.sentence { font-size: 1.6rem; line-height: 2.3; margin: 6px 0; overflow-wrap: anywhere; }
+.sentence input { max-width: 100%;
   font: inherit; font-size: 1.4rem; padding: 0 8px; border: none; border-bottom: 2px solid var(--accent);
   background: transparent; color: var(--text); text-align: center; outline: none;
 }

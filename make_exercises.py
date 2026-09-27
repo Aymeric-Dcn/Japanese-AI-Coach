@@ -167,6 +167,22 @@ def conjugation_blanks(tokens: list, form: str) -> list:
     return spans if len(spans) == 1 else []
 
 
+_analyzer = None
+
+
+def cue_reading(word: str) -> str:
+    """Reading of the verb shown as a cue (手伝う → てつだう), so kanji you don't know can be typed in kana."""
+    global _analyzer
+    try:
+        import build_bank
+        if _analyzer is None:
+            _analyzer = build_bank.make_analyzer()
+        r = build_bank.reading(_analyzer, word)
+        return "" if r == word else r
+    except (SystemExit, Exception):
+        return ""
+
+
 def build_exercise(id_: int, jp: str, fr: str, en: str, tokens: list, span: tuple, cue: str = "") -> dict:
     a, b = span
     before = "".join(t[0] for t in tokens[:a])
@@ -225,6 +241,8 @@ def find_candidates(targets: list = None, form: str = None, pos: str = "", min_w
             if known_kanji_only and unknown_kanji(jp, known):
                 continue
         ex = build_exercise(id_, jp, fr, en, tokens, (a, b), cue=tokens[a][4] if form else "")
+        if form:
+            ex["cue_reading"] = cue_reading(ex["cue"])
         ex["new_words"] = new_words
         ex["key"] = key
         groups[form or normalize(answer)].append(ex)

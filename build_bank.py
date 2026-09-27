@@ -115,6 +115,11 @@ def to_hiragana(text: str) -> str:
     return "".join(chr(ord(c) - 0x60) if "ァ" <= c <= "ヶ" else c for c in text)
 
 
+def reading(analyzer, text: str) -> str:
+    """Hiragana reading of a word or phrase, e.g. 手伝う → てつだう."""
+    return "".join(to_hiragana(m.reading_form()) or m.surface() for m in analyzer(text))
+
+
 def analyze(analyzer, text: str) -> list:
     """Each token: [surface, part of speech, sub-category, reading in hiragana, dictionary form, sub-sub-category]."""
     tokens = []

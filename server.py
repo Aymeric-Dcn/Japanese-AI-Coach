@@ -94,6 +94,9 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 if url.path == "/api/session":
                     items = store.session(db, new_limit=int(query.get("new", 10)), topic=query.get("topic") or None)
+                    for ex in items:  # exercises saved before cue readings existed
+                        if ex.get("cue") and "cue_reading" not in ex:
+                            ex["cue_reading"] = tutor.reading(ex["cue"])
                     return self.send_json({"items": items, "stats": store.stats(db)})
                 if url.path == "/api/stats":
                     return self.send_json(store.stats(db))

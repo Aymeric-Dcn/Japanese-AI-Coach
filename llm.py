@@ -55,7 +55,7 @@ def ask_json(model: str, messages: list, schema: dict, temperature: float = 0.2,
     return json.loads(raw[start:end + 1])
 
 
-def chat_stream(model: str, messages: list, temperature: float = 0.5, timeout: int = 300):
+def chat_stream(model: str, messages: list, temperature: float = 0.3, timeout: int = 300):
     """Yields the answer piece by piece."""
     payload = {"model": model, "messages": messages, "stream": True, "options": {"temperature": temperature}}
     response = _with_think_fallback(payload, lambda p: _post("/api/chat", p, timeout))
