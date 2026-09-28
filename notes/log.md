@@ -152,3 +152,13 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - Each answer keeps the review schedule it replaced (`reviews.prev`): « Annuler ma réponse » / Ctrl+Z deletes the answer and restores it (or goes back to the previous exercise); « En fait je ne maîtrise pas » replaces a right answer by a wrong one.
 - `schedule.suspended`: « Ne plus proposer » and Progrès → Révisions (list, filter, review today, suspend, reactivate, report); « ⚑ Signaler une erreur » retires the exercise (table `rejected`, reason « signalé… ») — these reports feed the next quality review.
 - Tested in headless Chromium on a copy of the real database (undo after right / wrong answers, back to the previous exercise, suspend, report, list, search, adding a never-seen exercise to today's reviews).
+
+## 2026-09-28 — English version
+
+- `language` setting (fr / en), selector in the top bar; the server writes it into `<html lang>`.
+- `web/i18n.js`: every interface text in French and English (`t()`, `tn()` for plurals, `data-i18n*` attributes in index.html).
+- Topic titles stay the French keys in the database; `curriculum.title()` / `note()` give the English ones (`title_en`, `note_en`), JLPT labels too.
+- Exercises: `translation_en`, `hint_en`, `explanation_en` saved by the generators (the LLM writes both languages); the server localizes what it sends (`localize()`), falling back to the Tatoeba bank for older exercises. French-only explanations are hidden in English.
+- Tutor: English prompts, situations, student context and references (Tatoeba sentences with their English translation).
+- `build_bank.py` now keeps the English translations by default (the bank must be rebuilt once); generation requires a translation in the interface language.
+- Tested in headless Chromium: switching languages, session, progress, JLPT, chat; no French left in the English interface except existing chat history.

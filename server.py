@@ -91,7 +91,14 @@ class Handler(BaseHTTPRequestHandler):
         query = {k: v[0] for k, v in urllib.parse.parse_qs(url.query).items()}
         try:
             if url.path in ("/", "/index.html"):
-                return self.send_file(WEB_DIR / "index.html")
+                page = (WEB_DIR / "index.html").read_text(encoding="utf-8").replace('<html lang="fr">', f'<html lang="{lang()}">', 1)
+                body = page.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                return self.wfile.write(body)
             if url.path.startswith("/static/"):
                 name = url.path[len("/static/"):]
                 if "/" in name or name.startswith("."):
@@ -109,9 +116,10 @@ class Handler(BaseHTTPRequestHandler):
                     new = int(query.get("new", 10))
                     if query.get("mode") == "practice":
                         topics = [t for t in query.get("topics", "").split("|") if t]
-                        data = {"items": store.session(db, new_limit=new, topics=topics or None)}
+                        data = {"items": localize(store.session(db, new_limit=new, topics=topics or None))}
                     else:
                         data = store.daily_session(db, new_limit=new)
+                        localize(data["items"])
                     for ex in data["items"]:  # exercises saved before cue readings existed
                         if ex.get("cue") and "cue_reading" not in ex:
                             ex["cue_reading"] = tutor.reading(ex["cue"])
@@ -127,16 +135,16 @@ class Handler(BaseHTTPRequestHandler):
                         for qtype, n in jq.EXAM.get(level, {}).items():
                             if n:
                                 items += store.pick(db, [jq.topic_title(level, qtype)], n)
-                        return self.send_json({"items": items, "minutes": len(items), "plan": jq.EXAM.get(level, {})})
+                        return self.send_json({"items": localize(items), "minutes": len(items), "plan": jq.EXAM.get(level, {})})
                     types = [t for t in query.get("types", "").split("|") if t in jq.TYPES] or jq.TYPES
                     topics = [jq.topic_title(level, t) for t in types]
                     items = store.pick(db, topics, int(query.get("count", 10)))
-                    return self.send_json({"items": items, "stats": store.stats(db)})
+                    return self.send_json({"items": localize(items), "stats": store.stats(db)})
                 if url.path == "/api/reviews":
-                    return self.send_json({"items": store.review_list(
-                        db, query.get("topic") or None, query.get("q", ""), query.get("unseen") == "1")})
+                    return self.send_json({"items": localize(store.review_list(
+                        db, query.get("topic") or None, query.get("q", ""), query.get("unseen") == "1"))})
                 if url.path == "/api/topics":
-                    return self.send_json({"topics": store.topic_states(db)})
+                    return self.send_json({"topics": topic_states(db)})
                 if url.path == "/api/stats":
                     return self.send_json(store.stats(db))
                 if url.path == "/api/chat/history":
@@ -181,7 +189,7 @@ class Handler(BaseHTTPRequestHandler):
                 db = store.connect(DB_PATH)
                 try:
                     store.set_topic_known(db, str(data["title"]), bool(data.get("known")))
-                    return self.send_json({"topics": store.topic_states(db)})
+                    return self.send_json({"topics": topic_states(db)})
                 finally:
                     db.close()
             if url.path == "/api/fill":
@@ -216,7 +224,7 @@ class Handler(BaseHTTPRequestHandler):
         db = store.connect(DB_PATH)
         mode = str(data.get("mode") or "prof")
         messages, labels = tutor.build_messages(db, conversation, message, data.get("exercise"), mode,
-                                                str(data.get("scenario") or "free"))
+                                                str(data.get("scenario") or "free"), lang())
 
         self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
@@ -254,7 +262,70 @@ class Handler(BaseHTTPRequestHandler):
 FILL = {"running": False, "stop": False, "log": [], "started": None, "finished": None, "added": None, "title": ""}
 FILL_LOCK = threading.Lock()
 SETTINGS_PATH = Path("data") / "settings.json"
-DEFAULT_SETTINGS = {"auto_sync": True, "auto_fill": True, "fill_target": 15, "jlpt_level": "N4", "jlpt_auto_fill": True}
+DEFAULT_SETTINGS = {"auto_sync": True, "auto_fill": True, "fill_target": 15, "jlpt_level": "N4", "jlpt_auto_fill": True,
+                    "language": "fr"}
+LANGUAGES = ("fr", "en")
+
+
+def lang() -> str:
+    """Interface language: « fr » or « en » (data/settings.json)."""
+    value = load_settings().get("language", "fr")
+    return value if value in LANGUAGES else "fr"
+
+
+def tr(fr: str, en: str) -> str:
+    return en if lang() == "en" else fr
+
+
+_bank = {"db": None}
+
+
+def bank_translation(source_key: str, language: str) -> str:
+    """The sentence's translation from the Tatoeba bank (for exercises saved before they stored both)."""
+    parts = (source_key or "").split(":")
+    if len(parts) < 2 or parts[0] != "tatoeba" or not (Path("data") / "bank.db").exists():
+        return ""
+    if _bank["db"] is None:
+        import sqlite3
+        _bank["db"] = sqlite3.connect(Path("data") / "bank.db", check_same_thread=False)
+    row = _bank["db"].execute(f"SELECT {'en' if language == 'en' else 'fr'} FROM sentences WHERE id = ?",
+                              (parts[1],)).fetchone()
+    return (row[0] or "") if row else ""
+
+
+RULE_EXPLANATION_EN = [(" se lit ", " is read "), (" s'écrit ", " is written ")]
+
+
+def topic_states(db) -> list:
+    language = lang()
+    states = store.topic_states(db)
+    for t in states:
+        t["label"] = curriculum.title(t["title"], language)
+    return states
+
+
+def localize(items: list, language: str = None) -> list:
+    """Exercises in the interface language: topic title, translation, hint and explanation.
+    Exercises store French texts, plus English ones (*_en) when they have them."""
+    language = language or lang()
+    for ex in items:
+        ex["topic_label"] = curriculum.title(ex.get("topic", ""), language)
+        if language != "en":
+            continue
+        key = ex.get("source_key") or (ex.get("source_url") and "tatoeba:" + ex["source_url"].rsplit("/", 1)[-1])
+        ex["translation"] = ex.get("translation_en") or bank_translation(key or "", "en") or ex.get("translation", "")
+        ex["hint"] = ex.get("hint_en", "")
+        explanation = ex.get("explanation_en")
+        if explanation is None:
+            explanation = ex.get("explanation", "")
+            if ex.get("qtype") in ("kanji_reading", "orthography") or explanation.startswith("Ordre :"):
+                for a, b in RULE_EXPLANATION_EN:
+                    explanation = explanation.replace(a, b)
+                explanation = explanation.replace("Ordre :", "Order:")
+            else:
+                explanation = ""   # only in French: better nothing than a text the student cannot read
+        ex["explanation"] = explanation
+    return items
 
 
 def load_settings() -> dict:
@@ -270,6 +341,8 @@ def load_settings() -> dict:
 def save_settings(changes: dict) -> dict:
     settings = load_settings()
     settings.update({k: v for k, v in changes.items() if k in DEFAULT_SETTINGS})
+    if settings.get("language") not in LANGUAGES:
+        settings["language"] = "fr"
     SETTINGS_PATH.parent.mkdir(exist_ok=True)
     SETTINGS_PATH.write_text(json.dumps(settings, indent=2), encoding="utf-8")
     return settings
@@ -311,7 +384,7 @@ def start_fill(options: dict) -> dict:
         results = fill_reserve.fill(db, target=int(options.get("target", 15)), all_topics=bool(options.get("all")),
                                     ids=ids or None, model=MODEL, log=log, should_stop=should_stop)
         return sum(a for _, a in results)
-    return run_job("Remplissage de la réserve", work)
+    return run_job(tr("Remplissage de la réserve", "Filling the reserve"), work)
 
 
 def start_jlpt_fill(options: dict) -> dict:
@@ -321,7 +394,7 @@ def start_jlpt_fill(options: dict) -> dict:
         import jlpt_questions
         return jlpt_questions.fill(db, level, int(options.get("per_type", 10)), model=MODEL, log=log,
                                    should_stop=should_stop)
-    return run_job(f"Questions JLPT {level}", work)
+    return run_job(tr(f"Questions JLPT {level}", f"JLPT {level} questions"), work)
 
 
 def jlpt_overview(db, level: str) -> dict:
@@ -331,7 +404,7 @@ def jlpt_overview(db, level: str) -> dict:
     types = []
     for qtype in jq.TYPES:
         t = counts.get(jq.topic_title(level, qtype), {"total": 0, "unseen": 0})
-        types.append({"type": qtype, "label": jq.LABELS[qtype], "total": t["total"], "unseen": t["unseen"],
+        types.append({"type": qtype, "label": jq.LABELS_EN[qtype] if lang() == "en" else jq.LABELS[qtype], "total": t["total"], "unseen": t["unseen"],
                       "exam": jq.EXAM.get(level, {}).get(qtype, 0)})
     return {"level": level, "levels": list(jq.EXAM), "types": types, "exams": store.exams(db),
             "lexicon": lexicon.available(), "kanji": jq.KANJI_PATH.exists()}
@@ -356,9 +429,9 @@ def start_maintenance() -> dict:
             config_changed = (Path("data") / "anki.json").exists() and known.exists() and \
                 (Path("data") / "anki.json").stat().st_mtime > known.stat().st_mtime
             if synced_today and not config_changed:
-                log("Anki : déjà synchronisé aujourd'hui.")
+                log(tr("Anki : déjà synchronisé aujourd'hui.", "Anki: already synced today."))
             else:
-                log("Synchronisation Anki…")
+                log(tr("Synchronisation Anki…", "Syncing Anki…"))
                 try:
                     import anki_sync
                     anki_sync.sync(log=log)
@@ -370,12 +443,12 @@ def start_maintenance() -> dict:
             review.revalidate(db, log=log)   # removes exercises that the current rules would not generate
             review.apply_pending(db, log=log)  # reviewed batches dropped in data/reviews/
         except Exception as e:
-            log(f"! Contrôle de la réserve : {e}")
+            log(f"! Review check: {e}")
         if settings["auto_fill"] and (Path("data") / "bank.db").exists():
             waited = 0
             while not ollama_up() and waited < 900 and not should_stop():
                 if waited == 0:
-                    log("En attente d'Ollama…")
+                    log(tr("En attente d'Ollama…", "Waiting for Ollama…"))
                 time.sleep(15)
                 waited += 15
             if ollama_up() and not should_stop():
@@ -390,9 +463,10 @@ def start_maintenance() -> dict:
                     except ImportError:
                         pass
             elif not should_stop():
-                log("Ollama ne répond pas : réserve non remplie (bouton « Remplir la réserve » plus tard).")
+                log(tr("Ollama ne répond pas : réserve non remplie (bouton « Remplir la réserve » plus tard).",
+                       "Ollama is not answering: reserve not filled (use « Fill the reserve » later)."))
         return added
-    return run_job("Maintenance au démarrage", work)
+    return run_job(tr("Maintenance au démarrage", "Startup maintenance"), work)
 
 
 def status() -> dict:
@@ -434,7 +508,7 @@ def watch_reviews(interval: int = 30) -> None:
                     finally:
                         db.close()
             except Exception as e:
-                print(f"! Relecture : {e}")
+                print(f"! Reviewed batch: {e}")
     threading.Thread(target=loop, daemon=True).start()
 
 

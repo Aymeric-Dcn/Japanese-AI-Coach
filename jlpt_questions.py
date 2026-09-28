@@ -43,6 +43,13 @@ LABELS = {
     "grammar": "文法形式 (grammaire)",
     "ordering": "並べ替え ★ (ordre)",
 }
+LABELS_EN = {
+    "kanji_reading": "漢字読み (reading)",
+    "orthography": "表記 (writing)",
+    "vocab": "文脈規定 (vocabulary)",
+    "grammar": "文法形式 (grammar)",
+    "ordering": "並べ替え ★ (word order)",
+}
 NEEDS_LLM = {"vocab", "grammar"}
 # Mock exam: number of questions per type (inspired by the real test, without reading comprehension).
 EXAM = {
@@ -375,6 +382,7 @@ def q_kanji_reading(id_, jp, fr, tokens, level, rng):
         q = base(id_, jp, fr, "kanji_reading", level, t[3])
         q["question"] = "".join(x[0] for x in tokens[:k]) + f"【{t[0]}】" + "".join(x[0] for x in tokens[k + 1:])
         q["explanation"] = f"{t[0]} se lit {t[3]}.{meaning_of(t[0])}"
+        q["explanation_en"] = f"{t[0]} is read {t[3]}.{meaning_of(t[0])}"
         return with_choices(q, t[3], wrong, rng)
     return None
 
@@ -388,6 +396,7 @@ def q_orthography(id_, jp, fr, tokens, level, rng):
         q = base(id_, jp, fr, "orthography", level, t[0])
         q["question"] = "".join(x[0] for x in tokens[:k]) + f"【{t[3]}】" + "".join(x[0] for x in tokens[k + 1:])
         q["explanation"] = f"{t[3]} s'écrit {t[0]}.{meaning_of(t[0])}"
+        q["explanation_en"] = f"{t[3]} is written {t[0]}.{meaning_of(t[0])}"
         return with_choices(q, t[0], wrong, rng)
     return None
 
@@ -617,7 +626,8 @@ def q_ordering(id_, jp, fr, tokens, level, rng):
         after = "".join(texts[start + 4:])
         q["question"] = f"{before}＿＿ ＿＿ ★ ＿＿{after}"
         q.update(choices=order, answers=[star], answer_index=order.index(star),
-                 explanation="Ordre : " + " → ".join(four) + f"\n★ = {star}")
+                 explanation="Ordre : " + " → ".join(four) + f"\n★ = {star}",
+                 explanation_en="Order: " + " → ".join(four) + f"\n★ = {star}")
         return q
     return None
 
@@ -638,8 +648,9 @@ CHECK_SCHEMA = {
         "good_example": {"type": "boolean"},
         "problem": {"type": "string"},
         "explanation": {"type": "string"},
+        "explanation_en": {"type": "string"},
     },
-    "required": ["alternatives", "good_example", "problem", "explanation"],
+    "required": ["alternatives", "good_example", "problem", "explanation", "explanation_en"],
 }
 
 
@@ -660,7 +671,8 @@ Expected answer: « {answer} ».
    Be demanding: awkward, rare, or meaning-changing sentences are NOT correct.
 2. "good_example": true if this is a fair JLPT {q['level']} question on the {what} « {answer} » (not an idiom, not far above the level).
    "problem": if false, a few words in English; otherwise "".
-3. "explanation": in 1 to 3 sentences in French, why « {answer} » is right and the others are not."""
+3. "explanation": in 1 to 3 sentences in French, why « {answer} » is right and the others are not.
+4. "explanation_en": the same explanation in English."""
     messages = [{"role": "system", "content": mx.SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
     try:
         result = llm.ask_json(model, messages, CHECK_SCHEMA)
@@ -672,6 +684,7 @@ Expected answer: « {answer} ».
     if result.get("good_example") is False:
         return False, f"not a good example: {result.get('problem', '?')}"
     q["explanation"] = str(result.get("explanation", "")).strip()
+    q["explanation_en"] = str(result.get("explanation_en", "")).strip()
     return True, ""
 
 
@@ -683,8 +696,9 @@ def candidates(level: str, seed=None) -> list:
     if not BANK_PATH.exists():
         raise mx.GenerationError("Bank not found. Run first: python build_bank.py")
     db = sqlite3.connect(BANK_PATH)
+    translated = "en" if store.language() == "en" else "fr"
     rows = db.execute("SELECT id, jp, fr, en, tokens, word_count FROM sentences "
-                      "WHERE word_count BETWEEN 3 AND ? AND fr IS NOT NULL",
+                      f"WHERE word_count BETWEEN 3 AND ? AND {translated} IS NOT NULL",
                       (MAX_WORDS.get(level, 12) + ORDERING_EXTRA_WORDS,)).fetchall()
     db.close()
     rng = random.Random(seed)
@@ -725,6 +739,8 @@ def generate(level: str, qtype: str, count: int, model: str = llm.DEFAULT_MODEL,
         if not sentence_fits(tokens, level):
             continue
         q = BUILDERS[qtype](id_, jp, fr, tokens, level, rng)
+        if q:
+            q["translation_en"] = en or ""
         if not q or q["key"] in skip_keys or q["answers"][0] in used:
             continue
         if qtype in NEEDS_LLM:

@@ -1,5 +1,5 @@
 // Japanese Coach — interface (session, chat with the tutor, progress).
-// Talks to server.py through /api/…; the interface text is in French.
+// Talks to server.py through /api/…; interface texts are in i18n.js (t(), tn()).
 "use strict";
 
 const BLANK = "___";
@@ -48,11 +48,12 @@ async function loadStatus() {
     const s = await api("/api/status");
     const item = (ok, on, off) => `<span class="${ok ? "on" : "off"}">${ok ? on : off}</span>`;
     $("status").innerHTML =
-      item(s.ollama && s.model_installed, `Prof : ${esc(s.model)}`, s.ollama ? `${esc(s.model)} non installé` : "Ollama éteint") +
-      item(s.anki_sync, "Anki synchronisé", "Anki non synchronisé");
+      item(s.ollama && s.model_installed, t("teacher_on", {model: esc(s.model)}),
+           s.ollama ? t("model_missing", {model: esc(s.model)}) : t("ollama_off")) +
+      item(s.anki_sync, t("anki_on"), t("anki_off"));
     return s;
   } catch (e) {
-    $("status").innerHTML = `<span class="off">Serveur injoignable</span>`;
+    $("status").innerHTML = `<span class="off">${t("server_down")}</span>`;
     return null;
   }
 }
@@ -67,15 +68,16 @@ function renderSummary(stats) {
   S.lastStats = stats;
   const pct = stats.today.done ? Math.round(100 * stats.today.correct / stats.today.done) : 0;
   $("summary").innerHTML = [
-    `<span class="pill">À revoir : <strong>${stats.due_now}</strong></span>`,
-    `<span class="pill">Nouveaux disponibles : <strong>${stats.unseen}</strong></span>`,
-    `<span class="pill">Aujourd'hui : <strong>${stats.today.done}</strong> faits${stats.today.done ? ` · ${pct} % justes` : ""}</span>`,
-    stats.day_streak ? `<span class="pill">Série : <strong>${stats.day_streak}</strong> jour${stats.day_streak > 1 ? "s" : ""}</span>` : "",
+    `<span class="pill">${t("pill_due", {n: stats.due_now})}</span>`,
+    `<span class="pill">${t("pill_unseen", {n: stats.unseen})}</span>`,
+    `<span class="pill">${t("pill_today", {n: stats.today.done})}${stats.today.done ? t("pill_today_pct", {pct}) : ""}</span>`,
+    stats.day_streak ? `<span class="pill">${tn("pill_streak", stats.day_streak)}</span>` : "",
   ].join("");
 }
 
 const P = {mode: store("mode") || "daily", topics: [], picked: new Set(JSON.parse(store("picked") || "[]"))};
-const STATE_LABEL = {passed: "validé", current: "en cours", locked: "🔒 à venir", custom: "hors programme"};
+const STATE_LABEL = {passed: t("state_passed"), current: t("state_current"), locked: t("state_locked"), custom: t("state_custom")};
+const label = topic => (P.topics.find(x => x.title === topic) || {}).label || topic;  // topic title in the interface language
 
 function setMode(mode) {
   P.mode = mode;
@@ -96,12 +98,12 @@ function renderPicker() {
   const levels = {};
   for (const t of P.topics) {
     if (!t.total) continue;  // nothing to practise yet
-    (levels[t.level || "Autres"] = levels[t.level || "Autres"] || []).push(t);
+    (levels[t.level || t_("others")] = levels[t.level || t_("others")] || []).push(t);
   }
   const html = Object.entries(levels).map(([level, list]) => `<h4>${esc(level)}</h4>` + list.map(t =>
     `<label><input type="checkbox" value="${esc(t.title)}"${P.picked.has(t.title) ? " checked" : ""}>
-      ${esc(t.title)} <span class="muted small">(${t.unseen} nouveaux)</span></label>`).join("")).join("");
-  $("topic-picker").innerHTML = html || `<p class="muted">Aucun exercice dans la réserve pour l'instant.</p>`;
+      ${esc(t.label || t.title)} <span class="muted small">${t_("n_new", {n: t.unseen})}</span></label>`).join("")).join("");
+  $("topic-picker").innerHTML = html || `<p class="muted">${t_("reserve_empty_picker")}</p>`;
 }
 
 $("topic-picker").addEventListener("change", e => {
@@ -115,7 +117,7 @@ $("quick-picks").addEventListener("click", e => {
   if (!pick) return;
   P.picked = new Set(pick === "none" ? [] : P.topics.filter(t => t.total &&
     (t.kind === pick || t.level === pick)).map(t => t.title));
-  if (pick === "particle") { $("hard-mode").checked = true; store("hardMode", "1"); }  // « toutes les particules » = sans liste
+  if (pick === "particle") { $("hard-mode").checked = true; store("hardMode", "1"); }  // « all particles » = no list
   store("picked", JSON.stringify([...P.picked]));
   renderPicker();
   updateStartButton();
@@ -128,20 +130,20 @@ async function loadHome() {
     P.topics = topics.topics;
     const current = P.topics.filter(t => t.state === "current");
     const reserve = P.topics.reduce((n, t) => n + t.total, 0);
-    const names = current.map(t => `<strong>${esc(t.title)}</strong>`).join(" et ");
+    const names = current.map(t => `<strong>${esc(t.label || t.title)}</strong>`).join(t_("and"));
     $("start-text").innerHTML = !reserve
-      ? `La réserve d'exercices est vide : va dans <strong>Progrès → Remplir la réserve</strong>.`
-      : (stats.due_now ? `${stats.due_now} exercice${stats.due_now > 1 ? "s" : ""} à revoir, puis des nouveaux` : "Rien à revoir aujourd'hui ; nouveaux exercices")
-        + (current.length ? ` sur ${names}.` : ".");
+      ? t_("reserve_empty")
+      : (stats.due_now ? tn("due_then_new", stats.due_now) : t_("nothing_due"))
+        + (current.length ? t_("on_topics", {names}) : ".");
     const empty = current.filter(t => !t.unseen);
     $("daily-empty").hidden = !empty.length || !reserve;
-    $("daily-empty").innerHTML = empty.length ? `Plus d'exercices nouveaux pour ${empty.map(t => esc(t.title)).join(", ")}.
-      <button class="ghost" id="btn-goto-fill">Remplir la réserve →</button>` : "";
+    $("daily-empty").innerHTML = empty.length ? `${t_("no_more_new", {topics: empty.map(t => esc(t.label || t.title)).join(", ")})}
+      <button class="ghost" id="btn-goto-fill">${t_("goto_fill")}</button>` : "";
     const goto = $("btn-goto-fill");
     if (goto) goto.onclick = () => showTab("progress");
     renderPicker();
     setMode(P.mode);
-  } catch (e) { toast("Impossible de charger les statistiques : " + e.message); }
+  } catch (e) { toast(t("stats_error", {e: e.message})); }
 }
 
 async function startSession(newCount) {
@@ -153,8 +155,7 @@ async function startSession(newCount) {
     const data = await api(url);
     renderSummary(data.stats);
     if (!data.items.length) {
-      toast(P.mode === "practice" ? "Rien de nouveau ni à revoir dans ces thèmes." :
-        data.stats.unseen ? "Rien à revoir. Choisis au moins 5 nouveaux exercices, ou remplis la réserve." : "Plus rien à faire aujourd'hui : bravo !");
+      toast(P.mode === "practice" ? t("nothing_practice") : data.stats.unseen ? t("nothing_due_pick") : t("all_done"));
       return;
     }
     Object.assign(S, {queue: data.items, pos: 0, done: 0, firstTry: 0});
@@ -162,7 +163,7 @@ async function startSession(newCount) {
     $("session-end").hidden = true;
     $("session-run").hidden = false;
     showExercise();
-  } catch (e) { toast("Impossible de démarrer la session : " + e.message); }
+  } catch (e) { toast(t("start_error", {e: e.message})); }
 }
 
 function showExercise() {
@@ -174,20 +175,20 @@ function showExercise() {
   box.classList.remove("ok", "ko");
 
   const badge = $("exo-status");
-  badge.textContent = ex._retry ? "À refaire" : ex.status === "review" ? "Révision" : "Nouveau";
+  badge.textContent = ex._retry ? t("badge_retry") : ex.status === "review" ? t("badge_review") : t("badge_new");
   badge.classList.toggle("review", ex.status === "review" || ex._retry);
-  $("exo-topic").textContent = ex.topic;
+  $("exo-topic").textContent = ex.topic_label || ex.topic;
   $("exo-count").textContent = `${S.pos + 1} / ${S.queue.length}`;
   $("progress-fill").style.width = `${100 * S.pos / S.queue.length}%`;
 
   const allowed = ex.allowed_answers || [];
   if (ex.cue) {
-    $("exo-choices").innerHTML = `Verbe à conjuguer : <span class="ans" lang="ja">${esc(ex.cue)}</span>` +
+    $("exo-choices").innerHTML = `${t("verb_to_conjugate")}<span class="ans" lang="ja">${esc(ex.cue)}</span>` +
       (ex.cue_reading ? ` <span class="muted" lang="ja">（${esc(ex.cue_reading)}）</span>` : "") +
-      ` <span class="muted small">· réponse en kanji ou en kana</span>`;
+      ` <span class="muted small">· ${t("kana_ok")}</span>`;
   } else {
     $("exo-choices").innerHTML = allowed.length && !$("hard-mode").checked
-      ? "Réponses possibles : " + allowed.map(a => `<span class="ans" lang="ja">${esc(a)}</span>`).join("") : "";
+      ? t("possible_answers") + allowed.map(a => `<span class="ans" lang="ja">${esc(a)}</span>`).join("") : "";
   }
 
   $("exo-mcq").hidden = !ex.choices;
@@ -199,11 +200,11 @@ function showExercise() {
     const [before, after] = ex.sentence.split(BLANK);
     const width = Math.max(4, (ex.answers[0] || "").length + 2);
     $("exo-sentence").innerHTML = `${esc(before)}<input id="answer" lang="ja" autocomplete="off" spellcheck="false"
-      aria-label="Réponse" style="width:${width}em">${esc(after ?? "")}`;
+      aria-label="${t("answer_label")}" style="width:${width}em">${esc(after ?? "")}`;
   }
   $("exo-reading").textContent = ex.reading || "";
   $("exo-translation").textContent = ex.show_translation ? (ex.translation || "") : "";
-  $("exo-new").innerHTML = (ex.new_words || []).length ? `Nouveau : <span lang="ja">${ex.new_words.map(esc).join("、")}</span>` : "";
+  $("exo-new").innerHTML = (ex.new_words || []).length ? `${t("new_words")}<span lang="ja">${ex.new_words.map(esc).join("、")}</span>` : "";
 
   $("exo-hint").hidden = true;
   $("exo-hint").textContent = "💡 " + (ex.hint || "");
@@ -241,8 +242,7 @@ async function choose(i) {
   const full = ex.full_sentence ? `<br><span lang="ja">${esc(ex.full_sentence)}</span>` : "";
   S.solved = true;
   $("exo-feedback").hidden = false;
-  $("exo-feedback").innerHTML = solutionHtml(ex, (ok ? "✓ <strong>Correct !</strong>" :
-    `✗ Réponse : <strong lang="ja">${esc(ex.answers[0])}</strong>`) + full);
+  $("exo-feedback").innerHTML = solutionHtml(ex, (ok ? t("correct") : t("wrong_answer", {a: esc(ex.answers[0])})) + full);
   $("btn-check").hidden = true;
   $("after-actions").hidden = false;
   $("btn-unsure").hidden = !(ok && ex._firstOk && !ex._retry);
@@ -269,7 +269,7 @@ async function record(correct, answer) {
     ex._schedule = data.schedule;
     return data.schedule;
   } catch (e) {
-    toast("Réponse non enregistrée : " + e.message);
+    toast(t("not_saved", {e: e.message}));
     return null;
   }
 }
@@ -277,12 +277,12 @@ async function record(correct, answer) {
 function nextReviewText(schedule) {
   if (!schedule) return "";
   const d = schedule.interval;
-  return `<div class="next-review">Prochaine révision : ${d <= 1 ? "demain" : `dans ${d} jours`}</div>`;
+  return `<div class="next-review">${t("next_review", {when: d <= 1 ? t("tomorrow") : t("in_days", {n: d})})}</div>`;
 }
 
 function solutionHtml(ex, message) {
   const schedule = ex._retry ? null : ex._schedule;
-  const others = ex.answers.length > 1 ? `<br>Réponses acceptées : <span lang="ja">${ex.answers.map(esc).join(" / ")}</span>` : "";
+  const others = ex.answers.length > 1 ? `<br>${t("accepted")}<span lang="ja">${ex.answers.map(esc).join(" / ")}</span>` : "";
   const tr = ex.translation && !ex.show_translation ? `<br><span class="tr">${esc(ex.translation)}</span>` : "";
   const expl = ex.explanation ? `<br>${esc(ex.explanation)}` : "";
   const src = ex.source_url ? `<br><a href="${esc(ex.source_url)}" target="_blank" rel="noopener">${esc(ex.source || "source")}</a>` : "";
@@ -302,9 +302,9 @@ async function check() {
   fb.hidden = false;
   await record(ok, value);
   if (ok) {
-    solve(solutionHtml(ex, "✓ <strong>Correct !</strong>"));
+    solve(solutionHtml(ex, t("correct")));
   } else {
-    fb.innerHTML = "✗ Pas tout à fait. Réessaie, demande un indice ou affiche la réponse.";
+    fb.innerHTML = t("try_again");
     $("btn-show").hidden = false;
     requeue(ex);
     updateUndo();
@@ -326,7 +326,7 @@ async function showAnswer() {
   field().value = ex.answers[0];
   $("exo").classList.remove("ok");
   $("exo").classList.add("ko");
-  solve(solutionHtml(ex, `Réponse : <strong lang="ja">${esc(ex.answers[0])}</strong>`));
+  solve(solutionHtml(ex, t("the_answer", {a: esc(ex.answers[0])})));
 }
 
 function solve(html) {
@@ -350,7 +350,7 @@ function updateUndo() {
   const answered = ex && (S.solved || ex._attempts > 0);
   const b = $("btn-undo");
   b.hidden = !(answered || S.pos > 0);
-  b.textContent = answered ? "↶ Annuler ma réponse" : "↶ Revenir à l'exercice précédent";
+  b.textContent = answered ? t("undo_answer") : t("undo_previous");
 }
 
 // Misclick or typo: the answer is forgotten (and its review schedule restored), the exercise starts again.
@@ -366,7 +366,7 @@ async function undo() {
     try {
       const d = await api("/api/answer/undo", {id: ex.id});
       renderSummary(d.stats);
-    } catch (e) { toast("Impossible d'annuler : " + e.message); return; }
+    } catch (e) { toast(t("undo_error", {e: e.message})); return; }
     S.done -= 1;
     if (ex._firstOk) S.firstTry -= 1;
   }
@@ -392,7 +392,7 @@ async function unsure() {
   requeue(ex);
   $("exo").classList.remove("ok");
   $("exo").classList.add("ko");
-  $("exo-feedback").innerHTML = solutionHtml(ex, "↻ <strong>Noté comme à revoir</strong> : il revient à la fin de la session, puis demain.");
+  $("exo-feedback").innerHTML = solutionHtml(ex, t("marked_unsure"));
   $("btn-unsure").hidden = true;
   $("btn-next").focus();
 }
@@ -403,8 +403,7 @@ async function dropCurrent(action) {
     await api("/api/reviews/action", {ids: [ex.id], action});
   } catch (e) { toast(e.message); return; }
   S.queue = S.queue.filter((q, j) => j <= S.pos || q.id !== ex.id);
-  toast(action === "report" ? "Merci : l'exercice est retiré et ne sera plus généré."
-                            : "Cet exercice ne sera plus proposé (réactivable dans Progrès → Révisions).");
+  toast(action === "report" ? t("reported") : t("suspended"));
   next();
 }
 
@@ -415,8 +414,8 @@ function next() {
   $("session-run").hidden = true;
   $("session-end").hidden = false;
   const st = S.lastStats;
-  $("end-text").innerHTML = `${S.done} exercice${S.done > 1 ? "s" : ""}, ${S.firstTry} juste${S.firstTry > 1 ? "s" : ""} du premier coup.` +
-    (st ? `<br><span class="muted">Demain : ${st.due_tomorrow} à revoir · ${st.unseen} nouveaux encore disponibles.</span>` : "");
+  $("end-text").innerHTML = tn("end_text", S.done, {k: S.firstTry}) +
+    (st ? `<br><span class="muted">${t("end_tomorrow", {due: st.due_tomorrow, unseen: st.unseen})}</span>` : "");
   $("btn-more").hidden = !(st && st.unseen);
 }
 
@@ -433,21 +432,21 @@ $("btn-suspend").addEventListener("click", () => dropCurrent("suspend"));
 $("btn-report").addEventListener("click", () => dropCurrent("report"));
 $("btn-readings").addEventListener("click", e => {
   const hidden = document.body.classList.toggle("hide-readings");
-  e.target.textContent = hidden ? "Afficher la lecture" : "Masquer la lecture";
+  e.target.textContent = hidden ? t("show_reading") : t("hide_reading");
   store("hideReadings", hidden ? "1" : "0");
 });
 $("hard-mode").checked = store("hardMode") === "1";
 $("hard-mode").addEventListener("change", e => store("hardMode", e.target.checked ? "1" : "0"));
 if (store("hideReadings") === "1") {
   document.body.classList.add("hide-readings");
-  $("btn-readings").textContent = "Afficher la lecture";
+  $("btn-readings").textContent = t("show_reading");
 }
 $("btn-ask").addEventListener("click", () => {
   const ex = S.current;
   if (C.mode !== "prof") setChatMode("prof");
   setChatContext({
     sentence: ex.sentence || ex.question, full_sentence: ex.full_sentence, answers: ex.answers, cue: ex.cue,
-    topic: ex.topic, choices: ex.choices,
+    topic: ex.topic_label || ex.topic, choices: ex.choices,
     translation: ex.translation, explanation: ex.explanation, given: ex._given || "",
   });
   showTab("chat");
@@ -487,11 +486,7 @@ document.addEventListener("keydown", e => {
 const C = {mode: store("chatMode") || "prof", id: "", loaded: false, busy: false, context: null,
            scenario: store("chatScenario") || "free"};
 C.id = store("conversation-" + C.mode) || (C.mode === "prof" ? (store("conversation") || "main") : C.mode + "-1");
-const CHAT_INTRO = {
-  prof: `Sensei est prêt. Pose une question de grammaire, demande des exemples, ou écris une phrase en japonais pour la faire corriger.`,
-  conversation: `Conversation en japonais simple : Sensei répond en japonais avec la traduction, et corrige tes fautes au passage. Choisis une situation, puis clique sur « Commencer » ou écris directement.`,
-  quiz: `Sensei t'interroge sur tes points faibles, une question à la fois. Clique sur « Commencer ».`,
-};
+const CHAT_INTRO = {prof: t("intro_prof"), conversation: t("intro_conversation"), quiz: t("intro_quiz")};
 
 function markdown(text) {
   // Tiny, safe renderer: escape first, then **bold**, `code`, lists and paragraphs.
@@ -527,7 +522,7 @@ function addMessage(role, text) {
   if (empty) empty.remove();
   const div = document.createElement("div");
   div.className = "msg " + role;
-  div.setAttribute("lang", "fr");
+  div.setAttribute("lang", LANG);
   div.innerHTML = role === "user" ? esc(text).replace(/\n/g, "<br>") : markdown(text);
   $("messages").appendChild(div);
   $("messages").scrollTop = $("messages").scrollHeight;
@@ -535,10 +530,10 @@ function addMessage(role, text) {
 }
 
 function emptyChat() {
-  const start = C.mode === "prof" ? "" : `<br><button class="primary chat-start" id="btn-chat-start">Commencer</button>`;
+  const start = C.mode === "prof" ? "" : `<br><button class="primary chat-start" id="btn-chat-start">${t("start")}</button>`;
   $("messages").innerHTML = `<div class="empty-chat">${CHAT_INTRO[C.mode]}${start}</div>`;
   const b = $("btn-chat-start");
-  if (b) b.onclick = () => send(C.mode === "quiz" ? "Interroge-moi !" : "よろしくお願いします。");
+  if (b) b.onclick = () => send(C.mode === "quiz" ? t("quiz_me") : "よろしくお願いします。");
 }
 
 function setChatMode(mode) {
@@ -580,9 +575,9 @@ async function loadChat(force) {
 function setChatContext(ex) {
   C.context = ex;
   $("chat-context").hidden = !ex;
-  $("chat-context-text").innerHTML = ex ? `Question sur : <span lang="ja">${esc(ex.full_sentence || ex.sentence)}</span>` : "";
+  $("chat-context-text").innerHTML = ex ? `${t("question_about")}<span lang="ja">${esc(ex.full_sentence || ex.sentence)}</span>` : "";
   if (ex) $("chat-input").value = ex.given && !ex.answers.some(a => norm(a) === norm(ex.given))
-    ? `Pourquoi « ${ex.answers[0]} » et pas « ${ex.given} » ?` : "Pourquoi cette réponse ?";
+    ? t("why_not", {a: ex.answers[0], b: ex.given}) : t("why_answer");
 }
 
 async function send(text) {
@@ -619,7 +614,7 @@ async function send(text) {
         if (msg.refs) {
           const refs = document.createElement("div");
           refs.className = "refs";
-          refs.textContent = "Références : " + msg.refs.join(" · ");
+          refs.textContent = t("references") + msg.refs.join(" · ");
           bubble.after(refs);
         }
         if (msg.delta) {
@@ -629,7 +624,7 @@ async function send(text) {
         }
       }
     }
-    if (!answer) throw new Error("Réponse vide.");
+    if (!answer) throw new Error(t("empty_answer"));
   } catch (e) {
     if (!answer) bubble.remove();
     addMessage("error", e.message);
@@ -680,32 +675,32 @@ async function loadProgress() {
     const pct = s.all_time.done ? Math.round(100 * s.all_time.correct / s.all_time.done) : 0;
     const card = (value, label) => `<div class="stat"><div class="value">${value}</div><div class="label">${label}</div></div>`;
     $("stat-cards").innerHTML = [
-      card(s.today.done, "faits aujourd'hui"),
-      card(s.due_tomorrow, "à revoir demain"),
-      card(s.day_streak, "jours d'affilée"),
-      card(s.learning, "exercices en cours"),
-      card(s.mastered, "maîtrisés (≥ 21 jours)"),
-      card(`${pct} %`, `justes du premier coup (${s.all_time.done} au total)`),
+      card(s.today.done, t("done_today")),
+      card(s.due_tomorrow, t("due_tomorrow")),
+      card(s.day_streak, t("days_streak")),
+      card(s.learning, t("learning")),
+      card(s.mastered, t("mastered")),
+      card(`${pct} %`, t("first_try", {n: s.all_time.done})),
     ].join("");
     await loadProgramme();
     loadReviews();
     $("weak-card").hidden = !s.weakest.length;
     $("weak-list").innerHTML = s.weakest.map(w =>
-      `<li>${esc(w.topic)} : ${Math.round(100 * w.correct / w.done)} % de réussite (${w.done} réponses)</li>`).join("");
-  } catch (e) { toast("Impossible de charger les statistiques : " + e.message); }
+      `<li>${t("weak_line", {topic: esc(label(w.topic)), pct: Math.round(100 * w.correct / w.done), n: w.done})}</li>`).join("");
+  } catch (e) { toast(t("stats_error", {e: e.message})); }
 }
 
 async function loadProgramme() {
   const data = await api("/api/topics");
   P.topics = data.topics;
-  $("topics-table").innerHTML = `<tr><th></th><th>Thème</th><th>État</th><th class="num">Réussite</th>
-      <th class="num">Nouveaux / total</th><th></th></tr>` +
+  $("topics-table").innerHTML = `<tr><th></th><th>${t_("h_topic")}</th><th>${t_("h_state")}</th><th class="num">${t_("h_rate")}</th>
+      <th class="num">${t_("h_new_total")}</th><th></th></tr>` +
     P.topics.map(t => {
       const rate = t.answers ? `${Math.round(100 * t.rate)} % <span class="muted small">(${t.answers})</span>` : "—";
       const action = t.state === "custom" ? "" : t.flagged
-        ? `<button data-known="0" data-title="${esc(t.title)}">Annuler</button>`
-        : t.state !== "passed" ? `<button data-known="1" data-title="${esc(t.title)}" title="Le thème compte comme validé">Je maîtrise déjà</button>` : "";
-      return `<tr><td class="level">${esc(t.level)}</td><td>${esc(t.title)}</td>
+        ? `<button data-known="0" data-title="${esc(t.title)}">${t_("known_undo")}</button>`
+        : t.state !== "passed" ? `<button data-known="1" data-title="${esc(t.title)}" title="${t_("known_title")}">${t_("known_set")}</button>` : "";
+      return `<tr><td class="level">${esc(t.level)}</td><td>${esc(t.label || t.title)}</td>
         <td><span class="state ${t.state}" title="${esc(t.why)}">${STATE_LABEL[t.state]}</span></td>
         <td class="num">${rate}</td><td class="num">${t.unseen} / ${t.total}</td><td>${action}</td></tr>`;
     }).join("");
@@ -726,38 +721,37 @@ $("topics-table").addEventListener("click", async e => {
 const R = {items: []};
 
 function dueText(r) {
-  if (!r.seen) return `<span class="muted">jamais vu</span>`;
-  if (r.suspended) return `<span class="muted">suspendu</span>`;
+  if (!r.seen) return `<span class="muted">${t("never_seen")}</span>`;
+  if (r.suspended) return `<span class="muted">${t("is_suspended")}</span>`;
   const today = new Date().toISOString().slice(0, 10);
-  return r.due <= today ? `<span class="due-now">aujourd'hui</span>` : esc(r.due);
+  return r.due <= today ? `<span class="due-now">${t("today")}</span>` : esc(r.due);
 }
 
 async function loadReviews() {
   const sel = $("rev-topic"), current = sel.value;
-  sel.innerHTML = `<option value="">Tous</option>` +
-    (P.topics || []).filter(t => t.total).map(t => `<option${t.title === current ? " selected" : ""}>${esc(t.title)}</option>`).join("");
+  sel.innerHTML = `<option value="">${t("all")}</option>` +
+    (P.topics || []).filter(x => x.total).map(x => `<option value="${esc(x.title)}"${x.title === current ? " selected" : ""}>${esc(x.label || x.title)}</option>`).join("");
   const q = new URLSearchParams({topic: sel.value, q: $("rev-q").value.trim(), unseen: $("rev-unseen").checked ? "1" : "0"});
   try {
     R.items = (await api("/api/reviews?" + q)).items;
   } catch (e) { toast(e.message); return; }
-  $("rev-count").textContent = `${R.items.length} exercice${R.items.length > 1 ? "s" : ""}`;
-  $("rev-table").innerHTML = `<tr><th><input type="checkbox" id="rev-all" aria-label="Tout cocher"></th><th>Exercice</th>
-      <th>Réponse</th><th>Prochaine</th><th class="num">Intervalle</th><th class="num">Erreurs</th></tr>` +
+  $("rev-count").textContent = tn("rev_count", R.items.length);
+  $("rev-table").innerHTML = `<tr><th><input type="checkbox" id="rev-all" aria-label="${t("check_all")}"></th><th>${t("h_exercise")}</th>
+      <th>${t("h_answer")}</th><th>${t("h_next")}</th><th class="num">${t("h_interval")}</th><th class="num">${t("h_lapses")}</th></tr>` +
     R.items.map(r => `<tr class="${r.suspended ? "suspended" : ""}">
       <td><input type="checkbox" data-id="${r.id}"></td>
-      <td class="jp" lang="ja">${esc(r.text).replace(/【(.*?)】/g, "<u>$1</u>")}<div class="muted small">${esc(r.topic)}</div></td>
+      <td class="jp" lang="ja">${esc(r.text).replace(/【(.*?)】/g, "<u>$1</u>")}<div class="muted small">${esc(r.topic_label || r.topic)}</div></td>
       <td lang="ja">${esc(r.answer)}</td><td>${dueText(r)}</td>
-      <td class="num">${r.seen ? r.interval + " j" : ""}</td><td class="num">${r.seen ? r.lapses : ""}</td></tr>`).join("");
+      <td class="num">${r.seen ? t("days_short", {n: r.interval}) : ""}</td><td class="num">${r.seen ? r.lapses : ""}</td></tr>`).join("");
 }
 
 async function reviewAction(action) {
   const ids = [...document.querySelectorAll("#rev-table input[data-id]:checked")].map(c => +c.dataset.id);
-  if (!ids.length) { toast("Coche d'abord un ou plusieurs exercices."); return; }
+  if (!ids.length) { toast(t("tick_first")); return; }
   try {
     const d = await api("/api/reviews/action", {ids, action});
     renderSummary(d.stats);
-    const what = {due_today: "à revoir aujourd'hui", suspend: "suspendu(s)", unsuspend: "réactivé(s)", report: "retiré(s)"}[action];
-    toast(`${d.done} exercice(s) ${what}.`);
+    toast(t("act_" + action, {n: d.done}));
     loadReviews();
     loadProgramme();
   } catch (e) { toast(e.message); }
@@ -783,10 +777,10 @@ function renderFill(f) {
     log.scrollTop = log.scrollHeight;
   });
   $("btn-fill").disabled = f.running;
-  $("btn-fill").textContent = f.running ? `${f.title || "Remplissage"} en cours…` : "Remplir la réserve";
+  $("btn-fill").textContent = f.running ? t("running", {title: f.title || t("filling")}) : t("fill");
   $("btn-fill-stop").hidden = !f.running;
   $("btn-jlpt-fill").disabled = f.running;
-  $("jlpt-fill-state").textContent = f.running ? `${f.title} en cours… (tu peux continuer à travailler)` : "";
+  $("jlpt-fill-state").textContent = f.running ? t("running_work", {title: f.title}) : "";
 }
 
 async function pollFill() {
@@ -795,7 +789,7 @@ async function pollFill() {
     renderFill(f);
     if (f.running) { setTimeout(pollFill, 1500); return; }
     if (pollFill.was) {
-      toast(`${f.title || "Réserve"} : ${f.added ?? 0} exercice(s) ajouté(s).`);
+      toast(t("added", {title: f.title || t("reserve_word"), n: f.added ?? 0}));
       loadHome(); loadProgramme();
       if ($("tab-jlpt").classList.contains("active")) loadJlpt();
     }
@@ -841,19 +835,18 @@ async function loadJlpt() {
     $("jlpt-types").innerHTML = o.types.map(t => `<div class="stat"><div class="value">${t.unseen} <span class="muted small">/ ${t.total}</span></div>
       <div class="label" lang="ja">${esc(t.label)}</div></div>`).join("");
     const notes = [];
-    if (!o.lexicon) notes.push("Niveaux approximatifs : lance anki_sync.py et/ou jlpt_data.py pour connaître le niveau des mots.");
-    if (!o.kanji) notes.push("Pas de fiches kanji (data/kanji.json) : pas de questions 表記.");
-    $("jlpt-note").textContent = "Nouvelles / total par type de question. " + notes.join(" ");
+    if (!o.lexicon) notes.push(t("jlpt_levels_approx"));
+    if (!o.kanji) notes.push(t("jlpt_no_kanji"));
+    $("jlpt-note").textContent = t("jlpt_counts") + notes.join(" ");
     if (!J.types.size) o.types.forEach(t => J.types.add(t.type));
     $("jlpt-type-picker").innerHTML = o.types.map(t => `<label><input type="checkbox" value="${t.type}"${J.types.has(t.type) ? " checked" : ""}>
       <span lang="ja">${esc(t.label)}</span> <span class="muted small">(${t.total})</span></label>`).join("");
     const plan = o.types.filter(t => t.exam).map(t => `${TYPE_SHORT[t.type]} ${t.exam}`).join(" · ");
     const total = o.types.reduce((n, t) => n + t.exam, 0);
-    $("jlpt-exam-plan").textContent = `${total} questions en ${total} minutes, sans correction avant la fin : ${plan}. ` +
-      "Format inspiré du JLPT (partie connaissances de la langue, sans compréhension écrite).";
+    $("jlpt-exam-plan").textContent = t("exam_plan", {n: total, plan});
     $("btn-jlpt-exam").disabled = !o.types.some(t => t.total);
     $("btn-jlpt-practice").disabled = !o.types.some(t => t.total);
-    $("jlpt-history").innerHTML = o.exams.length ? `<table class="topics"><tr><th>Date</th><th>Niveau</th><th class="num">Score</th><th class="num">Durée</th></tr>` +
+    $("jlpt-history").innerHTML = o.exams.length ? `<table class="topics"><tr><th>${t("h_date")}</th><th>${t("h_level")}</th><th class="num">${t("h_score")}</th><th class="num">${t("h_duration")}</th></tr>` +
       o.exams.map(x => `<tr><td>${esc(x.taken_at.replace("T", " ").slice(0, 16))}</td><td>${esc(x.level)}</td>
         <td class="num">${x.score} / ${x.total} (${Math.round(100 * x.score / Math.max(1, x.total))} %)</td>
         <td class="num">${Math.round(x.seconds / 60)} min</td></tr>`).join("") + "</table>" : "";
@@ -882,7 +875,7 @@ $("btn-jlpt-fill").addEventListener("click", async () => {
 $("btn-jlpt-practice").addEventListener("click", async () => {
   try {
     const data = await api(`/api/jlpt/practice?level=${J.level}&count=${$("jlpt-count").value}&types=${[...J.types].join("|")}`);
-    if (!data.items.length) return toast("Aucune question pour ces types : génère-en d'abord.");
+    if (!data.items.length) return toast(t("no_questions"));
     Object.assign(S, {queue: data.items, pos: 0, done: 0, firstTry: 0});
     showTab("session");
     $("session-start").hidden = true;
@@ -899,7 +892,7 @@ const E = {items: [], pos: 0, picks: [], started: 0, seconds: 0, timer: null};
 $("btn-jlpt-exam").addEventListener("click", async () => {
   try {
     const data = await api(`/api/jlpt/exam?level=${J.level}`);
-    if (!data.items.length) return toast("Pas assez de questions : génère-en d'abord.");
+    if (!data.items.length) return toast(t("not_enough"));
     Object.assign(E, {items: data.items, pos: 0, picks: data.items.map(() => null), started: Date.now(), seconds: data.minutes * 60});
     $("jlpt-home").hidden = true;
     $("exam-result").hidden = true;
@@ -921,7 +914,7 @@ function tick() {
 function showExamQuestion() {
   const q = E.items[E.pos];
   $("exam-section").innerHTML = `<span lang="ja">${esc(TYPE_SHORT[q.qtype] || q.topic)}</span>`;
-  $("exam-count").textContent = `Question ${E.pos + 1} / ${E.items.length} · ${E.picks.filter(p => p !== null).length} répondues`;
+  $("exam-count").textContent = t("exam_count", {i: E.pos + 1, n: E.items.length, k: E.picks.filter(p => p !== null).length});
   $("exam-fill").style.width = `${100 * E.pos / E.items.length}%`;
   $("exam-question").innerHTML = questionHtml(q.question) + (q.show_translation && q.translation ? `<div class="tr">${esc(q.translation)}</div>` : "");
   $("exam-choices").innerHTML = choicesHtml(q.choices);
@@ -946,7 +939,7 @@ $("btn-exam-finish").addEventListener("click", () => {
   const missing = E.picks.filter(p => p === null).length;
   if (missing && !finishExam.confirmed) {
     finishExam.confirmed = true;
-    toast(`${missing} question(s) sans réponse. Clique encore sur « Terminer » pour rendre ta copie.`);
+    toast(t("exam_missing", {n: missing}));
     return;
   }
   finishExam();
@@ -962,25 +955,25 @@ async function finishExam() {
   let result;
   try {
     result = await api("/api/jlpt/exam_result", {level: J.level, answers, seconds});
-  } catch (e) { toast("Résultat non enregistré : " + e.message); return; }
+  } catch (e) { toast(t("exam_not_saved", {e: e.message})); return; }
   $("exam-run").hidden = true;
   $("exam-result").hidden = false;
   const pct = Math.round(100 * result.score / Math.max(1, result.total));
   $("exam-score").textContent = `${result.score} / ${result.total} — ${pct} %`;
-  $("exam-verdict").textContent = (pct >= 60 ? "Très bien : niveau atteint sur cette partie. " : pct >= 45 ? "Pas loin : encore un effort. " : "À retravailler. ")
-    + `Durée : ${Math.round(seconds / 60)} min. Tes erreurs reviendront dans les révisions.`;
-  $("exam-sections").innerHTML = `<tr><th>Section</th><th class="num">Score</th></tr>` +
+  $("exam-verdict").textContent = (pct >= 60 ? t("verdict_good") : pct >= 45 ? t("verdict_close") : t("verdict_work"))
+    + t("exam_duration", {n: Math.round(seconds / 60)});
+  $("exam-sections").innerHTML = `<tr><th>${t("h_section")}</th><th class="num">${t("h_score")}</th></tr>` +
     Object.entries(result.detail).map(([t, [ok, n]]) => `<tr><td lang="ja">${esc(TYPE_SHORT[t] || t)}</td>
       <td class="num">${ok} / ${n} (${Math.round(100 * ok / n)} %)</td></tr>`).join("");
   const wrong = E.items.map((q, i) => ({q, pick: E.picks[i]})).filter(x => x.pick !== x.q.answer_index);
   $("exam-mistakes").innerHTML = wrong.length ? wrong.map(({q, pick}) => `<div class="mistake">
       <div class="jp" lang="ja">${questionHtml(q.question)}</div>
-      <div>Ta réponse : <span lang="ja">${pick === null ? "—" : esc(q.choices[pick])}</span> ·
-        Bonne réponse : <strong lang="ja">${esc(q.answers[0])}</strong></div>
+      <div>${t("your_answer")}<span lang="ja">${pick === null ? "—" : esc(q.choices[pick])}</span> ·
+        ${t("good_answer")}<strong lang="ja">${esc(q.answers[0])}</strong></div>
       ${q.full_sentence ? `<div class="muted" lang="ja">${esc(q.full_sentence)}</div>` : ""}
       ${q.translation ? `<div class="tr">${esc(q.translation)}</div>` : ""}
       ${q.explanation ? `<div class="small">${esc(q.explanation).replace(/\n/g, "<br>")}</div>` : ""}
-    </div>`).join("") : "<p>Aucune erreur, bravo !</p>";
+    </div>`).join("") : `<p>${t("no_mistake")}</p>`;
 }
 $("btn-exam-back").addEventListener("click", () => {
   $("exam-result").hidden = true;
@@ -989,6 +982,14 @@ $("btn-exam-back").addEventListener("click", () => {
 });
 
 // ======================================================================
+$("lang-select").value = LANG;
+$("lang-select").addEventListener("change", async e => {
+  try {
+    await api("/api/settings", {language: e.target.value});
+    location.reload();
+  } catch (err) { toast(err.message); }
+});
+
 window.JapaneseCoach = {session: S, chat: C, exam: E};  // handy in the browser console, and for tests
 loadStatus();
 loadHome();

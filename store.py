@@ -97,6 +97,15 @@ def _migrate(db) -> None:
     db.commit()
 
 
+def language() -> str:
+    """Interface language from data/settings.json: « fr » (default) or « en »."""
+    try:
+        value = json.loads((Path("data") / "settings.json").read_text(encoding="utf-8")).get("language", "fr")
+    except (OSError, ValueError):
+        value = "fr"
+    return value if value in ("fr", "en") else "fr"
+
+
 def today() -> datetime.date:
     return datetime.date.today()
 
@@ -139,6 +148,8 @@ def add_exercise(db, topic: str, kind: str, data: dict, source_key: str = None) 
 def _exercise(row) -> dict:
     ex = json.loads(row["data"])
     ex.update({"id": row["id"], "topic": row["topic"], "kind": row["kind"]})
+    if "source_key" in row.keys():
+        ex["source_key"] = row["source_key"]
     return ex
 
 

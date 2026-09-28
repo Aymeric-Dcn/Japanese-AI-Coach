@@ -117,6 +117,10 @@ The collection file (`%APPDATA%\Anki2\<profile>\collection.anki2`) is copied and
 
 In a session: **↶ Annuler ma réponse** (or Ctrl+Z) forgets a misclick or a typo and puts the review schedule back as it was; on a new exercise it goes back to the previous one. **En fait je ne maîtrise pas** turns a lucky right answer into a wrong one (back at the end of the session and tomorrow). **Ne plus proposer** suspends an exercise; **⚑ Signaler une erreur** removes a wrong or ambiguous one for good (it is never generated again). In Progrès → **Révisions**: every exercise with its next review, filter by topic or text, and review today, suspend, reactivate or report the ticked ones; « jamais vus » adds exercises of the reserve to your reviews.
 
+### Language (French / English)
+
+The app runs in French or English: selector at the top right (saved in `data/settings.json`). The interface, the topic titles and notes, the tutor (prompts, conversation situations, references) and the translations of the sentences follow it. New exercises are generated with a hint and an explanation in both languages; older ones only have French explanations, which are hidden in English. The English translations come from Tatoeba: `python build_bank.py` now keeps them (run it again once; `--french-only` for the old behaviour).
+
 ### Quality control (`review.py`)
 
 ```

@@ -150,7 +150,7 @@ QUESTION_WORDS = {"誰", "だれ", "何", "なに", "なん", "どれ", "どこ"
 MOVE_VERBS = {"行く", "いく", "来る", "くる", "帰る", "戻る", "向かう", "出かける", "出掛ける", "引っ越す", "移る",
               "急ぐ", "走る", "飛ぶ", "送る", "逃げる", "進む", "上る", "登る", "下りる", "降りる", "入る", "着く"}
 EXIST_VERBS = {"ある", "有る", "在る", "いる", "居る"}
-ALSO = re.compile(r"\b(aussi|même|également|non plus|ni)\b", re.I)
+ALSO = re.compile(r"\b(aussi|même|également|non plus|ni|also|too|either|even)\b", re.I)
 
 
 def is_question(tokens: list) -> bool:
@@ -322,6 +322,7 @@ def build_exercise(id_: int, jp: str, fr: str, en: str, tokens: list, span: tupl
         "cue": cue,
         "reading": reading,
         "translation": fr or en or "",
+        "translation_en": en or "",
         "show_translation": True,
         "hint": "",
         "explanation": "",
@@ -343,8 +344,9 @@ def find_candidates(targets: list = None, form: str = None, pos: str = "", min_w
     groups = {normalize(t): [] for t in targets} if targets else {form: []}
     db = sqlite3.connect(BANK_PATH)
     query = "SELECT id, jp, fr, en, tokens FROM sentences WHERE word_count BETWEEN ? AND ?"
-    if french_only:
-        query += " AND fr IS NOT NULL"
+    if french_only:   # a translation in the interface language is required
+        import store
+        query += " AND en IS NOT NULL" if store.language() == "en" else " AND fr IS NOT NULL"
     for id_, jp, fr, en, tokens_json in db.execute(query, (min_words, max_words)):
         tokens = json.loads(tokens_json)
         if form:
@@ -414,8 +416,10 @@ CHECK_SCHEMA = {
         "problem": {"type": "string"},
         "hint": {"type": "string"},
         "explanation": {"type": "string"},
+        "hint_en": {"type": "string"},
+        "explanation_en": {"type": "string"},
     },
-    "required": ["alternatives", "good_example", "problem", "hint", "explanation"],
+    "required": ["alternatives", "good_example", "problem", "hint", "explanation", "hint_en", "explanation_en"],
 }
 
 SYSTEM_PROMPT = """You are a rigorous Japanese teacher for a French-speaking student.
@@ -450,7 +454,8 @@ The expected answer is « {answer} ». Student level: {level}.
    above the level.
    "problem": if false, a few words in English saying why; otherwise an empty string.
 3. "hint": a short clue in French that helps find « {answer} » without giving it away.
-4. "explanation": in 1 to 3 sentences in French, why « {answer} » is the right answer here."""
+4. "explanation": in 1 to 3 sentences in French, why « {answer} » is the right answer here.
+5. "hint_en" and "explanation_en": the same hint and explanation, in English."""
 
 
 def build_conjugation_request(ex: dict, form: str, level: str) -> str:
@@ -467,7 +472,8 @@ The student must write « {answer} », {FORM_NAMES[form]} of {ex["cue"]}. Studen
    "problem": if false, a few words in English saying why; otherwise an empty string.
 3. "hint": a short clue in French about how to build the form (e.g. the verb group), without giving the answer.
 4. "explanation": in 1 to 3 sentences in French, how « {answer} » is formed from « {ex["cue"]} »
-   and why this form is used here."""
+   and why this form is used here.
+5. "hint_en" and "explanation_en": the same hint and explanation, in English."""
 
 
 def check_exercise(ex: dict, level: str, model: str, targets: list = None, form: str = None) -> tuple:
@@ -488,8 +494,8 @@ def check_exercise(ex: dict, level: str, model: str, targets: list = None, form:
                 return False, f"« {alternatives[a]} » judged correct too"
     if result.get("good_example") is False:
         return False, f"not a good example: {str(result.get('problem', '')).strip() or '?'}"
-    ex["hint"] = str(result.get("hint", "")).strip()
-    ex["explanation"] = str(result.get("explanation", "")).strip()
+    for field in ("hint", "explanation", "hint_en", "explanation_en"):
+        ex[field] = str(result.get(field, "")).strip()
     return True, ""
 
 

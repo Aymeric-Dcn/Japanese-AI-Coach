@@ -2,8 +2,8 @@
 """
 Builds the sentence bank from Tatoeba (real, translated sentences).
 
-    python build_bank.py            # Japanese sentences with a French translation
-    python build_bank.py --english  # + sentences that only have an English translation
+    python build_bank.py                # Japanese sentences with a French and/or English translation
+    python build_bank.py --french-only  # only sentences with a French translation (smaller download)
 
 Steps:
   1. download the Tatoeba exports into data/tatoeba/ (once);
@@ -142,9 +142,10 @@ def main() -> None:
     except Exception:
         pass
     p = argparse.ArgumentParser(description="Builds data/bank.db from Tatoeba.")
-    p.add_argument("--english", action="store_true",
-                   help="also keep sentences that only have an English translation (bigger download)")
+    p.add_argument("--french-only", action="store_true",
+                   help="skip the English translations (smaller download; the app in English needs them)")
     args = p.parse_args()
+    args.english = not args.french_only
 
     analyzer = make_analyzer()  # check SudachiPy before downloading anything
 

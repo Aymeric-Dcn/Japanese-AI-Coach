@@ -96,7 +96,7 @@ def revalidate(db, log=print) -> dict:
         if bank:
             bank.close()
     if retired or updated:
-        log(f"Contrôle de la réserve : {retired} exercice(s) retiré(s), {updated} corrigé(s).")
+        log(f"Reserve check: {retired} exercise(s) retired, {updated} fixed.")
     return {"retired": retired, "updated": updated}
 
 
@@ -150,11 +150,11 @@ def apply_pending(db, log=print) -> int:
         try:
             counts = apply(db, json.loads(path.read_text(encoding="utf-8")), log=lambda *a: None)
             path.rename(path.with_name(path.stem + ".applied.json"))
-            log(f"Relecture {path.name} appliquée : {counts['rejected']} retiré(s), {counts['updated']} corrigé(s), "
-                f"{counts['added']} ajouté(s).")
+            log(f"Reviewed batch {path.name} applied: {counts['rejected']} retired, {counts['updated']} fixed, "
+                f"{counts['added']} added.")
             done += 1
         except (ValueError, KeyError, OSError) as e:
-            log(f"! Relecture {path.name} : {e}")
+            log(f"! Reviewed batch {path.name}: {e}")
     return done
 
 

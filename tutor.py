@@ -70,7 +70,83 @@ SCENARIOS = {
     "weekend": "Situation : vous parlez de vos projets pour le week-end.",
 }
 
-def student_context(db) -> str:
+SYSTEM_PROMPT_EN = """You are « Sensei », the personal Japanese teacher of an English-speaking student.
+You answer in English, clearly, warmly and concisely (no emoji). You are rigorous: if you are not sure
+about a rule or a usage, say so rather than making something up.
+
+Rules:
+- When you write Japanese, add the hiragana reading in brackets after kanji words above level N5/N4,
+  then the translation.
+- When the student asks you to correct a sentence: first say whether it is correct, give the corrected
+  version, then explain each correction (particle, conjugation, vocabulary, naturalness).
+  An automatic « morphological analysis » of the sentence may be given to you: it is reliable for the
+  word boundaries and readings, but it does not say whether the sentence is correct.
+- Give few examples, short, with simple vocabulary, and only sentences you are sure are correct and
+  natural. Re-read every Japanese example before writing it.
+- Stay on the question: do not add lists of related rules the student did not ask for.
+- Use lists and **bold** sparingly; no tables.
+
+{student}"""
+
+CONVERSATION_PROMPT_EN = """You are « Sensei », having a conversation in Japanese with an English-speaking student of level {level}.
+{scenario}
+Rules:
+- Answer first in simple, natural Japanese (level {level}, 1 to 3 short sentences), in polite style (です / ます).
+  Often end with a question to keep the conversation going.
+- Then, on a new line starting with « → », the English translation of your line.
+- If the student's last message has mistakes, add a line « Correction: » with the corrected sentence and a
+  very short explanation in English. If there is no mistake, add nothing.
+- If the student writes in English, help them say the same thing in Japanese.
+- No emoji, no romaji.
+
+{student}"""
+
+QUIZ_PROMPT_EN = """You are « Sensei », Japanese teacher of an English-speaking student of level {level}, and you quiz them.
+Rules:
+- Ask ONE short question at a time, on their weak points below (particles, conjugations, vocabulary):
+  fill-in-the-blank sentence, short translation, or « what is the difference between… ».
+- When they answer: say whether it is right, correct and explain in one or two sentences, then ask the next question.
+- Vary the questions, stay at their level, in English (Japanese only for the sentences).
+- No emoji.
+
+{student}"""
+
+SCENARIOS_EN = {
+    "free": "Free topic: start by greeting the student and asking a simple question about their day.",
+    "intro": "Situation: you are getting to know each other (introductions, job, hobbies, why they learn Japanese).",
+    "restaurant": "Situation: you are a waiter in a restaurant in Japan, the student is a customer.",
+    "konbini": "Situation: you work in a konbini, the student is shopping.",
+    "directions": "Situation: the student is lost in Tokyo and asks you the way; you are a passer-by.",
+    "hotel": "Situation: you are a hotel receptionist, the student arrives to check in.",
+    "weekend": "Situation: you talk about your plans for the weekend.",
+}
+
+
+def student_context(db, language: str = "fr") -> str:
+    if language == "en":
+        return _student_context_en(db)
+    return _student_context_fr(db)
+
+
+def _student_context_en(db) -> str:
+    lines = ["What you know about the student:"]
+    if KNOWN_PATH.exists():
+        known = json.loads(KNOWN_PATH.read_text(encoding="utf-8"))
+        lines.append(f"- They know about {len(known.get('words', [])) // 2} words and {len(known.get('kanji', []))} "
+                     f"kanji in Anki.")
+    rows = db.execute("""
+        SELECT e.topic, e.data, r.answer FROM reviews r JOIN exercises e ON e.id = r.exercise_id
+        WHERE r.correct = 0 ORDER BY r.id DESC LIMIT 8""").fetchall()
+    if rows:
+        lines.append("- Their latest mistakes in the exercises:")
+        for row in rows:
+            ex = json.loads(row["data"])
+            given = row["answer"] or "(answer shown)"
+            lines.append(f"  · {ex.get('full_sentence', '')} — expected « {ex['answers'][0]} », they answered « {given} »")
+    return "\n".join(lines) if len(lines) > 1 else ""
+
+
+def _student_context_fr(db) -> str:
     """What the tutor knows about the student: level, vocabulary size, recent mistakes."""
     lines = ["Ce que tu sais de l'élève :"]
     if KNOWN_PATH.exists():
@@ -130,8 +206,18 @@ def reading(word: str) -> str:
         return ""
 
 
-def exercise_context(ex: dict) -> str:
+def exercise_context(ex: dict, language: str = "fr") -> str:
     """Text added to the student's question when asked from an exercise (« Demander au prof »)."""
+    if language == "en":
+        lines = ["[Context: the student asks about this exercise]",
+                 f"Sentence: {ex.get('full_sentence', '')}",
+                 f"Exercise: {ex.get('sentence', '')}" + (f" (verb: {ex['cue']})" if ex.get("cue") else ""),
+                 f"Expected answer: {', '.join(ex.get('answers', []))}"]
+        for key, name in (("choices", "Choices"), ("given", "Student's answer"), ("translation", "Translation"),
+                          ("explanation", "Explanation already given")):
+            if ex.get(key):
+                lines.append(f"{name}: {' / '.join(ex[key]) if isinstance(ex[key], list) else ex[key]}")
+        return "\n".join(lines)
     lines = ["[Contexte : l'élève pose une question sur cet exercice]",
              f"Phrase : {ex.get('full_sentence', '')}",
              f"Exercice : {ex.get('sentence', '')}" + (f" (verbe : {ex['cue']})" if ex.get("cue") else ""),
@@ -157,10 +243,16 @@ def student_level() -> str:
         return "N4"
 
 
-def weak_points(db) -> str:
+def weak_points(db, language: str = "fr") -> str:
     rows = db.execute("""
         SELECT e.topic, COUNT(*) AS n, SUM(r.correct) AS ok FROM reviews r JOIN exercises e ON e.id = r.exercise_id
         GROUP BY e.topic HAVING n >= 3 ORDER BY 1.0 * ok / n LIMIT 4""").fetchall()
+    if language == "en":
+        import curriculum
+        if not rows:
+            return "- Not enough results yet: quiz them on the particles は/が, に/で and the て-form."
+        return "- Their hardest topics: " + ", ".join(
+            f"{curriculum.title(r['topic'], 'en')} ({round(100 * r['ok'] / r['n'])} % right)" for r in rows)
     if not rows:
         return "- Pas encore assez de résultats : interroge-le sur les particules は/が, に/で et la forme en て."
     return "- Ses thèmes les plus difficiles : " + ", ".join(
@@ -168,27 +260,30 @@ def weak_points(db) -> str:
 
 
 def build_messages(db, conversation: str, message: str, exercise: dict = None,
-                   mode: str = "prof", scenario: str = "free") -> tuple:
-    """(messages for the LLM, labels of the references used)."""
+                   mode: str = "prof", scenario: str = "free", language: str = "fr") -> tuple:
+    """(messages for the LLM, labels of the references used). language: « fr » or « en », the student's language."""
     level = student_level()
-    student = student_context(db)
+    student = student_context(db, language)
+    en = language == "en"
+    scenarios = SCENARIOS_EN if en else SCENARIOS
     if mode == "conversation":
-        system = CONVERSATION_PROMPT.format(level=level, scenario=SCENARIOS.get(scenario, SCENARIOS["free"]),
-                                            student=student)
+        system = (CONVERSATION_PROMPT_EN if en else CONVERSATION_PROMPT).format(
+            level=level, scenario=scenarios.get(scenario, scenarios["free"]), student=student)
     elif mode == "quiz":
-        system = QUIZ_PROMPT.format(level=level, student=student + "\n" + weak_points(db))
+        system = (QUIZ_PROMPT_EN if en else QUIZ_PROMPT).format(level=level, student=student + "\n" + weak_points(db, language))
     else:
-        system = SYSTEM_PROMPT.format(student=student)
+        system = (SYSTEM_PROMPT_EN if en else SYSTEM_PROMPT).format(student=student)
     history = store.conversation(db, conversation, limit=20)
     content = message
     if exercise:
-        content = exercise_context(exercise) + "\n\nQuestion de l'élève : " + message
+        content = exercise_context(exercise, language) + ("\n\nStudent's question: " if en else "\n\nQuestion de l'élève : ") + message
     tokens = tokenize(message)
     if tokens and mode != "quiz":
-        content += "\n\n[Analyse morphologique automatique du japonais de l'élève]\n" + analyze(message, tokens)
+        content += ("\n\n[Automatic morphological analysis of the student's Japanese]\n" if en else
+                    "\n\n[Analyse morphologique automatique du japonais de l'élève]\n") + analyze(message, tokens)
     labels = []
     if mode == "prof":
-        refs, labels = knowledge.references(message, tokens, exercise)
+        refs, labels = knowledge.references(message, tokens, exercise, language)
         if refs:
             content += "\n\n" + refs
     return [{"role": "system", "content": system}] + history + [{"role": "user", "content": content}], labels

@@ -115,6 +115,10 @@ Le fichier de ta collection (`%APPDATA%\Anki2\<profil>\collection.anki2`) est co
 
 En session : **↶ Annuler ma réponse** (ou Ctrl+Z) oublie un mauvais clic ou une faute de frappe et remet la révision comme avant ; sur un nouvel exercice, il revient au précédent. **En fait je ne maîtrise pas** transforme une bonne réponse due à la chance en erreur (l'exercice revient en fin de session et demain). **Ne plus proposer** suspend un exercice ; **⚑ Signaler une erreur** retire pour de bon un exercice faux ou ambigu (il ne sera plus jamais généré). Dans Progrès → **Révisions** : tous les exercices avec leur prochaine révision, filtre par thème ou par texte, et pour ceux cochés : revoir aujourd'hui, suspendre, réactiver ou signaler ; « jamais vus » ajoute des exercices de la réserve à tes révisions.
 
+### Langue (français / anglais)
+
+L'app fonctionne en français ou en anglais : sélecteur en haut à droite (enregistré dans `data/settings.json`). L'interface, les titres et fiches des thèmes, le prof (consignes, situations de conversation, références) et les traductions des phrases suivent ce choix. Les nouveaux exercices sont générés avec un indice et une explication dans les deux langues ; les anciens n'ont que l'explication en français, masquée en anglais. Les traductions anglaises viennent de Tatoeba : `python build_bank.py` les garde désormais (à relancer une fois ; `--french-only` pour l'ancien comportement).
+
 ### Contrôle qualité (`review.py`)
 
 ```
