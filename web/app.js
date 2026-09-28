@@ -43,14 +43,23 @@ function showTab(name) {
 }
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
 
+const STATUS = {data: null};
+
 async function loadStatus() {
   try {
     const s = await api("/api/status");
+    STATUS.data = s;
+    $("btn-quit").hidden = !s.packaged;
+    const noModel = s.local_model === false && !s.ollama;   // generating needs the local model
+    $("btn-fill").hidden = noModel;
+    $("btn-jlpt-fill").hidden = noModel;
+    $("chat-off").hidden = !!(s.ollama && s.model_installed);
+    $("chat-off").textContent = t("chat_off", {model: s.model});
     const item = (ok, on, off) => `<span class="${ok ? "on" : "off"}">${ok ? on : off}</span>`;
     $("status").innerHTML =
-      item(s.ollama && s.model_installed, t("teacher_on", {model: esc(s.model)}),
-           s.ollama ? t("model_missing", {model: esc(s.model)}) : t("ollama_off")) +
-      item(s.anki_sync, t("anki_on"), t("anki_off"));
+      (s.local_model === false && !s.ollama ? "" : item(s.ollama && s.model_installed, t("teacher_on", {model: esc(s.model)}),
+           s.ollama ? t("model_missing", {model: esc(s.model)}) : t("ollama_off"))) +
+      (s.anki_found || s.anki_sync ? item(s.anki_sync, t("anki_on"), t("anki_off")) : "");
     return s;
   } catch (e) {
     $("status").innerHTML = `<span class="off">${t("server_down")}</span>`;
@@ -82,12 +91,12 @@ const label = topic => (P.topics.find(x => x.title === topic) || {}).label || to
 function setMode(mode) {
   P.mode = mode;
   store("mode", mode);
-  document.querySelectorAll(".seg").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
+  document.querySelectorAll(".seg[data-mode]").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
   $("mode-daily").hidden = mode !== "daily";
   $("mode-practice").hidden = mode !== "practice";
   updateStartButton();
 }
-document.querySelectorAll(".seg").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
+document.querySelectorAll(".seg[data-mode]").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
 
 function updateStartButton() {
   const reserve = P.topics.reduce((n, t) => n + t.total, 0);
@@ -1022,6 +1031,42 @@ $("btn-exam-back").addEventListener("click", () => {
 });
 
 // ======================================================================
+// ---------------- first start ----------------
+
+function showSetup(s) {
+  document.body.classList.add("in-setup");
+  $("setup").hidden = false;
+  document.querySelectorAll("#setup-lang .seg").forEach(b => b.classList.toggle("active", b.dataset.value === LANG));
+  $("setup-anki").innerHTML = s.anki_found
+    ? `${esc(t("setup_anki_found"))}<br><label class="check"><input type="checkbox" id="setup-anki-use" checked> ${esc(t("setup_anki_use"))}</label>`
+    : esc(t("setup_anki_none"));
+  const ready = s.ollama && s.model_installed;
+  $("setup-model-state").textContent = ready ? t("setup_model_ready", {model: s.model}) : t("setup_model_missing", {model: s.model});
+  $("setup-local").checked = !!ready;
+}
+document.querySelectorAll("#setup-lang .seg").forEach(b => b.addEventListener("click", async () => {
+  if (b.dataset.value === LANG) return;
+  await api("/api/settings", {language: b.dataset.value}).catch(() => {});
+  location.reload();
+}));
+$("btn-setup-go").addEventListener("click", async () => {
+  const level = document.querySelector("#setup-level input:checked")?.value || "N5";
+  try {
+    const job = await api("/api/setup", {language: LANG, level, anki: !!$("setup-anki-use")?.checked,
+                                         local_model: $("setup-local").checked});
+    document.body.classList.remove("in-setup");
+    $("setup").hidden = true;
+    showTab("progress");
+    renderFill(job);
+    pollFill.was = true;
+    setTimeout(pollFill, 1000);
+  } catch (e) { toast(e.message); }
+});
+$("btn-quit").addEventListener("click", async () => {
+  await api("/api/quit", {}).catch(() => {});
+  document.body.innerHTML = `<p style="padding:40px;text-align:center">✓</p>`;
+});
+
 $("lang-select").value = LANG;
 $("lang-select").addEventListener("change", async e => {
   try {
@@ -1031,7 +1076,7 @@ $("lang-select").addEventListener("change", async e => {
 });
 
 window.JapaneseCoach = {session: S, chat: C, exam: E};  // handy in the browser console, and for tests
-loadStatus();
+loadStatus().then(s => { if (s && s.setup) showSetup(s); });
 loadHome();
 loadSettings();
 api("/api/fill").then(f => { if (f.running) { pollFill.was = true; pollFill(); } else renderFill(f); }).catch(() => {});

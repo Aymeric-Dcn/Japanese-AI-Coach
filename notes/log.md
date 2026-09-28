@@ -170,3 +170,10 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - Generation now requires both a French and an English translation (39,278 sentences), so every exercise works in both languages. Two 並べ替え made in English mode without a French translation were rejected, one of them also mis-tokenized (どこかなぞめいた → どこかな / ぞめいた).
 - Tested end to end on copies: publish 131 exercises → a fresh database pulls them (progress untouched) → it generates and contributes 4 → the maintainer imports, rejects 1, approves 3, publishes v2 → the friend's pull retires the rejected one.
 - README rewritten as a project page (screenshots taken in headless Chromium on a copy of the real database, EN and FR); detailed documentation moved to `docs/guide.md` / `docs/guide.fr.md`.
+
+## 2026-09-28 — Windows app for friends (no Anki, no GPU)
+
+- Welcome screen on first start: language, starting level (N5, or N4 with the N5 topics marked as known), Anki (detected or not), and the local model explained (Ollama, ≈ 9 GB, GPU with 8–12 GB, stays on the computer). Nothing runs before it is answered; then the startup job pulls the shared bank.
+- Without a local model: no 15-minute wait for Ollama at startup, the « generate » buttons are hidden, the Teacher tab explains what is missing, and topics with no exercise in the reserve are skipped so the daily programme always has something to offer.
+- `build_exe.py` (PyInstaller): one-file, no console; data in %LOCALAPPDATA%\JapaneseCoach; a second double-click opens the running app; ⏻ closes it. SudachiPy and the sentence bank are not included (only needed to generate).
+- Tested by simulating the packaged mode (sys.frozen, _MEIPASS) on an empty profile: welcome screen FR → EN, level N4, bank pulled (134 exercises), daily programme, Teacher tab message, quit. The real .exe must be built on Windows.

@@ -27,6 +27,7 @@ At startup (unless --no-maintenance): Anki sync once a day, then the reserve is 
 import argparse
 import json
 import mimetypes
+import os
 import sys
 import threading
 import time
@@ -44,6 +45,10 @@ import store
 import tutor
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
+PACKAGED = bool(getattr(sys, "frozen", False))   # the .exe built by build_exe.py
+if PACKAGED:
+    WEB_DIR = Path(getattr(sys, "_MEIPASS", ".")) / "web"
+SERVER = {"httpd": None}
 MODEL = llm.DEFAULT_MODEL
 DB_PATH = None  # None = store.DB_PATH (data/coach.db)
 
@@ -120,7 +125,7 @@ class Handler(BaseHTTPRequestHandler):
                         topics = [t for t in query.get("topics", "").split("|") if t]
                         data = {"items": localize(store.session(db, new_limit=new, topics=topics or None))}
                     else:
-                        data = store.daily_session(db, new_limit=new)
+                        data = store.daily_session(db, new_limit=new, skip_empty=no_local_model())
                         localize(data["items"])
                     for ex in data["items"]:  # exercises saved before cue readings existed
                         if ex.get("cue") and "cue_reading" not in ex:
@@ -199,6 +204,12 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/settings":
                 save_settings(data)
                 return self.send_json(public_settings())
+            if url.path == "/api/setup":
+                return self.send_json(apply_setup(data))
+            if url.path == "/api/quit":
+                self.send_json({"ok": True})
+                threading.Timer(0.3, lambda: os._exit(0)).start()
+                return None
             if url.path == "/api/bank/sync":
                 return self.send_json(start_bank_job("pull"))
             if url.path == "/api/bank/contribute":
@@ -271,7 +282,7 @@ FILL_LOCK = threading.Lock()
 SETTINGS_PATH = Path("data") / "settings.json"
 DEFAULT_SETTINGS = {"auto_sync": True, "auto_fill": True, "fill_target": 15, "jlpt_level": "N4", "jlpt_auto_fill": True,
                     "language": "fr", "bank_auto_sync": True, "bank_url": "", "bank_token": "",
-                    "bank_contribute": "", "contributor": ""}
+                    "bank_contribute": "", "contributor": "", "setup_done": None, "local_model": None}
 LANGUAGES = ("fr", "en")
 
 
@@ -304,9 +315,13 @@ def bank_translation(source_key: str, language: str) -> str:
 RULE_EXPLANATION_EN = [(" se lit ", " is read "), (" s'écrit ", " is written ")]
 
 
+def no_local_model() -> bool:
+    return load_settings().get("local_model") is False
+
+
 def topic_states(db) -> list:
     language = lang()
-    states = store.topic_states(db)
+    states = store.topic_states(db, no_local_model())
     for t in states:
         t["label"] = curriculum.title(t["title"], language)
     return states
@@ -465,7 +480,7 @@ def start_maintenance() -> dict:
     """At startup: Anki sync (once a day), then top up the reserve as soon as Ollama answers."""
     def work(log, should_stop, db):
         settings = load_settings()
-        if settings["auto_sync"]:
+        if settings["auto_sync"] and anki_available():
             known = tutor.KNOWN_PATH
             synced_today = known.exists() and json.loads(known.read_text(encoding="utf-8")).get("date") == \
                 time.strftime("%Y-%m-%d")
@@ -493,7 +508,7 @@ def start_maintenance() -> dict:
                 bank_sync.pull(db, settings.get("bank_url") or bank_sync.DEFAULT_URL, settings.get("bank_token", ""), log=log)
             except Exception as e:
                 log(tr(f"Banque partagée injoignable : {e}", f"Shared bank not reachable: {e}"))
-        if settings["auto_fill"] and (Path("data") / "bank.db").exists():
+        if settings["auto_fill"] and (Path("data") / "bank.db").exists() and settings.get("local_model") is not False:
             waited = 0
             while not ollama_up() and waited < 900 and not should_stop():
                 if waited == 0:
@@ -518,6 +533,41 @@ def start_maintenance() -> dict:
     return run_job(tr("Maintenance au démarrage", "Startup maintenance"), work)
 
 
+def anki_available() -> bool:
+    """An Anki collection on this computer, or a configuration from an earlier sync."""
+    if (Path("data") / "anki.json").exists():
+        return True
+    try:
+        import anki_db
+        return bool(anki_db.find_collections())
+    except Exception:
+        return False
+
+
+def setup_needed(settings: dict, reserve: int) -> bool:
+    """First start: the welcome screen. Existing installs (a reserve already there) skip it."""
+    done = settings.get("setup_done")
+    return not done if done is not None else reserve == 0
+
+
+def apply_setup(data: dict) -> dict:
+    """Choices of the welcome screen: language, starting level, Anki, local model."""
+    changes = {"setup_done": True, "language": data.get("language") if data.get("language") in LANGUAGES else lang(),
+               "local_model": bool(data.get("local_model")), "auto_sync": bool(data.get("anki")),
+               "auto_fill": bool(data.get("local_model")), "jlpt_auto_fill": bool(data.get("local_model")),
+               "jlpt_level": "N4" if data.get("level") == "N4" else "N5", "bank_auto_sync": True}
+    save_settings(changes)
+    db = store.connect(DB_PATH)
+    try:
+        if data.get("level") == "N4":   # the N5 programme counts as known
+            for t in curriculum.TOPICS:
+                if t["level"] == "N5":
+                    store.set_topic_known(db, t["title"], True)
+    finally:
+        db.close()
+    return start_maintenance()
+
+
 def status() -> dict:
     ollama = False
     try:
@@ -531,7 +581,12 @@ def status() -> dict:
         reserve = db.execute("SELECT COUNT(*) FROM exercises").fetchone()[0]
     finally:
         db.close()
+    settings = load_settings()
     return {
+        "packaged": PACKAGED,
+        "setup": setup_needed(settings, reserve),
+        "anki_found": anki_available(),
+        "local_model": settings.get("local_model"),
         "ollama": ollama,
         "model": MODEL,
         "model_installed": any(n == MODEL or n.split(":")[0] == MODEL for n in names),
@@ -561,8 +616,17 @@ def watch_reviews(interval: int = 30) -> None:
     threading.Thread(target=loop, daemon=True).start()
 
 
+def app_home() -> Path:
+    """Where the packaged app keeps its data: %LOCALAPPDATA%\\JapaneseCoach (data/ inside)."""
+    base = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "JapaneseCoach"
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
 def main() -> None:
     global MODEL, DB_PATH
+    if PACKAGED:
+        os.chdir(app_home())   # every module uses paths relative to data/
     if sys.stdout is None:  # started with pythonw (no console): log to a file
         Path("data").mkdir(exist_ok=True)
         sys.stdout = sys.stderr = open(Path("data") / "server.log", "a", encoding="utf-8", buffering=1)
@@ -579,13 +643,24 @@ def main() -> None:
                    help="do not sync Anki / fill the reserve at startup (see data/settings.json)")
     args = p.parse_args()
     MODEL, DB_PATH = args.model, args.db
-
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     url = f"http://localhost:{args.port}"
+    if PACKAGED:
+        args.open = True
+    try:
+        server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    except OSError:   # already running (second double-click): just open it
+        print(f"Port {args.port} already in use: opening {url}")
+        webbrowser.open(url)
+        return
     print(f"✓ Japanese Coach running on {url}  (Ctrl+C to stop)")
     if args.open:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
-    if not args.no_maintenance:
+    db = store.connect(DB_PATH)
+    try:
+        first_start = setup_needed(load_settings(), db.execute("SELECT COUNT(*) FROM exercises").fetchone()[0])
+    finally:
+        db.close()
+    if not args.no_maintenance and not first_start:   # on first start, the welcome screen starts it
         start_maintenance()
     watch_reviews()
     try:

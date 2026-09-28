@@ -17,10 +17,46 @@
     <button class="tab" data-tab="progress" role="tab" data-i18n="tab_progress">Progrès</button>
   </nav>
   <div class="status" id="status" data-i18n-title="status_title" title="État des services"></div>
+  <button class="ghost small" id="btn-quit" hidden data-i18n-title="quit_title" title="Fermer l'app">⏻</button>
   <select id="lang-select" class="lang" aria-label="Langue / Language"><option value="fr">FR</option><option value="en">EN</option></select>
 </header>
 
 <main>
+  <!-- ============ FIRST START ============ -->
+  <section id="setup" class="card setup" hidden>
+    <h2 data-i18n="setup_title">Bienvenue !</h2>
+    <p class="muted" data-i18n="setup_intro">Quelques questions pour préparer l'app. Tout reste sur cet ordinateur.</p>
+
+    <h3 data-i18n="setup_lang">Langue</h3>
+    <div class="segmented" id="setup-lang">
+      <button class="seg" data-value="fr">Français</button>
+      <button class="seg" data-value="en">English</button>
+    </div>
+
+    <h3 data-i18n="setup_level">Ton niveau</h3>
+    <div class="choice-list" id="setup-level">
+      <label><input type="radio" name="level" value="N5" checked> <span data-i18n="setup_n5">Je débute : commencer au JLPT N5 (particules, forme en ます…)</span></label>
+      <label><input type="radio" name="level" value="N4"> <span data-i18n="setup_n4">Je connais les bases : commencer au N4 (le N5 compte comme acquis)</span></label>
+    </div>
+
+    <h3>Anki</h3>
+    <p class="small" id="setup-anki"></p>
+
+    <h3 data-i18n="setup_model">Le prof local (facultatif)</h3>
+    <div class="small model-box">
+      <p data-i18n="setup_model_what">Les exercices déjà relus arrivent tout seuls par Internet, sans rien installer. Un modèle d'IA local sert en plus à : discuter avec le prof (onglet Prof), et générer de nouveaux exercices.</p>
+      <ul>
+        <li data-i18n="setup_model_size">Logiciel gratuit : Ollama, puis le modèle Qwen 3 (environ 9 Go à télécharger).</li>
+        <li data-i18n="setup_model_hw">Il faut une carte graphique avec au moins 8 à 12 Go de mémoire (sinon c'est très lent), et 16 Go de RAM.</li>
+        <li data-i18n="setup_model_private">Tout tourne sur ton ordinateur : rien n'est envoyé sur Internet.</li>
+      </ul>
+      <p id="setup-model-state"></p>
+      <label class="check"><input type="checkbox" id="setup-local"> <span data-i18n="setup_model_use">J'ai (ou je vais installer) le prof local</span></label>
+    </div>
+
+    <button class="primary big" id="btn-setup-go" data-i18n="setup_go">C'est parti</button>
+  </section>
+
   <!-- ============ SESSION ============ -->
   <section id="tab-session" class="panel active">
     <div class="summary" id="summary"></div>
@@ -193,6 +229,7 @@
         </select>
         <button class="ghost right" id="btn-new-chat" data-i18n="new_chat">Nouvelle conversation</button>
       </div>
+      <div class="warn" id="chat-off" hidden></div>
       <div class="messages" id="messages"></div>
       <div class="chips" id="chips">
         <button class="chip" data-text="Corrige ma phrase : " data-i18n="chip_correct" data-i18n-text="chip_correct_text">Corrige ma phrase…</button>

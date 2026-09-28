@@ -50,6 +50,8 @@ Anki ────► anki_sync.py ──► mots connus, lexique, fiches de gram
 
 ## Démarrer
 
+**Juste l'utiliser ?** Télécharge `JapaneseCoach.exe` sur la page [Releases](https://github.com/Aymeric-Dcn/Japanese-AI-Coach/releases) (Windows, sans installation) : double-clic, réponds à l'écran d'accueil, et les exercices relus sont téléchargés. Pour le construire toi-même : `pip install pyinstaller` puis `python build_exe.py` → `dist/JapaneseCoach.exe`.
+
 Configuration testée : Windows, RTX 4070 Super (12 Go), 32 Go de RAM.
 
 1. **Installer** [Python 3.9+](https://www.python.org/downloads/) (cocher *Add python.exe to PATH*), puis `pip install -r requirements.txt`. Facultatif : [Ollama](https://ollama.com/download) et `ollama pull qwen3:14b` (≈ 9 Go, pour générer des exercices et pour le chat).

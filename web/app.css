@@ -202,3 +202,11 @@ input[type=search] { font: inherit; padding: 6px 8px; border-radius: 8px; border
 select.lang { font-size: .8rem; padding: 2px 4px; margin-left: 8px; }
 .bank-settings input[type=text], .bank-settings input[type=password] { font: inherit; font-size: .85rem; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
 details summary { cursor: pointer; color: var(--muted); margin-top: 6px; }
+/* ---------- first start ---------- */
+body.in-setup .panel, body.in-setup .tabs { display: none !important; }
+.setup h3 { margin-top: 18px; }
+.setup .segmented { justify-content: flex-start; }
+.choice-list label { display: block; margin: 6px 0; cursor: pointer; }
+.model-box { background: var(--me); border-radius: 10px; padding: 10px 14px; }
+.model-box ul { margin: 6px 0; padding-left: 20px; }
+.setup .big { margin-top: 16px; }

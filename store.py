@@ -205,9 +205,9 @@ def session(db, day: datetime.date = None, new_limit: int = 10, due_limit: int =
     return items
 
 
-def daily_session(db, day: datetime.date = None, new_limit: int = 10, seed=None) -> dict:
+def daily_session(db, day: datetime.date = None, new_limit: int = 10, seed=None, skip_empty: bool = False) -> dict:
     """The programme's session: every review due, new exercises from the current topics only."""
-    states = topic_states(db)
+    states = topic_states(db, skip_empty)
     current = [t["title"] for t in states if t["state"] == "current"]
     due = session(db, day, new_limit=0, seed=seed)
     new = [x for x in session(db, day, new_limit=new_limit, topics=current, seed=seed) if x["status"] == "new"]
@@ -240,22 +240,26 @@ def is_passed(perf: dict, flagged: bool) -> tuple:
     return False, ""
 
 
-def topic_states(db) -> list:
+def topic_states(db, skip_empty: bool = False) -> list:
     """Every programme topic with its state: passed, current (new exercises come from here) or locked.
-    Reserve topics that are not in the programme are listed at the end with the state « custom »."""
+    Reserve topics that are not in the programme are listed at the end with the state « custom ».
+    skip_empty: topics without any exercise do not take a « current » place (without a local model,
+    the reserve only has what the shared bank provides)."""
     flags = {r["topic"]: bool(r["known"]) for r in db.execute("SELECT topic, known FROM topic_flags")}
     reserve = {t["topic"]: t for t in topics(db)}
     states, current = [], 0
     for t in curriculum.TOPICS:
         perf = topic_performance(db, t["title"])
         passed, why = is_passed(perf, flags.get(t["title"], False))
+        res = reserve.get(t["title"], {"total": 0, "unseen": 0})
         if passed:
             state = "passed"
+        elif skip_empty and not res["total"]:
+            state = "locked"
         elif current < curriculum.MAX_CURRENT:
             state, current = "current", current + 1
         else:
             state = "locked"
-        res = reserve.get(t["title"], {"total": 0, "unseen": 0})
         states.append({"id": t["id"], "title": t["title"], "level": t["level"], "kind": curriculum.kind(t),
                        "state": state, "why": why, "flagged": flags.get(t["title"], False),
                        "total": res["total"], "unseen": res["unseen"], **perf})
