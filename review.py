@@ -15,7 +15,7 @@ never generated again. Its past answers stay in the history but no longer count 
 
 Reviewed batch format (JSON):
     {"reject": [{"id": 123, "reason": "…"}, {"key": "tatoeba:4567:particle:に", "reason": "…"}],
-     "update": [{"id": 124, "data": {"explanation": "…", "answers": ["に", "へ"]}}],
+     "update": [{"id": 124, "data": {"explanation": "…", "answers": ["に", "へ"]}}],   # or {"key": …}
      "add":    [{"topic": "JLPT N4 · 文法形式 (grammaire)", "kind": "jlpt", "key": "claude:…", "data": {…}}],
      "approve": [{"id": 125}] or "approve_all": true,     # reviewed: can go to the shared bank
      "reviewer": "Claude"}
@@ -132,11 +132,12 @@ def apply(db, batch: dict, log=print) -> dict:
         elif item.get("id"):
             counts["rejected"] += store.retire(db, int(item["id"]), reason)
     for item in batch.get("update", []):
-        row = db.execute("SELECT data FROM exercises WHERE id = ?", (int(item["id"]),)).fetchone()
+        row = db.execute("SELECT id, data FROM exercises WHERE " + ("source_key = ?" if item.get("key") else "id = ?"),
+                         (item.get("key") or int(item["id"]),)).fetchone()
         if row:
-            data = json.loads(row[0])
+            data = json.loads(row["data"])
             data.update(item.get("data", {}))
-            db.execute("UPDATE exercises SET data = ? WHERE id = ?", (json.dumps(data, ensure_ascii=False), int(item["id"])))
+            db.execute("UPDATE exercises SET data = ? WHERE id = ?", (json.dumps(data, ensure_ascii=False), row["id"]))
             counts["updated"] += 1
     db.commit()
     stamp = {"by": batch.get("reviewer", "review"), "date": batch.get("date") or __import__("datetime").date.today().isoformat()}

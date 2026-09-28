@@ -284,6 +284,8 @@ def conjugation_blanks(tokens: list, form: str) -> list:
         verb, ending = tokens[k], tokens[k + 1]
         if verb[1] != "動詞" or ending[0] not in endings or ending[1] not in ending_pos:
             continue
+        if verb[4].endswith("ずる"):
+            continue   # literary verbs (信ずる, 感ずる): the student would expect 信じる
         # Skip auxiliary verbs right after て (食べている, 見てしまう…): the main verb is elsewhere.
         if (verb[2] == "非自立可能" and k > 0 and tokens[k - 1][0] in ("て", "で")
                 and tokens[k - 1][2] == "接続助詞"):

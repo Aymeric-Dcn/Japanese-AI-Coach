@@ -204,6 +204,30 @@ def import_inbox(db, repo: Path, log=print) -> int:
     return added
 
 
+def add_translations(by_file: dict) -> None:
+    """Fills the missing French / English translation of each sentence from the Tatoeba bank."""
+    bank_path = Path("data") / "bank.db"
+    if not bank_path.exists():
+        return
+    import sqlite3
+    bank = sqlite3.connect(bank_path)
+    try:
+        for items in by_file.values():
+            for item in items.values():
+                parts = item["key"].split(":")
+                data = item["data"]
+                if parts[0] != "tatoeba" or (data.get("translation") and data.get("translation_en")):
+                    continue
+                row = bank.execute("SELECT fr, en FROM sentences WHERE id = ?", (parts[1],)).fetchone()
+                if row:
+                    if row[0] and not data.get("translation"):
+                        data["translation"] = row[0]
+                    if row[1] and not data.get("translation_en"):
+                        data["translation_en"] = row[1]
+    finally:
+        bank.close()
+
+
 def publish(db, repo: Path, log=print) -> dict:
     """Writes every reviewed exercise (data.review set) to the bank files, with the manifest.
     Exercises already in the bank stay, unless they were rejected since."""
@@ -219,7 +243,12 @@ def publish(db, repo: Path, log=print) -> dict:
         if not json.loads(row["data"]).get("review"):
             continue   # generated or contributed, not reviewed yet
         item = to_line(row)
-        by_file.setdefault(topic_id(row["topic"]) + ".jsonl", {})[item["key"]] = item
+        slot = by_file.setdefault(topic_id(row["topic"]) + ".jsonl", {})
+        old = slot.get(item["key"])
+        if old:   # keep what the bank already had (e.g. English explanations added during a review)
+            item["data"] = dict(old["data"], **{k: v for k, v in item["data"].items() if v not in ("", None, [])})
+        slot[item["key"]] = item
+    add_translations(by_file)
     (repo / "exercises").mkdir(parents=True, exist_ok=True)
     files, total = [], 0
     for name in sorted(by_file):
