@@ -204,3 +204,11 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - のに / ので hints now come from a rule (« is the first part the cause of the second, or does the second happen in spite of it? »): Qwen's hints named the answer (« a word that marks a cause »). 〜ようとする and 〜ようと思う are explained by rules after the volitional.
 - `compare_models.py`: the same candidates (fixed seed) checked and explained by several models, written to data/compare/ for review, before switching the default model.
 - Bank v3: 367 exercises, 93 rejected keys.
+
+## 2026-09-28 — qwen3:14b vs qwen3:30b-a3b (`compare_models.py`, 33 items)
+
+- Kept: 33/33 vs 32/33. The 30B dropped 褒美をやろう because the French translation is wrong (« Tu devrais être récompensé »): right, the 14B missed it. Both kept 「（　　）だった。」 (今朝 / 問題 だった fit too): JLPT vocab questions now need at least two content words besides the blank.
+- Explanations: both still wrong on the same points (が « marks the time » in 亡くなる前に; に / へ: both say へ (or に) is impossible after 行く / 帰る, although the two are right). The 30B is more concrete on the wrong choices (it says what 漢字だった or 四日 would mean), but it switched to Japanese in 5 of 33 explanations (« 他の助詞は文脈に合いません », « はは主題を示す助詞で… »): unusable as is for a French student.
+- Time: 18 s vs 26 s per item, but the script alternated the two models and Ollama reloaded them from disk at each switch (the SSD at 100 %): the script now runs one model at a time and does not count the first call.
+- Conclusion: no reason to switch the local default to the 30B. The explanations need review whatever the local model; the next test is a cloud model (Claude Haiku / Sonnet) on the same seed.
+- Scripts run from the command line now read the API key saved in the app (data/settings.json).

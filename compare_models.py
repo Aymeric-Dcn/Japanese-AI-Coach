@@ -4,6 +4,7 @@ Nothing is added to the reserve; the result is a file to review (data/compare/<d
 
     python compare_models.py --models qwen3:14b,qwen3:30b-a3b
     python compare_models.py --models qwen3:14b,qwen3:30b-a3b --per-topic 3 --jlpt 6
+    python compare_models.py --models qwen3:14b,anthropic:claude-haiku-4-5-20251001   (API key saved in the app)
 
 The same candidates (fixed seed) go to every model, so the answers can be put side by side.
 """
@@ -93,25 +94,29 @@ def main() -> None:
     items = exercise_candidates([t.strip() for t in args.topics.split(",") if t.strip()], args.per_topic, args.seed)
     items += jlpt_candidates(args.level, args.jlpt, args.seed)
     print(f"{len(items)} items × {len(models)} models")
-    results = []
     totals = {m: {"kept": 0, "seconds": 0.0} for m in models}
-    for n, item in enumerate(items, 1):
+    results = []
+    for item in items:
         shown = item["q"]["question"] if "q" in item else item["ex"]["full_sentence"]
-        row = {"topic": item["topic"], "key": (item.get("q") or item.get("ex"))["key"], "sentence": shown,
-               "answers": (item.get("q") or item.get("ex"))["answers"],
-               "choices": item["q"].get("choices") if "q" in item else None,
-               "translation": (item.get("q") or item.get("ex")).get("translation", ""), "models": {}}
-        for model in models:
+        source = item.get("q") or item.get("ex")
+        results.append({"topic": item["topic"], "key": source["key"], "sentence": shown, "answers": source["answers"],
+                        "choices": item["q"].get("choices") if "q" in item else None,
+                        "translation": source.get("translation", ""), "models": {}})
+    # One model at a time: switching model at every item makes Ollama reload it from disk each time
+    # (a 30B model does not fit next to a 14B one), which measures the disk, not the model.
+    for model in models:
+        print(f"\n=== {model} ===")
+        for n, (item, row) in enumerate(zip(items, results), 1):
             try:
                 r = run(model, item)
             except llm.OllamaUnavailable:
                 sys.exit("Cannot reach Ollama on localhost:11434. Start Ollama first.")
+            except llm.CloudError as e:
+                sys.exit(f"{model}: {e}")
             row["models"][model] = r
             totals[model]["kept"] += r["kept"]
-            totals[model]["seconds"] += r["seconds"]
-        marks = "  ".join(f"{m}: {'✓' if row['models'][m]['kept'] else '✗'} {row['models'][m]['seconds']}s" for m in models)
-        print(f"{n:>3}. {shown}   {marks}")
-        results.append(row)
+            totals[model]["seconds"] += r["seconds"] if n > 1 else 0   # the first call includes loading the model
+            print(f"{n:>3}. {'✓' if r['kept'] else '✗'} {r['seconds']:>5}s  {row['sentence']}")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     name = f"{datetime.date.today().isoformat()}-{'-vs-'.join(m.replace(':', '_') for m in models)}.json"
@@ -120,7 +125,7 @@ def main() -> None:
                                 "items": results}, ensure_ascii=False, indent=1), encoding="utf-8")
     print()
     for m, t in totals.items():
-        print(f"{m}: kept {t['kept']}/{len(items)}, {t['seconds'] / max(len(items), 1):.1f} s per item")
+        print(f"{m}: kept {t['kept']}/{len(items)}, {t['seconds'] / max(len(items) - 1, 1):.1f} s per item (after loading)")
     print(f"\n→ {path}  (send this file for review)")
 
 

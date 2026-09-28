@@ -14,6 +14,7 @@ import os
 import re
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 OLLAMA_URL = "http://localhost:11434"
 DEFAULT_MODEL = "qwen3:14b"
@@ -40,7 +41,16 @@ def provider(model: str) -> str:
 
 
 def api_key(name: str) -> str:
-    return API_KEYS.get(name) or os.environ.get(CLOUD[name]["env"], "")
+    return API_KEYS.get(name) or os.environ.get(CLOUD[name]["env"], "") or _saved_key(name)
+
+
+def _saved_key(name: str) -> str:
+    """The key saved in the app (Progress → Teacher), for the command-line scripts run outside the server."""
+    try:
+        settings = json.loads((Path("data") / "settings.json").read_text(encoding="utf-8"))
+        return (settings.get("api_keys") or {}).get(name, "")
+    except (OSError, ValueError):
+        return ""
 
 
 def _cloud_request(model: str, messages: list, temperature: float, stream: bool, max_tokens: int = 1500):

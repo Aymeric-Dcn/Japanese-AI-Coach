@@ -420,6 +420,9 @@ def q_vocab(id_, jp, fr, tokens, level, rng):
         t = tokens[k]
         if t[1] != "名詞" or len(pool) < 10:
             continue
+        context = [x for i, x in enumerate(tokens) if i != k and x[1] in ("名詞", "代名詞", "動詞", "形容詞", "形状詞", "副詞")]
+        if len(context) < 2:
+            continue   # 「（　　）だった。」: nothing in the sentence to decide between the choices
         wrong = [w for w in rng.sample(pool, min(12, len(pool))) if w != t[0] and w not in t[0]][:3]
         if len(wrong) < 3:
             continue
