@@ -206,6 +206,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(public_settings())
             if url.path == "/api/setup":
                 return self.send_json(apply_setup(data))
+            if url.path == "/api/ping":        # the page is open (see watch_window)
+                WINDOW["ping"], WINDOW["closing"] = time.time(), None
+                return self.send_json({"ok": True})
+            if url.path == "/api/closing":     # the page is being closed or reloaded
+                WINDOW["closing"] = time.time()
+                return self.send_json({"ok": True})
             if url.path == "/api/quit":
                 self.send_json({"ok": True})
                 threading.Timer(0.3, lambda: os._exit(0)).start()
@@ -643,6 +649,65 @@ def watch_reviews(interval: int = 30) -> None:
     threading.Thread(target=loop, daemon=True).start()
 
 
+# ---------------------------------------------------------------------------
+# App window (packaged app): the interface opens in its own window, and the app stops when it is closed
+# ---------------------------------------------------------------------------
+
+WINDOW = {"ping": None, "closing": None}
+CLOSE_GRACE = 10       # seconds after the page is closed: a reload pings again well before
+LOST_TIMEOUT = 300     # no sign of the page at all (browser crashed, closed without notice)
+
+
+def find_app_browser() -> str:
+    """Edge (on every Windows 10/11) or Chrome, which can show a page as an app window (--app)."""
+    if os.name != "nt":
+        return ""
+    roots = [os.environ.get(v, "") for v in ("PROGRAMFILES(X86)", "PROGRAMFILES", "LOCALAPPDATA")]
+    for rel in (r"Microsoft\Edge\Application\msedge.exe", r"Google\Chrome\Application\chrome.exe"):
+        for root in roots:
+            if root and Path(root, rel).is_file():
+                return str(Path(root, rel))
+    return ""
+
+
+def open_app_window(url: str) -> bool:
+    """Opens the interface in an app window (no address bar, own taskbar entry). False: use the browser."""
+    exe = find_app_browser()
+    if not exe:
+        return False
+    profile = app_home() / "window"   # a profile of its own: a separate window, not a tab of the user's browser
+    try:
+        import subprocess
+        subprocess.Popen([exe, f"--app={url}", f"--user-data-dir={profile}", "--window-size=1180,860",
+                          "--no-first-run", "--no-default-browser-check", "--disable-features=Translate"],
+                         close_fds=True)
+        return True
+    except OSError:
+        return False
+
+
+def open_interface(url: str, window: bool) -> None:
+    if not (window and open_app_window(url)):
+        webbrowser.open(url)
+
+
+def watch_window() -> None:
+    """Packaged app: stops the server once its window is closed (the page says so when it goes away)."""
+    def loop():
+        while True:
+            time.sleep(2)
+            now, ping, closing = time.time(), WINDOW["ping"], WINDOW["closing"]
+            if ping is None:
+                continue   # the page has not opened yet
+            if closing and now - closing > CLOSE_GRACE and ping < closing:
+                print("Window closed: stopping.")
+                os._exit(0)
+            if now - ping > LOST_TIMEOUT:
+                print("No page open for a while: stopping.")
+                os._exit(0)
+    threading.Thread(target=loop, daemon=True).start()
+
+
 def app_home() -> Path:
     """Where the packaged app keeps its data: %LOCALAPPDATA%\\JapaneseCoach (data/ inside)."""
     base = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "JapaneseCoach"
@@ -666,6 +731,7 @@ def main() -> None:
     p.add_argument("--model", default=llm.DEFAULT_MODEL, help=f"Ollama model for the chat (default: {llm.DEFAULT_MODEL})")
     p.add_argument("--db", default=None, help="progress database (default: data/coach.db)")
     p.add_argument("--open", action="store_true", help="open the app in the browser")
+    p.add_argument("--window", action="store_true", help="open the app in its own window (Edge / Chrome app mode)")
     p.add_argument("--no-maintenance", action="store_true",
                    help="do not sync Anki / fill the reserve at startup (see data/settings.json)")
     args = p.parse_args()
@@ -673,16 +739,18 @@ def main() -> None:
     llm.API_KEYS.update(load_settings().get("api_keys") or {})
     url = f"http://localhost:{args.port}"
     if PACKAGED:
-        args.open = True
+        args.open = args.window = True
     try:
         server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     except OSError:   # already running (second double-click): just open it
         print(f"Port {args.port} already in use: opening {url}")
-        webbrowser.open(url)
+        open_interface(url, args.window)
         return
     print(f"✓ Japanese Coach running on {url}  (Ctrl+C to stop)")
-    if args.open:
-        threading.Timer(0.5, lambda: webbrowser.open(url)).start()
+    if args.open or args.window:
+        threading.Timer(0.5, lambda: open_interface(url, args.window)).start()
+    if PACKAGED:
+        watch_window()
     db = store.connect(DB_PATH)
     try:
         first_start = setup_needed(load_settings(), db.execute("SELECT COUNT(*) FROM exercises").fetchone()[0])

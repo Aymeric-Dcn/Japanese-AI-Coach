@@ -5,8 +5,9 @@ Builds the Windows app: dist/JapaneseCoach.exe — one file, no console, nothing
     pip install pyinstaller
     python build_exe.py
 
-The .exe contains the server and the interface (standard library only). On first start it opens the
-browser on the welcome screen, keeps its data in %LOCALAPPDATA%\\JapaneseCoach, and downloads the
+The .exe contains the server and the interface (standard library only). It opens in its own window
+(Edge or Chrome in app mode, the browser if neither is found) and stops when that window is closed. On first
+start it shows the welcome screen, keeps its data in %LOCALAPPDATA%\\JapaneseCoach, and downloads the
 reviewed exercises of the shared bank. The chat and new exercises need Ollama (optional).
 Not included: the sentence bank and SudachiPy (only needed to generate exercises, i.e. with Ollama and
 the full project).

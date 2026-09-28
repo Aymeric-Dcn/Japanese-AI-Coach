@@ -1109,7 +1109,8 @@ $("btn-setup-go").addEventListener("click", async () => {
 });
 $("btn-quit").addEventListener("click", async () => {
   await api("/api/quit", {}).catch(() => {});
-  document.body.innerHTML = `<p style="padding:40px;text-align:center">✓</p>`;
+  window.close();   // works in the app window; in a browser tab the message below stays
+  document.body.innerHTML = `<p style="padding:40px;text-align:center">✓ ${esc(t("closed"))}</p>`;
 });
 
 $("lang-select").value = LANG;
@@ -1119,6 +1120,12 @@ $("lang-select").addEventListener("change", async e => {
     location.reload();
   } catch (err) { toast(err.message); }
 });
+
+// The packaged app stops when its window is closed: the page says it is open, and when it goes away.
+function ping() { fetch("/api/ping", {method: "POST"}).catch(() => {}); }
+ping();
+setInterval(ping, 20000);
+window.addEventListener("pagehide", () => navigator.sendBeacon("/api/closing"));
 
 window.JapaneseCoach = {session: S, chat: C, exam: E};  // handy in the browser console, and for tests
 loadStatus().then(s => { if (s && s.setup) showSetup(s); });

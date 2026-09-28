@@ -10,6 +10,11 @@ sources/
 *.apkg
 *.colpkg
 
+# Build (python build_exe.py)
+build/
+dist/
+*.spec
+
 # Python
 __pycache__/
 *.pyc

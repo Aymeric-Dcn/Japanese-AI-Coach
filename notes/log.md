@@ -212,3 +212,10 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - Time: 18 s vs 26 s per item, but the script alternated the two models and Ollama reloaded them from disk at each switch (the SSD at 100 %): the script now runs one model at a time and does not count the first call.
 - Conclusion: no reason to switch the local default to the 30B. The explanations need review whatever the local model; the next test is a cloud model (Claude Haiku / Sonnet) on the same seed.
 - Scripts run from the command line now read the API key saved in the app (data/settings.json).
+
+## 2026-09-28 — The .exe opens in its own window
+
+- Before: the .exe opened a tab on http://localhost:8000 in the default browser, and kept running after the tab was closed (only ⏻ stopped it).
+- Now it opens Edge (present on every Windows 10/11) or Chrome in app mode (`--app`, a profile of its own in %LOCALAPPDATA%\JapaneseCoach\window): no address bar, no tabs, its own taskbar entry. Without Edge or Chrome, the browser as before. `python server.py --window` does the same from the source.
+- The app stops when its window is closed: the page pings the server every 20 s and sends a beacon when it goes away (pagehide); the server stops 10 s after the beacon unless the page pings again (a reload does), or after 5 minutes without any sign of the page.
+- Tested with Chromium: a reload keeps the server running, leaving the page stops it after ~10 s. The Edge window itself can only be tested on Windows.
