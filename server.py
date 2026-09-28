@@ -399,6 +399,26 @@ def status() -> dict:
     }
 
 
+def watch_reviews(interval: int = 30) -> None:
+    """Applies reviewed batches dropped in data/reviews/ while the app runs (see review.py)."""
+    import review
+
+    def loop():
+        while True:
+            time.sleep(interval)
+            try:
+                if review.REVIEWS_DIR.exists() and any(not p.name.endswith(".applied.json")
+                                                       for p in review.REVIEWS_DIR.glob("*.json")):
+                    db = store.connect(DB_PATH)
+                    try:
+                        review.apply_pending(db, log=print)
+                    finally:
+                        db.close()
+            except Exception as e:
+                print(f"! Relecture : {e}")
+    threading.Thread(target=loop, daemon=True).start()
+
+
 def main() -> None:
     global MODEL, DB_PATH
     if sys.stdout is None:  # started with pythonw (no console): log to a file
@@ -425,6 +445,7 @@ def main() -> None:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     if not args.no_maintenance:
         start_maintenance()
+    watch_reviews()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
