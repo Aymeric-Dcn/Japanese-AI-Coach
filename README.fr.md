@@ -100,6 +100,6 @@ notes/log.md        journal de tests : modèles, prompts, ce qui n'allait pas et
 
 ## Sources de données et droits
 
-Ce dépôt ne contient que du code, des prompts et de la documentation. Les données personnelles et téléchargées (`data/` : bases, exports Anki, réglages) sont exclues par le `.gitignore`.
+Le code est sous [licence MIT](LICENSE). Ce dépôt ne contient que du code, des prompts et de la documentation. Les données personnelles et téléchargées (`data/` : bases, exports Anki, réglages) sont exclues par le `.gitignore`.
 
 Sources : [Tatoeba](https://tatoeba.org) (CC BY 2.0 FR), [open-anki-jlpt-decks](https://github.com/jamsinclair/open-anki-jlpt-decks) (MIT) tiré des listes JLPT de Jonathan Waller sur [tanos.co.uk](http://www.tanos.co.uk/jlpt/) (CC BY), [SudachiPy](https://github.com/WorksApplications/SudachiPy) et son dictionnaire (Apache 2.0), [Qwen 3](https://ollama.com/library/qwen3) (Apache 2.0). La banque d'exercices partagée a sa propre licence (CC BY-SA 4.0), voir [son dépôt](https://github.com/Aymeric-Dcn/Japanese-AI-Coach-bank).
