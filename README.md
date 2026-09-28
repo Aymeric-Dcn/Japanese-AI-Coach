@@ -113,6 +113,10 @@ The collection file (`%APPDATA%\Anki2\<profile>\collection.anki2`) is copied and
 
 `python jlpt_questions.py --level N4` (or « Générer des questions » in the app) adds 10 questions of each type for the level. The level of a question is the JLPT level of its words (your Anki deck's JLPT sub-decks, or the open lists of `jlpt_data.py`). 表記 needs kanji notes with on'yomi (Anki). 文法形式 and 文脈規定 are checked by the LLM (another choice must not fit too). Rules against ambiguous or too easy questions: one sentence per question (a question never gives away another one's answer); wrong readings built like the real test (another on'yomi of the kanji, long ↔ short vowel, voicing, っ); wrong spellings with same-reading kanji of level N5–N3 that are not real words; no kanji question on words usually written in kana (事); particle pairs that are often both right (は/が, に/へ, と/や…) are never offered together; conjugation choices that would also fit (着て / 着たら / 着れば) are left out; 並べ替え only keeps pieces whose order is fixed by the grammar. Mock exam: questions per type like the real test (without reading comprehension), 1 minute per question, score per section, mistakes back into the reviews.
 
+### Mistakes, undo and reviews by hand
+
+In a session: **↶ Annuler ma réponse** (or Ctrl+Z) forgets a misclick or a typo and puts the review schedule back as it was; on a new exercise it goes back to the previous one. **En fait je ne maîtrise pas** turns a lucky right answer into a wrong one (back at the end of the session and tomorrow). **Ne plus proposer** suspends an exercise; **⚑ Signaler une erreur** removes a wrong or ambiguous one for good (it is never generated again). In Progrès → **Révisions**: every exercise with its next review, filter by topic or text, and review today, suspend, reactivate or report the ticked ones; « jamais vus » adds exercises of the reserve to your reviews.
+
 ### Quality control (`review.py`)
 
 ```

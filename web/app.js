@@ -212,6 +212,8 @@ function showExercise() {
   $("btn-check").hidden = !!ex.choices;
   $("exo-feedback").hidden = true;
   $("after-actions").hidden = true;
+  $("btn-unsure").hidden = true;
+  updateUndo();
   if (ex.choices) $("exo-mcq").querySelector("button").focus(); else $("answer").focus();
 }
 
@@ -231,6 +233,7 @@ async function choose(i) {
   buttons[ex.answer_index].classList.add("right");
   if (!ok) buttons[i].classList.add("wrong");
   ex._given = ex.choices[i];
+  ex._attempts += 1;
   $("exo").classList.toggle("ok", ok);
   $("exo").classList.toggle("ko", !ok);
   await record(ok, ex.choices[i]);
@@ -242,6 +245,8 @@ async function choose(i) {
     `✗ Réponse : <strong lang="ja">${esc(ex.answers[0])}</strong>`) + full);
   $("btn-check").hidden = true;
   $("after-actions").hidden = false;
+  $("btn-unsure").hidden = !(ok && ex._firstOk && !ex._retry);
+  updateUndo();
   $("btn-next").focus();
 }
 $("exo-mcq").addEventListener("click", e => {
@@ -255,6 +260,7 @@ async function record(correct, answer) {
   const ex = S.current;
   if (ex._recorded) return null;  // only the first attempt counts
   ex._recorded = true;
+  ex._firstOk = !!correct;
   S.done += 1;
   if (correct) S.firstTry += 1;
   try {
@@ -301,6 +307,7 @@ async function check() {
     fb.innerHTML = "✗ Pas tout à fait. Réessaie, demande un indice ou affiche la réponse.";
     $("btn-show").hidden = false;
     requeue(ex);
+    updateUndo();
     field().select();
   }
 }
@@ -330,7 +337,75 @@ function solve(html) {
   $("btn-show").hidden = true;
   $("btn-check").hidden = true;
   $("after-actions").hidden = false;
+  const ex = S.current;
+  $("btn-unsure").hidden = !(ex._firstOk && !ex._retry && $("exo").classList.contains("ok"));
+  updateUndo();
   $("btn-next").focus();
+}
+
+// ---------------- undo, « je ne maîtrise pas », suspend, report ----------------
+
+function updateUndo() {
+  const ex = S.current;
+  const answered = ex && (S.solved || ex._attempts > 0);
+  const b = $("btn-undo");
+  b.hidden = !(answered || S.pos > 0);
+  b.textContent = answered ? "↶ Annuler ma réponse" : "↶ Revenir à l'exercice précédent";
+}
+
+// Misclick or typo: the answer is forgotten (and its review schedule restored), the exercise starts again.
+async function undo() {
+  if ($("session-run").hidden) return;
+  let ex = S.current;
+  if (!(S.solved || ex._attempts > 0)) {
+    if (S.pos === 0) return;
+    S.pos -= 1;
+    ex = S.queue[S.pos];
+  }
+  if (ex._recorded && !ex._retry) {
+    try {
+      const d = await api("/api/answer/undo", {id: ex.id});
+      renderSummary(d.stats);
+    } catch (e) { toast("Impossible d'annuler : " + e.message); return; }
+    S.done -= 1;
+    if (ex._firstOk) S.firstTry -= 1;
+  }
+  if (ex._requeued && !ex._retry) {  // the copy added at the end of the session
+    const k = S.queue.findIndex((q, j) => j > S.pos && q._retry && q.id === ex.id);
+    if (k >= 0) S.queue.splice(k, 1);
+  }
+  Object.assign(ex, {_recorded: !!ex._retry, _requeued: !!ex._retry, _attempts: 0, _given: "",
+                     _schedule: null, _firstOk: undefined});
+  showExercise();
+}
+
+// Right, but by luck: the answer counts as wrong (comes back at the end and tomorrow).
+async function unsure() {
+  const ex = S.current;
+  try {
+    const d = await api("/api/answer", {id: ex.id, correct: false, answer: ex._given || "", replace: true});
+    renderSummary(d.stats);
+    ex._schedule = d.schedule;
+  } catch (e) { toast(e.message); return; }
+  if (ex._firstOk) S.firstTry -= 1;
+  ex._firstOk = false;
+  requeue(ex);
+  $("exo").classList.remove("ok");
+  $("exo").classList.add("ko");
+  $("exo-feedback").innerHTML = solutionHtml(ex, "↻ <strong>Noté comme à revoir</strong> : il revient à la fin de la session, puis demain.");
+  $("btn-unsure").hidden = true;
+  $("btn-next").focus();
+}
+
+async function dropCurrent(action) {
+  const ex = S.current;
+  try {
+    await api("/api/reviews/action", {ids: [ex.id], action});
+  } catch (e) { toast(e.message); return; }
+  S.queue = S.queue.filter((q, j) => j <= S.pos || q.id !== ex.id);
+  toast(action === "report" ? "Merci : l'exercice est retiré et ne sera plus généré."
+                            : "Cet exercice ne sera plus proposé (réactivable dans Progrès → Révisions).");
+  next();
 }
 
 function next() {
@@ -352,6 +427,10 @@ $("btn-check").addEventListener("click", check);
 $("btn-show").addEventListener("click", showAnswer);
 $("btn-next").addEventListener("click", next);
 $("btn-hint").addEventListener("click", () => { $("exo-hint").hidden = false; });
+$("btn-undo").addEventListener("click", undo);
+$("btn-unsure").addEventListener("click", unsure);
+$("btn-suspend").addEventListener("click", () => dropCurrent("suspend"));
+$("btn-report").addEventListener("click", () => dropCurrent("report"));
 $("btn-readings").addEventListener("click", e => {
   const hidden = document.body.classList.toggle("hide-readings");
   e.target.textContent = hidden ? "Afficher la lecture" : "Masquer la lecture";
@@ -375,6 +454,13 @@ $("btn-ask").addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && $("tab-session").classList.contains("active")
+      && !$("session-run").hidden && !(e.target.tagName === "INPUT" && !e.target.readOnly && e.target.value)
+      && e.target.tagName !== "TEXTAREA") {
+    e.preventDefault();
+    undo();
+    return;
+  }
   if (/^[1-4]$/.test(e.key) && e.target.tagName !== "TEXTAREA" && e.target.tagName !== "INPUT") {
     if ($("tab-session").classList.contains("active") && !$("session-run").hidden && S.current?.choices && !S.solved) {
       choose(+e.key - 1);
@@ -602,6 +688,7 @@ async function loadProgress() {
       card(`${pct} %`, `justes du premier coup (${s.all_time.done} au total)`),
     ].join("");
     await loadProgramme();
+    loadReviews();
     $("weak-card").hidden = !s.weakest.length;
     $("weak-list").innerHTML = s.weakest.map(w =>
       `<li>${esc(w.topic)} : ${Math.round(100 * w.correct / w.done)} % de réussite (${w.done} réponses)</li>`).join("");
@@ -633,6 +720,59 @@ $("topics-table").addEventListener("click", async e => {
     loadHome();
   } catch (err) { toast(err.message); }
 });
+
+// ---------------- reviews managed by hand ----------------
+
+const R = {items: []};
+
+function dueText(r) {
+  if (!r.seen) return `<span class="muted">jamais vu</span>`;
+  if (r.suspended) return `<span class="muted">suspendu</span>`;
+  const today = new Date().toISOString().slice(0, 10);
+  return r.due <= today ? `<span class="due-now">aujourd'hui</span>` : esc(r.due);
+}
+
+async function loadReviews() {
+  const sel = $("rev-topic"), current = sel.value;
+  sel.innerHTML = `<option value="">Tous</option>` +
+    (P.topics || []).filter(t => t.total).map(t => `<option${t.title === current ? " selected" : ""}>${esc(t.title)}</option>`).join("");
+  const q = new URLSearchParams({topic: sel.value, q: $("rev-q").value.trim(), unseen: $("rev-unseen").checked ? "1" : "0"});
+  try {
+    R.items = (await api("/api/reviews?" + q)).items;
+  } catch (e) { toast(e.message); return; }
+  $("rev-count").textContent = `${R.items.length} exercice${R.items.length > 1 ? "s" : ""}`;
+  $("rev-table").innerHTML = `<tr><th><input type="checkbox" id="rev-all" aria-label="Tout cocher"></th><th>Exercice</th>
+      <th>Réponse</th><th>Prochaine</th><th class="num">Intervalle</th><th class="num">Erreurs</th></tr>` +
+    R.items.map(r => `<tr class="${r.suspended ? "suspended" : ""}">
+      <td><input type="checkbox" data-id="${r.id}"></td>
+      <td class="jp" lang="ja">${esc(r.text).replace(/【(.*?)】/g, "<u>$1</u>")}<div class="muted small">${esc(r.topic)}</div></td>
+      <td lang="ja">${esc(r.answer)}</td><td>${dueText(r)}</td>
+      <td class="num">${r.seen ? r.interval + " j" : ""}</td><td class="num">${r.seen ? r.lapses : ""}</td></tr>`).join("");
+}
+
+async function reviewAction(action) {
+  const ids = [...document.querySelectorAll("#rev-table input[data-id]:checked")].map(c => +c.dataset.id);
+  if (!ids.length) { toast("Coche d'abord un ou plusieurs exercices."); return; }
+  try {
+    const d = await api("/api/reviews/action", {ids, action});
+    renderSummary(d.stats);
+    const what = {due_today: "à revoir aujourd'hui", suspend: "suspendu(s)", unsuspend: "réactivé(s)", report: "retiré(s)"}[action];
+    toast(`${d.done} exercice(s) ${what}.`);
+    loadReviews();
+    loadProgramme();
+  } catch (e) { toast(e.message); }
+}
+
+$("rev-topic").addEventListener("change", loadReviews);
+$("rev-unseen").addEventListener("change", loadReviews);
+$("rev-q").addEventListener("input", () => { clearTimeout(R.timer); R.timer = setTimeout(loadReviews, 300); });
+$("rev-table").addEventListener("change", e => {
+  if (e.target.id === "rev-all") document.querySelectorAll("#rev-table input[data-id]").forEach(c => { c.checked = e.target.checked; });
+});
+$("rev-today").addEventListener("click", () => reviewAction("due_today"));
+$("rev-suspend").addEventListener("click", () => reviewAction("suspend"));
+$("rev-unsuspend").addEventListener("click", () => reviewAction("unsuspend"));
+$("rev-report").addEventListener("click", () => reviewAction("report"));
 
 // ---------------- filling the reserve ----------------
 

@@ -82,7 +82,19 @@ def connect(path: Path = None) -> sqlite3.Connection:
     db = sqlite3.connect(path, check_same_thread=False)
     db.row_factory = sqlite3.Row
     db.executescript(SCHEMA)
+    _migrate(db)
     return db
+
+
+def _migrate(db) -> None:
+    """Columns added after the first version (older databases are upgraded in place)."""
+    def columns(table):
+        return {r[1] for r in db.execute(f"PRAGMA table_info({table})")}
+    if "prev" not in columns("reviews"):       # schedule before this answer, to undo it
+        db.execute("ALTER TABLE reviews ADD COLUMN prev TEXT")
+    if "suspended" not in columns("schedule"):  # 1 = never shown again until reactivated
+        db.execute("ALTER TABLE schedule ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0")
+    db.commit()
 
 
 def today() -> datetime.date:
@@ -158,7 +170,8 @@ def session(db, day: datetime.date = None, new_limit: int = 10, due_limit: int =
         topic_params = list(topics)
     due = db.execute(f"""
         SELECT e.* FROM exercises e JOIN schedule s ON s.exercise_id = e.id
-        WHERE s.due <= ?{where_topic} ORDER BY s.due, e.id LIMIT ?""", [day] + topic_params + [due_limit]).fetchall()
+        WHERE s.due <= ? AND s.suspended = 0{where_topic} ORDER BY s.due, e.id LIMIT ?""",
+        [day] + topic_params + [due_limit]).fetchall()
     unseen = db.execute(f"""
         SELECT e.* FROM exercises e LEFT JOIN schedule s ON s.exercise_id = e.id
         WHERE s.exercise_id IS NULL{where_topic}""", topic_params).fetchall()
@@ -255,10 +268,11 @@ def record_answer(db, exercise_id: int, correct: bool, answer: str = "", day: da
     day = day or today()
     if not db.execute("SELECT 1 FROM exercises WHERE id = ?", (exercise_id,)).fetchone():
         raise KeyError(f"unknown exercise {exercise_id}")
-    db.execute("INSERT INTO reviews (exercise_id, reviewed_at, day, correct, answer) VALUES (?, ?, ?, ?, ?)",
+    row = db.execute("SELECT due, interval, streak, lapses FROM schedule WHERE exercise_id = ?", (exercise_id,)).fetchone()
+    prev = json.dumps(dict(row)) if row else None
+    db.execute("INSERT INTO reviews (exercise_id, reviewed_at, day, correct, answer, prev) VALUES (?, ?, ?, ?, ?, ?)",
                (exercise_id, datetime.datetime.now().isoformat(timespec="seconds"), day.isoformat(),
-                int(bool(correct)), answer))
-    row = db.execute("SELECT interval, streak, lapses FROM schedule WHERE exercise_id = ?", (exercise_id,)).fetchone()
+                int(bool(correct)), answer, prev))
     interval, streak, lapses = (row["interval"], row["streak"], row["lapses"]) if row else (0, 0, 0)
     interval, streak, lapses = srs.next_state(interval, streak, lapses, bool(correct))
     due = srs.due_date(day, interval)
@@ -268,6 +282,82 @@ def record_answer(db, exercise_id: int, correct: bool, answer: str = "", day: da
                (exercise_id, due, interval, streak, lapses))
     db.commit()
     return {"due": due, "interval": interval, "streak": streak, "lapses": lapses}
+
+
+def undo_answer(db, exercise_id: int) -> bool:
+    """Cancels the last answer to an exercise (misclick, typo): the answer is deleted and the review
+    schedule goes back to what it was before. Returns False if there is nothing to undo."""
+    row = db.execute("SELECT id, prev FROM reviews WHERE exercise_id = ? ORDER BY id DESC LIMIT 1",
+                     (exercise_id,)).fetchone()
+    if not row:
+        return False
+    db.execute("DELETE FROM reviews WHERE id = ?", (row["id"],))
+    if row["prev"]:
+        p = json.loads(row["prev"])
+        db.execute("UPDATE schedule SET due = ?, interval = ?, streak = ?, lapses = ? WHERE exercise_id = ?",
+                   (p["due"], p["interval"], p["streak"], p["lapses"], exercise_id))
+    else:
+        db.execute("DELETE FROM schedule WHERE exercise_id = ?", (exercise_id,))  # back to « never seen »
+    db.commit()
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Managing reviews by hand
+# ---------------------------------------------------------------------------
+
+def review_list(db, topic: str = None, query: str = "", include_unseen: bool = False, limit: int = 300) -> list:
+    """Exercises in the review schedule (and, if asked, never-seen ones), with their next review."""
+    where, params = [], []
+    if topic:
+        where.append("e.topic = ?")
+        params.append(topic)
+    if query:
+        where.append("e.data LIKE ?")
+        params.append(f"%{query}%")
+    if not include_unseen:
+        where.append("s.exercise_id IS NOT NULL")
+    rows = db.execute(f"""
+        SELECT e.id, e.topic, e.data, s.due, s.interval, s.streak, s.lapses, s.suspended,
+               (SELECT correct FROM reviews r WHERE r.exercise_id = e.id ORDER BY r.id DESC LIMIT 1) AS last_ok
+        FROM exercises e LEFT JOIN schedule s ON s.exercise_id = e.id
+        {"WHERE " + " AND ".join(where) if where else ""}
+        ORDER BY s.exercise_id IS NULL, s.suspended, s.due, e.id LIMIT ?""", params + [limit]).fetchall()
+    out = []
+    for r in rows:
+        d = json.loads(r["data"])
+        out.append({"id": r["id"], "topic": r["topic"], "text": d.get("question") or d.get("sentence", ""),
+                    "answer": (d.get("answers") or [""])[0], "due": r["due"], "interval": r["interval"],
+                    "streak": r["streak"], "lapses": r["lapses"], "suspended": bool(r["suspended"]),
+                    "seen": r["due"] is not None, "last_ok": r["last_ok"]})
+    return out
+
+
+def review_action(db, ids: list, action: str, day: datetime.date = None) -> int:
+    """due_today: review today (never-seen exercises are added to the reviews); suspend / unsuspend;
+    report: the exercise is wrong or ambiguous, it leaves the reserve for good."""
+    d = (day or today()).isoformat()
+    done = 0
+    for i in ids:
+        i = int(i)
+        if action == "due_today":
+            db.execute("""INSERT INTO schedule (exercise_id, due, interval, streak, lapses, suspended)
+                          VALUES (?, ?, 0, 0, 0, 0)
+                          ON CONFLICT(exercise_id) DO UPDATE SET due = excluded.due, suspended = 0""", (i, d))
+        elif action == "suspend":
+            db.execute("""INSERT INTO schedule (exercise_id, due, interval, streak, lapses, suspended)
+                          VALUES (?, ?, 0, 0, 0, 1)
+                          ON CONFLICT(exercise_id) DO UPDATE SET suspended = 1""", (i, d))
+        elif action == "unsuspend":
+            db.execute("UPDATE schedule SET suspended = 0 WHERE exercise_id = ?", (i,))
+        elif action == "report":
+            done += retire(db, i, "signalé comme faux ou ambigu dans l'app")
+            continue
+        else:
+            raise KeyError(action)
+        done += 1
+    db.commit()
+    return done
 
 
 # ---------------------------------------------------------------------------
@@ -292,8 +382,10 @@ def stats(db, day: datetime.date = None) -> dict:
     return {
         "today": {"done": done, "correct": right},
         "all_time": {"done": total_done, "correct": total_right},
-        "due_now": db.execute("SELECT COUNT(*) FROM schedule WHERE due <= ?", (d,)).fetchone()[0],
-        "due_tomorrow": db.execute("SELECT COUNT(*) FROM schedule WHERE due = ?", (tomorrow,)).fetchone()[0],
+        "due_now": db.execute("SELECT COUNT(*) FROM schedule WHERE due <= ? AND suspended = 0", (d,)).fetchone()[0],
+        "due_tomorrow": db.execute("SELECT COUNT(*) FROM schedule WHERE due = ? AND suspended = 0",
+                                   (tomorrow,)).fetchone()[0],
+        "suspended": db.execute("SELECT COUNT(*) FROM schedule WHERE suspended = 1").fetchone()[0],
         "learning": db.execute("SELECT COUNT(*) FROM schedule").fetchone()[0],
         "mastered": db.execute("SELECT COUNT(*) FROM schedule WHERE interval >= 21").fetchone()[0],
         "unseen": db.execute("SELECT COUNT(*) FROM exercises e LEFT JOIN schedule s ON s.exercise_id = e.id "
@@ -318,7 +410,9 @@ def pick(db, topics: list, count: int, seed=None) -> list:
     chosen = session(db, new_limit=count, due_limit=count, topics=topics, seed=seed)[:count]
     if len(chosen) < count and topics:
         ids = {x["id"] for x in chosen}
-        rows = db.execute(f"SELECT * FROM exercises WHERE topic IN ({','.join('?' * len(topics))})", topics).fetchall()
+        rows = db.execute(f"""SELECT e.* FROM exercises e LEFT JOIN schedule s ON s.exercise_id = e.id
+                               WHERE e.topic IN ({','.join('?' * len(topics))}) AND COALESCE(s.suspended, 0) = 0""",
+                          topics).fetchall()
         rest = [r for r in rows if r["id"] not in ids]
         rng.shuffle(rest)
         chosen += [dict(_exercise(r), status="review") for r in rest[:count - len(chosen)]]

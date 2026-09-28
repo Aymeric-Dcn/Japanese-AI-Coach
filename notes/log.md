@@ -146,3 +146,9 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - `review.py`: revalidate (at every startup: removes what the current rules would not generate, fixes accepted answers), export, reject, import; reviewed batches dropped in `data/reviews/` are applied at startup. Rejected keys are never generated again (table `rejected`).
 - anki_sync: FJSD-Radical and FJSD-Kana ignored; a kanji note without readings no longer overwrites one with readings; the sync runs again at startup when data/anki.json changed.
 - On a copy of the real reserve: 64 exercises retired (47 old-generator JLPT, 14 は/が, 3 kana words); Claude's manual review of the new batch rejected 5 more (3 に/で where both fit, 2 odd sentences).
+
+## 2026-09-28 — Undo, « je ne maîtrise pas », reviews by hand
+
+- Each answer keeps the review schedule it replaced (`reviews.prev`): « Annuler ma réponse » / Ctrl+Z deletes the answer and restores it (or goes back to the previous exercise); « En fait je ne maîtrise pas » replaces a right answer by a wrong one.
+- `schedule.suspended`: « Ne plus proposer » and Progrès → Révisions (list, filter, review today, suspend, reactivate, report); « ⚑ Signaler une erreur » retires the exercise (table `rejected`, reason « signalé… ») — these reports feed the next quality review.
+- Tested in headless Chromium on a copy of the real database (undo after right / wrong answers, back to the previous exercise, suspend, report, list, search, adding a never-seen exercise to today's reviews).

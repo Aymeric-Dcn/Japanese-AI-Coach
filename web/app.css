@@ -188,3 +188,14 @@ table.topics button { font-size: .78rem; padding: 3px 8px; }
 .small-seg .seg { font-size: .85rem; padding: 5px 12px; }
 .refs { align-self: flex-start; font-size: .75rem; color: var(--muted); margin-top: -8px; padding-left: 6px; }
 .chat-start { align-self: center; }
+
+/* ---------- undo, extra actions, reviews list ---------- */
+.undo-line { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; border-top: 1px dashed var(--border); padding-top: 6px; }
+.more { display: inline-flex; gap: 2px; }
+button.small { font-size: .8rem; padding: 4px 8px; }
+input[type=search] { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
+.table-wrap { overflow-x: auto; margin-top: 10px; }
+.reviews td { font-size: .88rem; vertical-align: top; }
+.reviews td.jp { font-size: 1rem; }
+.reviews tr.suspended td { opacity: .5; }
+.reviews .due-now { color: var(--accent); font-weight: 600; }

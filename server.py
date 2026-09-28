@@ -132,6 +132,9 @@ class Handler(BaseHTTPRequestHandler):
                     topics = [jq.topic_title(level, t) for t in types]
                     items = store.pick(db, topics, int(query.get("count", 10)))
                     return self.send_json({"items": items, "stats": store.stats(db)})
+                if url.path == "/api/reviews":
+                    return self.send_json({"items": store.review_list(
+                        db, query.get("topic") or None, query.get("q", ""), query.get("unseen") == "1")})
                 if url.path == "/api/topics":
                     return self.send_json({"topics": store.topic_states(db)})
                 if url.path == "/api/stats":
@@ -151,9 +154,25 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/answer":
                 db = store.connect(DB_PATH)
                 try:
+                    if data.get("replace"):   # « En fait je ne maîtrise pas »: the answer becomes wrong
+                        store.undo_answer(db, int(data["id"]))
                     result = store.record_answer(db, int(data["id"]), bool(data.get("correct")),
                                                  str(data.get("answer", ""))[:100])
                     return self.send_json({"schedule": result, "stats": store.stats(db)})
+                finally:
+                    db.close()
+            if url.path == "/api/answer/undo":
+                db = store.connect(DB_PATH)
+                try:
+                    undone = store.undo_answer(db, int(data["id"]))
+                    return self.send_json({"undone": undone, "stats": store.stats(db)})
+                finally:
+                    db.close()
+            if url.path == "/api/reviews/action":
+                db = store.connect(DB_PATH)
+                try:
+                    n = store.review_action(db, list(data.get("ids", [])), str(data.get("action", "")))
+                    return self.send_json({"done": n, "stats": store.stats(db)})
                 finally:
                     db.close()
             if url.path == "/api/chat":

@@ -81,6 +81,14 @@
         <div class="actions" id="after-actions" hidden>
           <button class="primary" id="btn-next">Suivant ↵</button>
           <button id="btn-ask">Demander au prof</button>
+          <button id="btn-unsure" hidden title="La réponse compte comme fausse : l'exercice revient demain et à la fin de la session">En fait je ne maîtrise pas</button>
+        </div>
+        <div class="undo-line">
+          <button class="ghost small" id="btn-undo" hidden title="Ctrl+Z">↶ Annuler ma réponse</button>
+          <span class="more right">
+            <button class="ghost small" id="btn-suspend" title="Ne plus proposer cet exercice (réactivable dans Progrès → Révisions)">Ne plus proposer</button>
+            <button class="ghost small" id="btn-report" title="L'exercice est faux ou ambigu : il est retiré pour de bon et ne sera plus généré">⚑ Signaler une erreur</button>
+          </span>
         </div>
       </div>
     </div>
@@ -231,6 +239,25 @@
         <label class="check inline"><input type="checkbox" data-setting="auto_fill"> remplir la réserve</label>
         <label class="check inline"><input type="checkbox" data-setting="jlpt_auto_fill"> générer des questions JLPT</label>
       </div>
+    </div>
+    <div class="card">
+      <h3>Révisions</h3>
+      <p class="muted small">Tous les exercices déjà faits, avec leur prochaine révision. Coche-en pour les revoir
+        aujourd'hui, les suspendre (ils ne reviennent plus), ou signaler une erreur. Coche « jamais vus » pour ajouter
+        des exercices de la réserve à tes révisions.</p>
+      <div class="controls left">
+        <label>Thème <select id="rev-topic"><option value="">Tous</option></select></label>
+        <label>Rechercher <input id="rev-q" type="search" lang="ja" placeholder="mot, particule…"></label>
+        <label class="check inline"><input type="checkbox" id="rev-unseen"> inclure les jamais vus</label>
+      </div>
+      <div class="actions">
+        <button id="rev-today">À revoir aujourd'hui</button>
+        <button id="rev-suspend">Suspendre</button>
+        <button id="rev-unsuspend">Réactiver</button>
+        <button id="rev-report" class="ghost">⚑ Signaler (retirer)</button>
+        <span class="muted small right" id="rev-count"></span>
+      </div>
+      <div class="table-wrap"><table class="topics reviews" id="rev-table"></table></div>
     </div>
     <div class="card" id="weak-card" hidden>
       <h3>À travailler</h3>
