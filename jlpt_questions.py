@@ -81,7 +81,8 @@ KARA_VERBS = {"習う", "もらう", "貰う", "借りる", "聞く", "教わる
 # Verbs taking both を and が (日本語を/が話せる, 水を/が飲みたい): potential forms and たい are checked separately.
 TE_AUXILIARIES = {"いる", "居る", "ある", "有る", "おく", "置く", "しまう", "仕舞う", "みる", "見る", "くれる", "呉れる",
                   "もらう", "貰う", "あげる", "上げる", "くださる", "下さる", "いく", "行く", "くる", "来る", "ほしい", "欲しい"}
-GRAMMAR_FORMS = ["masu", "te", "past", "negative", "tai", "volitional", "ba", "tara", "causative"]
+# No volitional: 行こう / 行きたい / 行かない と思う are all right, and it is mostly followed by と思う.
+GRAMMAR_FORMS = ["masu", "te", "past", "negative", "tai", "ba", "tara", "causative"]
 
 
 def topic_title(level: str, qtype: str) -> str:
@@ -455,6 +456,10 @@ def particle_distractors(tokens: list, k: int, answer: str) -> list:
         wrong = [p for p in wrong if {p, answer} != {"に", "と"}]
     if lemma in KARA_VERBS:
         wrong = [p for p in wrong if {p, answer} != {"に", "から"}]
+    if answer in ("から", "まで") and lemma in mx.MOVE_VERBS:   # アメリカから / に来ました
+        wrong = [p for p in wrong if p not in ("に", "へ", "まで", "から")]
+    if answer in ("を", "で") and k > 0 and tokens[k - 1][0].endswith("語"):
+        wrong = [p for p in wrong if p not in ("を", "で")]   # 英語を / で話す: the language is both
     if answer in ("を", "が"):   # 水を/が飲みたい, 日本語を/が話せる
         wrong = [p for p in wrong if p not in ("を", "が")]
     return wrong
@@ -478,6 +483,8 @@ def q_grammar(id_, jp, fr, tokens, level, rng):
                 continue   # あり（えない）: the blank would cut a word in two
             if following is None or following[2] == "終助詞" or following[1] == "助動詞":
                 continue   # at the end of a sentence, 教えて / 教えよう / 教えます… are all possible
+            if following[0] in ("と", "って") and following[1] == "助詞":
+                continue   # before a quote (と思う, と言った) every finite form fits
             wrong = form_distractors(form, answer, verb, conj_type, following)
             if len(wrong) < 3:
                 continue

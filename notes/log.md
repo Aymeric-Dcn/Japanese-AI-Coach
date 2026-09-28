@@ -183,3 +183,16 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - `llm.py` routes models named `anthropic:<id>` / `openai:<id>` to the Messages / Chat Completions APIs (streaming, JSON answers via the schema in the prompt); keys from settings or `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`. Defaults: `claude-haiku-4-5-20251001`, `gpt-5.4-mini` (to check against OpenAI's current list).
 - Progrès → « Le prof (modèle d'IA) »: provider, model, key. The key is kept in `data/settings.json` and never returned to the page (only « key set »). Only the chat uses it; exercise generation stays local, so the bank keeps one source.
 - Tested against fake Anthropic / OpenAI servers: streamed answer, JSON answer, 401 and missing key shown as a readable error, status « Prof : claude-haiku… », back to local shows « Ollama éteint ».
+
+## 2026-09-28 — Review 5: 227 generated exercises, bank v2
+
+- Generated on the PC (`fill_reserve.py --all`, `jlpt_questions.py --level N5`, qwen3:14b): 187 exercises and 40 JLPT N5 questions. Qwen « checked » and kept all 227.
+- Review: 14 rejected (6 %), 213 approved. Rejected: cues that mislead (いけない as the negative of いける, ありえない cut in two, かけば given as かける), verbs that only look causative (済ませる, 知らせる), 生まれながら (« by birth », not simultaneity), a haiku in と / や, an ungrammatical Tatoeba sentence, and four JLPT questions with a second right answer (小さい手 / 本, 八日に / 外に出たくない, アメリカに / から来ました, 兄 / 学校行きたくない). One answer fixed: 以内へ was accepted.
+- Qwen's hints and explanations were almost all generic or wrong (« ajoutez ない à la forme de base » for 悩まさない, « En français, に est souvent utilisé… », hints quoting the answer): all 213 rewritten FR + EN.
+- Rules added so the next batches need less review:
+  - conjugations: the hint and the « how it is built » line come from `conjugate.describe()` (verb class, row change, て-form chart); Qwen only writes why the form is used. ながら added to the conjugator; godan compounds (生き返る, 立ち入る…) no longer taken for ichidan.
+  - particles: hints that quote the answer or talk about « French » are dropped; the prompt asks for the role of the word and why the other choices are wrong.
+  - に / へ: after a time (以内, ５時, 前…) only に.
+  - Volitional: SudachiPy keeps 行こう in one token, so the topic had 0 candidates; now 306. のに / ので: split as の + で / に, 0 candidates before; now 64, kept only when the translation says « although » or « because ».
+  - JLPT 文法形式: no volitional or verb before と思う / と言う (every finite form fits), no に / へ / まで distractor for から with a movement verb, no を / で pair after a language (英語を / で話す).
+- Bank v2: 338 exercises in 25 files, 92 rejected keys.

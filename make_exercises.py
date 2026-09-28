@@ -35,6 +35,7 @@ import webbrowser
 from pathlib import Path
 
 import curriculum
+import conjugate
 import llm
 from sheet import BLANK, normalize, save_sheet, split_list
 
@@ -150,6 +151,12 @@ QUESTION_WORDS = {"誰", "だれ", "何", "なに", "なん", "どれ", "どこ"
 MOVE_VERBS = {"行く", "いく", "来る", "くる", "帰る", "戻る", "向かう", "出かける", "出掛ける", "引っ越す", "移る",
               "急ぐ", "走る", "飛ぶ", "送る", "逃げる", "進む", "上る", "登る", "下りる", "降りる", "入る", "着く"}
 EXIST_VERBS = {"ある", "有る", "在る", "いる", "居る"}
+# のに (« although ») and ので (« because ») both fit after any clause: the translation tells which one.
+DESPITE = re.compile(r"\b(alors que|pourtant|bien que|malgré|quand même|although|even though|though|despite|in spite)\b", re.I)
+BECAUSE = re.compile(r"\b(parce que|puisque|comme je|comme il|comme elle|comme nous|comme on|comme c|étant|because|since|as|so)\b", re.I)
+# Before these, に marks a time (以内に, ５時に): へ is never right.
+TIME_BEFORE = {"以内", "以前", "以後", "以降", "頃", "ごろ", "間", "うち", "内"}
+O_ROW = set("おこごそぞとどのほぼぽもよろ")
 ALSO = re.compile(r"\b(aussi|même|également|non plus|ni|also|too|either|even)\b", re.I)
 
 
@@ -237,6 +244,9 @@ def pair_rule(targets: set, tokens: list, k: int, translation: str):
     if targets == {"は", "が"}:
         return [] if wa_ga_determined(tokens, k) else None
     if targets == {"に", "へ"}:
+        before = tokens[k - 1] if k else None
+        if before and (before[4] in TIME_BEFORE or before[2] in ("数詞", "助数詞")):
+            return [] if answer == "に" else None        # １週間以内に: a time, not a direction
         if following and following[4] in MOVE_VERBS:
             return ["へ" if answer == "に" else "に"]      # 日本に / へ行く: both are right
         return None if answer == "へ" else []
@@ -255,6 +265,12 @@ def pair_rule(targets: set, tokens: list, k: int, translation: str):
             if (wants or potential) and direct and not person:
                 return ["が" if answer == "を" else "を"]   # 水を / が飲みたい, 日本語を / が話せる
         return []
+    if targets == {"のに", "ので"}:
+        despite, because = bool(DESPITE.search(translation or "")), bool(BECAUSE.search(translation or ""))
+        answer = normalize(tokens[k][0] + tokens[k + 1][0])
+        if answer == "のに":
+            return [] if despite and not because else None
+        return [] if because and not despite else None   # のに for a purpose (行くのに便利) is dropped too
     if targets == {"と", "や"}:
         nxt = tokens[k + 1] if k + 1 < len(tokens) else None
         before = tokens[k - 1] if k else None
@@ -268,6 +284,8 @@ def pair_rule(targets: set, tokens: list, k: int, translation: str):
 
 def particle_blanks(tokens: list, targets: set, pos: set, any_context: bool) -> list:
     """[(start, end)] token spans to blank: exactly one target particle per sentence."""
+    if targets == {"のに", "ので"}:
+        return noni_node_blanks(tokens)
     spans = [(k, k + 1) for k, t in enumerate(tokens) if normalize(t[0]) in targets and pos_matches(t, pos)]
     if len(spans) != 1:
         return []  # no target, or several (ambiguous blank)
@@ -276,8 +294,41 @@ def particle_blanks(tokens: list, targets: set, pos: set, any_context: bool) -> 
     return spans
 
 
+def noni_node_blanks(tokens: list) -> list:
+    """SudachiPy splits ので into の + で (だ) and のに into の + に: one such pair per sentence."""
+    spans = []
+    for k in range(len(tokens) - 1):
+        no, second = tokens[k], tokens[k + 1]
+        if no[0] != "の" or no[2] != "準体助詞":
+            continue
+        if not ((second[0] == "で" and second[4] == "だ") or (second[0] == "に" and second[2] == "格助詞")):
+            continue
+        after = tokens[k + 2] if k + 2 < len(tokens) else None
+        if after and (after[4] in ("ある", "御座る", "ござる") or after[0] in ("は", "も", "しか", "さえ", "す")):
+            continue   # のである, のでは, のには: other constructions
+        spans.append((k, k + 2))
+    return spans if len(spans) == 1 else []
+
+
+def volitional_blanks(tokens: list) -> list:
+    """SudachiPy keeps the volitional in one token (行こう, 食べよう, しよう)."""
+    spans = []
+    for k, verb in enumerate(tokens):
+        s = verb[0]
+        if verb[1] != "動詞" or s == verb[4] or not (s.endswith("よう") or (len(s) > 1 and s[-1] == "う" and s[-2] in O_ROW)):
+            continue
+        if verb[4].endswith("ずる"):
+            continue
+        if verb[2] == "非自立可能" and k > 0 and tokens[k - 1][0] in ("て", "で") and tokens[k - 1][2] == "接続助詞":
+            continue   # 食べてみよう: the main verb is elsewhere
+        spans.append((k, k + 1))
+    return spans if len(spans) == 1 else []
+
+
 def conjugation_blanks(tokens: list, form: str) -> list:
     """[(start, end)] spans « verb + ending » for the form, exactly one per sentence."""
+    if form == "volitional":
+        return volitional_blanks(tokens)
     endings, ending_pos = FORMS[form]
     spans = []
     for k in range(len(tokens) - 1):
@@ -365,7 +416,7 @@ def find_candidates(targets: list = None, form: str = None, pos: str = "", min_w
             continue
         extra = []
         if not form:
-            extra = pair_rule(target_set, tokens, a, fr or en or "")
+            extra = pair_rule(target_set, tokens, a, f"{fr or ''} | {en or ''}" if target_set == {"のに", "ので"} else fr or en or "")
             if extra is None:
                 continue   # both particles would fit here
         new_words = []
@@ -378,6 +429,7 @@ def find_candidates(targets: list = None, form: str = None, pos: str = "", min_w
         ex = build_exercise(id_, jp, fr, en, tokens, (a, b), cue=tokens[a][4] if form else "")
         if form:
             ex["cue_reading"] = cue_reading(ex["cue"])
+            ex["conj_type"] = tokens[a][6] if len(tokens[a]) > 6 else ""
         ex["new_words"] = new_words
         ex["answers"] += [x for x in extra if x not in ex["answers"]]
         ex["key"] = key
@@ -454,8 +506,11 @@ The expected answer is « {answer} ». Student level: {level}.
    expression or idiom (e.g. お目にかかる, 当てにする, 楽しみにする, によって), or if the grammar is far
    above the level.
    "problem": if false, a few words in English saying why; otherwise an empty string.
-3. "hint": a short clue in French that helps find « {answer} » without giving it away.
-4. "explanation": in 1 to 3 sentences in French, why « {answer} » is the right answer here.
+3. "hint": a short clue in French that helps find « {answer} » without giving it away: point to the role
+   of the word before the blank (a time, the place of an action, a destination, the object…).
+   Never write the particle itself in the hint.
+4. "explanation": in 1 to 3 sentences in French, why « {answer} » is the right answer here, and why each
+   other choice is wrong in this sentence. Be precise: は marks the topic, not « the subject ».
 5. "hint_en" and "explanation_en": the same hint and explanation, in English."""
 
 
@@ -472,9 +527,22 @@ The student must write « {answer} », {FORM_NAMES[form]} of {ex["cue"]}. Studen
    false if the sentence is unnatural, archaic, or its grammar is far above the level.
    "problem": if false, a few words in English saying why; otherwise an empty string.
 3. "hint": a short clue in French about how to build the form (e.g. the verb group), without giving the answer.
-4. "explanation": in 1 to 3 sentences in French, how « {answer} » is formed from « {ex["cue"]} »
-   and why this form is used here.
+4. "explanation": in 1 or 2 sentences in French, why this form is used here and what it adds to the meaning
+   of this sentence. Do NOT explain how the form is built: a rule is written before your text.
 5. "hint_en" and "explanation_en": the same hint and explanation, in English."""
+
+
+QUOTED = re.compile(r"[«「『\"']\s*([ぁ-ん]{1,3})\s*[»」』\"']")
+
+
+def hint_gives_answer(ex: dict) -> bool:
+    """A hint that quotes the answer, or that talks about « French » (the model mixing up languages)."""
+    answers = {normalize(a) for a in ex["answers"]}
+    for field in ("hint", "hint_en"):
+        text = ex.get(field, "")
+        if any(normalize(q) in answers for q in QUOTED.findall(text)) or re.search(r"\b(in French|en français)\b", text, re.I):
+            return True
+    return False
 
 
 def check_exercise(ex: dict, level: str, model: str, targets: list = None, form: str = None) -> tuple:
@@ -497,6 +565,14 @@ def check_exercise(ex: dict, level: str, model: str, targets: list = None, form:
         return False, f"not a good example: {str(result.get('problem', '')).strip() or '?'}"
     for field in ("hint", "explanation", "hint_en", "explanation_en"):
         ex[field] = str(result.get(field, "")).strip()
+    if not form and hint_gives_answer(ex):
+        ex["hint"] = ex["hint_en"] = ""
+    if form:   # how the form is built: written by rules, the model only says why it is used
+        notes = conjugate.describe(ex["cue"], form, ex["answers"][0], ex.get("conj_type", ""), ex.get("cue_reading", ""))
+        if notes:
+            ex["hint"], ex["hint_en"] = notes["hint"], notes["hint_en"]
+            ex["explanation"] = f'{notes["rule"]} {ex["explanation"]}'.strip()
+            ex["explanation_en"] = f'{notes["rule_en"]} {ex["explanation_en"]}'.strip()
     return True, ""
 
 
