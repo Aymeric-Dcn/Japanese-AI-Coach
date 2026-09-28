@@ -696,9 +696,9 @@ def candidates(level: str, seed=None) -> list:
     if not BANK_PATH.exists():
         raise mx.GenerationError("Bank not found. Run first: python build_bank.py")
     db = sqlite3.connect(BANK_PATH)
-    translated = "en" if store.language() == "en" else "fr"
+    # both translations: questions go to the shared bank, used in French and in English
     rows = db.execute("SELECT id, jp, fr, en, tokens, word_count FROM sentences "
-                      f"WHERE word_count BETWEEN 3 AND ? AND {translated} IS NOT NULL",
+                      "WHERE word_count BETWEEN 3 AND ? AND fr IS NOT NULL AND en IS NOT NULL",
                       (MAX_WORDS.get(level, 12) + ORDERING_EXTRA_WORDS,)).fetchall()
     db.close()
     rng = random.Random(seed)

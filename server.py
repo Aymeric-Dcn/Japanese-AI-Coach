@@ -109,7 +109,9 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/fill":
                 return self.send_json(fill_status())
             if url.path == "/api/settings":
-                return self.send_json(load_settings())
+                return self.send_json(public_settings())
+            if url.path == "/api/bank":
+                return self.send_json(bank_status())
             db = store.connect(DB_PATH)
             try:
                 if url.path == "/api/session":
@@ -195,7 +197,12 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/fill":
                 return self.send_json(start_fill(data))
             if url.path == "/api/settings":
-                return self.send_json(save_settings(data))
+                save_settings(data)
+                return self.send_json(public_settings())
+            if url.path == "/api/bank/sync":
+                return self.send_json(start_bank_job("pull"))
+            if url.path == "/api/bank/contribute":
+                return self.send_json(start_bank_job("contribute"))
             if url.path == "/api/jlpt/exam_result":
                 db = store.connect(DB_PATH)
                 try:
@@ -263,7 +270,8 @@ FILL = {"running": False, "stop": False, "log": [], "started": None, "finished":
 FILL_LOCK = threading.Lock()
 SETTINGS_PATH = Path("data") / "settings.json"
 DEFAULT_SETTINGS = {"auto_sync": True, "auto_fill": True, "fill_target": 15, "jlpt_level": "N4", "jlpt_auto_fill": True,
-                    "language": "fr"}
+                    "language": "fr", "bank_auto_sync": True, "bank_url": "", "bank_token": "",
+                    "bank_contribute": "", "contributor": ""}
 LANGUAGES = ("fr", "en")
 
 
@@ -378,6 +386,41 @@ def run_job(title: str, work) -> dict:
     return fill_status()
 
 
+def public_settings() -> dict:
+    """Settings for the page: the token is never sent back, only whether one is set."""
+    settings = load_settings()
+    settings["bank_token_set"] = bool(settings.pop("bank_token", ""))
+    return settings
+
+
+def bank_status() -> dict:
+    import bank_sync
+    state = bank_sync.load_state()
+    settings = load_settings()
+    return {"url": settings.get("bank_url") or bank_sync.DEFAULT_URL, "last_pull": state.get("last_pull"),
+            "last_added": state.get("last_added", 0), "version": state.get("bank_version"),
+            "count": state.get("bank_count"), "sent": len(state.get("sent", [])),
+            "can_contribute": bool(settings.get("bank_contribute"))}
+
+
+def start_bank_job(action: str) -> dict:
+    settings = load_settings()
+
+    def work(log, should_stop, db):
+        import bank_sync
+        token = settings.get("bank_token", "")
+        if action == "pull":
+            return bank_sync.pull(db, settings.get("bank_url") or bank_sync.DEFAULT_URL, token, log=log)
+        dest = settings.get("bank_contribute", "")
+        if not dest:
+            log(tr("Destination d'envoi non réglée (Progrès → Banque partagée).",
+                   "No destination set for sending (Progress → Shared bank)."))
+            return 0
+        bank_sync.contribute(db, dest, token, settings.get("contributor") or "friend", log=log)
+        return 0
+    return run_job(tr("Banque partagée", "Shared bank"), work)
+
+
 def start_fill(options: dict) -> dict:
     def work(log, should_stop, db):
         ids = [i for i in options.get("topics", []) if i in curriculum.BY_ID]
@@ -444,6 +487,12 @@ def start_maintenance() -> dict:
             review.apply_pending(db, log=log)  # reviewed batches dropped in data/reviews/
         except Exception as e:
             log(f"! Review check: {e}")
+        if settings.get("bank_auto_sync"):
+            try:
+                import bank_sync
+                bank_sync.pull(db, settings.get("bank_url") or bank_sync.DEFAULT_URL, settings.get("bank_token", ""), log=log)
+            except Exception as e:
+                log(tr(f"Banque partagée injoignable : {e}", f"Shared bank not reachable: {e}"))
         if settings["auto_fill"] and (Path("data") / "bank.db").exists():
             waited = 0
             while not ollama_up() and waited < 900 and not should_stop():

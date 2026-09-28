@@ -242,6 +242,26 @@
       </div>
     </div>
     <div class="card">
+      <h3 data-i18n="bank">Banque partagée</h3>
+      <p class="muted small" data-i18n="bank_note">Des exercices déjà relus, téléchargés automatiquement au démarrage : l'app fonctionne même sans modèle local. Tes réponses et ton Anki ne sont jamais envoyés.</p>
+      <p class="small" id="bank-status"></p>
+      <div class="actions">
+        <button id="btn-bank-sync" data-i18n="bank_sync">Synchroniser maintenant</button>
+        <button id="btn-bank-send" data-i18n="bank_send">Envoyer mes exercices à relire</button>
+        <label class="check inline"><input type="checkbox" data-setting="bank_auto_sync"> <span data-i18n="bank_auto">au démarrage</span></label>
+      </div>
+      <details class="small">
+        <summary data-i18n="bank_settings">Réglages</summary>
+        <div class="controls left bank-settings">
+          <label><span data-i18n="bank_url">Adresse de la banque</span> <input id="bank-url" type="text" size="42"></label>
+          <label><span data-i18n="bank_token">Jeton GitHub (dépôt privé, ou pour envoyer)</span> <input id="bank-token" type="password" size="24" autocomplete="off"></label>
+          <label><span data-i18n="bank_dest">Envoyer vers</span> <input id="bank-dest" type="text" size="30" placeholder="github:owner/repo"></label>
+          <label><span data-i18n="bank_name">Ton nom</span> <input id="bank-name" type="text" size="12"></label>
+          <button id="btn-bank-save" data-i18n="save">Enregistrer</button>
+        </div>
+      </details>
+    </div>
+    <div class="card">
       <h3 data-i18n="reviews">Révisions</h3>
       <p class="muted small" data-i18n="reviews_note">Tous les exercices déjà faits, avec leur prochaine révision. Coche-en pour les revoir
         aujourd'hui, les suspendre (ils ne reviennent plus), ou signaler une erreur. Coche « jamais vus » pour ajouter

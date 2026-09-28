@@ -684,6 +684,7 @@ async function loadProgress() {
     ].join("");
     await loadProgramme();
     loadReviews();
+    loadBank();
     $("weak-card").hidden = !s.weakest.length;
     $("weak-list").innerHTML = s.weakest.map(w =>
       `<li>${t("weak_line", {topic: esc(label(w.topic)), pct: Math.round(100 * w.correct / w.done), n: w.done})}</li>`).join("");
@@ -768,6 +769,45 @@ $("rev-suspend").addEventListener("click", () => reviewAction("suspend"));
 $("rev-unsuspend").addEventListener("click", () => reviewAction("unsuspend"));
 $("rev-report").addEventListener("click", () => reviewAction("report"));
 
+// ---------------- shared bank ----------------
+
+async function loadBank() {
+  try {
+    const [b, st] = await Promise.all([api("/api/bank"), api("/api/settings")]);
+    $("bank-status").textContent = (b.last_pull
+      ? t("bank_last", {date: b.last_pull.replace("T", " ").slice(0, 16), version: b.version ?? "?", count: b.count ?? "?",
+                        added: b.last_added})
+      : t("bank_never")) + (b.sent ? t("bank_sent", {n: b.sent}) : "");
+    $("btn-bank-send").hidden = !b.can_contribute;
+    $("bank-url").value = st.bank_url || "";
+    $("bank-url").placeholder = b.url;
+    $("bank-dest").value = st.bank_contribute || "";
+    $("bank-name").value = st.contributor || "";
+    $("bank-token").placeholder = st.bank_token_set ? "••••••••" : "";
+  } catch (e) { /* optional */ }
+}
+
+async function bankJob(path) {
+  try {
+    renderFill(await api(path, {}));
+    pollFill.was = true;
+    setTimeout(pollFill, 1000);
+  } catch (e) { toast(e.message); }
+}
+$("btn-bank-sync").addEventListener("click", () => bankJob("/api/bank/sync"));
+$("btn-bank-send").addEventListener("click", () => bankJob("/api/bank/contribute"));
+$("btn-bank-save").addEventListener("click", async () => {
+  const changes = {bank_url: $("bank-url").value.trim(), bank_contribute: $("bank-dest").value.trim(),
+                   contributor: $("bank-name").value.trim()};
+  if ($("bank-token").value) changes.bank_token = $("bank-token").value.trim();
+  try {
+    await api("/api/settings", changes);
+    $("bank-token").value = "";
+    toast(t("saved"));
+    loadBank();
+  } catch (e) { toast(e.message); }
+});
+
 // ---------------- filling the reserve ----------------
 
 function renderFill(f) {
@@ -790,7 +830,7 @@ async function pollFill() {
     if (f.running) { setTimeout(pollFill, 1500); return; }
     if (pollFill.was) {
       toast(t("added", {title: f.title || t("reserve_word"), n: f.added ?? 0}));
-      loadHome(); loadProgramme();
+      loadHome(); loadProgramme(); loadBank();
       if ($("tab-jlpt").classList.contains("active")) loadJlpt();
     }
     pollFill.was = false;

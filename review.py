@@ -16,7 +16,9 @@ never generated again. Its past answers stay in the history but no longer count 
 Reviewed batch format (JSON):
     {"reject": [{"id": 123, "reason": "…"}, {"key": "tatoeba:4567:particle:に", "reason": "…"}],
      "update": [{"id": 124, "data": {"explanation": "…", "answers": ["に", "へ"]}}],
-     "add":    [{"topic": "JLPT N4 · 文法形式 (grammaire)", "kind": "jlpt", "key": "claude:…", "data": {…}}]}
+     "add":    [{"topic": "JLPT N4 · 文法形式 (grammaire)", "kind": "jlpt", "key": "claude:…", "data": {…}}],
+     "approve": [{"id": 125}] or "approve_all": true,     # reviewed: can go to the shared bank
+     "reviewer": "Claude"}
 """
 
 import argparse
@@ -100,7 +102,7 @@ def revalidate(db, log=print) -> dict:
     return {"retired": retired, "updated": updated}
 
 
-def export(db, topic: str = None, unseen: bool = False, limit: int = 500) -> list:
+def export(db, topic: str = None, unseen: bool = False, limit: int = 500, unreviewed: bool = False) -> list:
     rows = db.execute("""SELECT e.id, e.topic, e.kind, e.source_key, e.data, s.exercise_id IS NOT NULL AS seen
                          FROM exercises e LEFT JOIN schedule s ON s.exercise_id = e.id ORDER BY e.id""").fetchall()
     out = []
@@ -108,6 +110,8 @@ def export(db, topic: str = None, unseen: bool = False, limit: int = 500) -> lis
         if (topic and r["topic"] != topic) or (unseen and r["seen"]):
             continue
         d = json.loads(r["data"])
+        if unreviewed and d.get("review"):
+            continue
         out.append({"id": r["id"], "topic": r["topic"], "kind": r["kind"], "key": r["source_key"], "seen": bool(r["seen"]),
                     **{k: d.get(k) for k in ("question", "sentence", "full_sentence", "translation", "choices", "answers",
                                              "cue", "explanation") if d.get(k) not in (None, "", [])}})
@@ -135,9 +139,28 @@ def apply(db, batch: dict, log=print) -> dict:
             db.execute("UPDATE exercises SET data = ? WHERE id = ?", (json.dumps(data, ensure_ascii=False), int(item["id"])))
             counts["updated"] += 1
     db.commit()
+    stamp = {"by": batch.get("reviewer", "review"), "date": batch.get("date") or __import__("datetime").date.today().isoformat()}
     for item in batch.get("add", []):
-        counts["added"] += store.add_exercise(db, item["topic"], item.get("kind", "jlpt"), item["data"], item.get("key"))
-    log(f"✓ {counts['rejected']} rejected, {counts['updated']} updated, {counts['added']} added")
+        data = dict(item["data"], review=stamp)   # written by the reviewer: reviewed
+        counts["added"] += store.add_exercise(db, item["topic"], item.get("kind", "jlpt"), data, item.get("key"))
+    approve_ids = set()
+    for item in batch.get("approve", []):
+        row = db.execute("SELECT id FROM exercises WHERE " + ("source_key = ?" if item.get("key") else "id = ?"),
+                         (item.get("key") or int(item["id"]),)).fetchone()
+        if row:
+            approve_ids.add(row[0])
+    if batch.get("approve_all"):
+        approve_ids |= {r[0] for r in db.execute("SELECT id FROM exercises")}
+    counts["approved"] = 0
+    for i in approve_ids:
+        data = json.loads(db.execute("SELECT data FROM exercises WHERE id = ?", (i,)).fetchone()[0])
+        if not data.get("review"):
+            data["review"] = stamp
+            db.execute("UPDATE exercises SET data = ? WHERE id = ?", (json.dumps(data, ensure_ascii=False), i))
+            counts["approved"] += 1
+    db.commit()
+    log(f"✓ {counts['rejected']} rejected, {counts['updated']} updated, {counts['added']} added, "
+        f"{counts['approved']} approved")
     return counts
 
 
@@ -151,7 +174,7 @@ def apply_pending(db, log=print) -> int:
             counts = apply(db, json.loads(path.read_text(encoding="utf-8")), log=lambda *a: None)
             path.rename(path.with_name(path.stem + ".applied.json"))
             log(f"Reviewed batch {path.name} applied: {counts['rejected']} retired, {counts['updated']} fixed, "
-                f"{counts['added']} added.")
+                f"{counts['added']} added, {counts['approved']} approved.")
             done += 1
         except (ValueError, KeyError, OSError) as e:
             log(f"! Reviewed batch {path.name}: {e}")
@@ -170,6 +193,7 @@ def main() -> None:
     e.add_argument("--topic", default=None)
     e.add_argument("--unseen", action="store_true", help="only exercises never answered")
     e.add_argument("--limit", type=int, default=500)
+    e.add_argument("--unreviewed", action="store_true", help="only exercises not reviewed yet")
     r = sub.add_parser("reject", help="remove exercises by id")
     r.add_argument("ids", nargs="+", type=int)
     r.add_argument("--reason", default="rejected after review")
@@ -181,7 +205,7 @@ def main() -> None:
     if args.command == "revalidate":
         print(revalidate(db))
     elif args.command == "export":
-        print(json.dumps(export(db, args.topic, args.unseen, args.limit), ensure_ascii=False, indent=1))
+        print(json.dumps(export(db, args.topic, args.unseen, args.limit, args.unreviewed), ensure_ascii=False, indent=1))
     elif args.command == "reject":
         print(f"✓ {sum(store.retire(db, i, args.reason) for i in args.ids)} rejected")
     elif args.command == "import":

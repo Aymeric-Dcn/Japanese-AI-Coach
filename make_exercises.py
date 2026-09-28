@@ -344,9 +344,8 @@ def find_candidates(targets: list = None, form: str = None, pos: str = "", min_w
     groups = {normalize(t): [] for t in targets} if targets else {form: []}
     db = sqlite3.connect(BANK_PATH)
     query = "SELECT id, jp, fr, en, tokens FROM sentences WHERE word_count BETWEEN ? AND ?"
-    if french_only:   # a translation in the interface language is required
-        import store
-        query += " AND en IS NOT NULL" if store.language() == "en" else " AND fr IS NOT NULL"
+    if french_only:   # both translations: exercises go to the shared bank, used in French and in English
+        query += " AND fr IS NOT NULL AND en IS NOT NULL"
     for id_, jp, fr, en, tokens_json in db.execute(query, (min_words, max_words)):
         tokens = json.loads(tokens_json)
         if form:

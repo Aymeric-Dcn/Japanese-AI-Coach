@@ -115,6 +115,13 @@ const I18N = {
     tick_first: "Coche d'abord un ou plusieurs exercices.",
     act_due_today: "{n} exercice(s) à revoir aujourd'hui.", act_suspend: "{n} exercice(s) suspendu(s).",
     act_unsuspend: "{n} exercice(s) réactivé(s).", act_report: "{n} exercice(s) retiré(s).",
+    bank: "Banque partagée",
+    bank_note: "Des exercices déjà relus, téléchargés automatiquement au démarrage : l'app fonctionne même sans modèle local. Tes réponses et ton Anki ne sont jamais envoyés.",
+    bank_sync: "Synchroniser maintenant", bank_send: "Envoyer mes exercices à relire", bank_auto: "au démarrage",
+    bank_settings: "Réglages", bank_url: "Adresse de la banque", bank_token: "Jeton GitHub (dépôt privé, ou pour envoyer)",
+    bank_dest: "Envoyer vers", bank_name: "Ton nom", save: "Enregistrer", saved: "Enregistré.",
+    bank_never: "Jamais synchronisée.", bank_last: "Dernière synchronisation : {date} · banque v{version}, {count} exercices · {added} nouveaux la dernière fois.",
+    bank_sent: " {n} exercice(s) envoyé(s) à relire.",
   },
   en: {
     status_title: "Services", tab_chat: "Teacher", tab_progress: "Progress",
@@ -219,6 +226,13 @@ const I18N = {
     tick_first: "Tick one or more exercises first.",
     act_due_today: "{n} exercise(s) to review today.", act_suspend: "{n} exercise(s) suspended.",
     act_unsuspend: "{n} exercise(s) reactivated.", act_report: "{n} exercise(s) removed.",
+    bank: "Shared bank",
+    bank_note: "Reviewed exercises, downloaded automatically at startup: the app works even without a local model. Your answers and your Anki are never sent.",
+    bank_sync: "Sync now", bank_send: "Send my exercises for review", bank_auto: "at startup",
+    bank_settings: "Settings", bank_url: "Bank address", bank_token: "GitHub token (private repository, or to send)",
+    bank_dest: "Send to", bank_name: "Your name", save: "Save", saved: "Saved.",
+    bank_never: "Never synced.", bank_last: "Last sync: {date} · bank v{version}, {count} exercises · {added} new last time.",
+    bank_sent: " {n} exercise(s) sent for review.",
   },
 };
 

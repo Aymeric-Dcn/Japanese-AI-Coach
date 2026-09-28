@@ -129,7 +129,7 @@ Hardware: RTX 4070 Super 12 GB, 32 GB RAM, Ollama.
 ## 2026-09-28 — Review of the generated questions on the real data
 
 First look at the real reserve (50 JLPT N4 questions, 40 programme exercises), done by Claude through the app:
-- Qwen's check had kept everything (50/50), including clearly ambiguous questions.
+- Qwen's check (文脈規定 and 文法形式) had kept every question it saw, including clearly ambiguous ones.
 - は/が: about half the exercises accepted both answers without context (我々のチーム＿試合に勝った).
 - JLPT: the 50 questions came from ~10 sentences, each used for the 5 types, so one question gave away another's answer.
 - 並べ替え: ~6/10 had several correct orders (塩を / ポップコーンに, 好きなものを / どれでも, 今日は…).
@@ -162,3 +162,11 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - Tutor: English prompts, situations, student context and references (Tatoeba sentences with their English translation).
 - `build_bank.py` now keeps the English translations by default (the bank must be rebuilt once); generation requires a translation in the interface language.
 - Tested in headless Chromium: switching languages, session, progress, JLPT, chat; no French left in the English interface except existing chat history.
+
+## 2026-09-28 — Shared bank, README
+
+- `bank_sync.py`: separate repository Japanese-AI-Coach-bank (CC BY-SA 4.0) with `manifest.json` (sha256 per file), `exercises/<topic>.jsonl`, `rejected.jsonl`, `inbox/`. `pull` at startup adds new exercises (origin « bank ») and retires rejected keys, without touching progress; `contribute` sends local exercises (folder or GitHub API); `import-inbox` and `publish` for the maintainer. Only exercise content is shared (`new_words`, which depends on the student's Anki, is stripped).
+- Review loop: exercises carry `review` once approved (`review.py` batches: `approve`, `approve_all`, `export --unreviewed`); only approved exercises are published.
+- Generation now requires both a French and an English translation (39,278 sentences), so every exercise works in both languages. Two 並べ替え made in English mode without a French translation were rejected, one of them also mis-tokenized (どこかなぞめいた → どこかな / ぞめいた).
+- Tested end to end on copies: publish 131 exercises → a fresh database pulls them (progress untouched) → it generates and contributes 4 → the maintainer imports, rejects 1, approves 3, publishes v2 → the friend's pull retires the rejected one.
+- README rewritten as a project page (screenshots taken in headless Chromium on a copy of the real database, EN and FR); detailed documentation moved to `docs/guide.md` / `docs/guide.fr.md`.
