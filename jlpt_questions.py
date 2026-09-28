@@ -781,8 +781,10 @@ def fill(db, level: str, per_type: int = 10, types: list = None, model: str = ll
         for q in made:
             key = q.pop("key")
             added += store.add_exercise(db, title, "jlpt", q, key)
-        log(f"  → {len(made)} added" + ("" if made or qtype in NEEDS_LLM and no_llm else
-                                        " (no suitable sentence: is data/lexicon.db / data/kanji.json filled?)"))
+        hint = ("" if made or qtype in NEEDS_LLM and no_llm else
+                " (no new sentence with a single possible order: normal, this type is rare)" if qtype == "ordering" else
+                " (no suitable sentence: is data/lexicon.db / data/kanji.json filled?)")
+        log(f"  → {len(made)} added{hint}")
     return added
 
 
