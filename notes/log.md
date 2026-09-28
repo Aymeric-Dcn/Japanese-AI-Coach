@@ -177,3 +177,9 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - Without a local model: no 15-minute wait for Ollama at startup, the « generate » buttons are hidden, the Teacher tab explains what is missing, and topics with no exercise in the reserve are skipped so the daily programme always has something to offer.
 - `build_exe.py` (PyInstaller): one-file, no console; data in %LOCALAPPDATA%\JapaneseCoach; a second double-click opens the running app; ⏻ closes it. SudachiPy and the sentence bank are not included (only needed to generate).
 - Tested by simulating the packaged mode (sys.frozen, _MEIPASS) on an empty profile: welcome screen FR → EN, level N4, bank pulled (134 exercises), daily programme, Teacher tab message, quit. The real .exe must be built on Windows.
+
+## 2026-09-28 — Cloud teacher (Claude / ChatGPT)
+
+- `llm.py` routes models named `anthropic:<id>` / `openai:<id>` to the Messages / Chat Completions APIs (streaming, JSON answers via the schema in the prompt); keys from settings or `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`. Defaults: `claude-haiku-4-5-20251001`, `gpt-5.4-mini` (to check against OpenAI's current list).
+- Progrès → « Le prof (modèle d'IA) »: provider, model, key. The key is kept in `data/settings.json` and never returned to the page (only « key set »). Only the chat uses it; exercise generation stays local, so the bank keeps one source.
+- Tested against fake Anthropic / OpenAI servers: streamed answer, JSON answer, 401 and missing key shown as a readable error, status « Prof : claude-haiku… », back to local shows « Ollama éteint ».

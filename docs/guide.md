@@ -44,10 +44,10 @@ Custom topics: `--targets "に,で" --pos 格助詞 --title "…"` for particles
 `python server.py [--open] [--port 8000] [--model qwen3:14b]`, then http://localhost:8000.
 
 - **Session**: « Programme du jour » (reviews + new exercises of the current topics) or « Entraînement libre » (chosen topics). Enter = check / next.
-- **Prof**: chat with the tutor. Needs Ollama running; the status in the top right says whether it is reachable.
+- **Prof**: chat with the tutor. It uses the local model (Ollama running), or Claude / ChatGPT: Progrès → « The teacher (AI model) », pick the provider, paste your API key (console.anthropic.com or platform.openai.com; a chat session costs a few cents with the small models). The key is stored in `data/settings.json` and never sent back to the page; with a cloud provider, your chat messages go to that provider. Exercise generation stays local. The status in the top right says which teacher answers and whether it is reachable.
 - **Progrès**: today's work, streak, reviews due tomorrow, success rate, the programme (state of each topic, « Je maîtrise déjà »), « Remplir la réserve ».
 
-Everything is stored in `data/coach.db` (SQLite). Nothing leaves your computer.
+Everything is stored in `data/coach.db` (SQLite). Nothing leaves your computer (except chat messages if you choose a cloud teacher).
 
 ## Anki (`anki_sync.py`)
 

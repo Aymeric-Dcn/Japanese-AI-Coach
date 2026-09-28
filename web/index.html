@@ -49,6 +49,7 @@
         <li data-i18n="setup_model_size">Logiciel gratuit : Ollama, puis le modèle Qwen 3 (environ 9 Go à télécharger).</li>
         <li data-i18n="setup_model_hw">Il faut une carte graphique avec au moins 8 à 12 Go de mémoire (sinon c'est très lent), et 16 Go de RAM.</li>
         <li data-i18n="setup_model_private">Tout tourne sur ton ordinateur : rien n'est envoyé sur Internet.</li>
+        <li data-i18n="setup_model_api">Pas de carte graphique adaptée ? Le prof peut aussi utiliser Claude ou ChatGPT avec ta propre clé API (Progrès → Le prof).</li>
       </ul>
       <p id="setup-model-state"></p>
       <label class="check"><input type="checkbox" id="setup-local"> <span data-i18n="setup_model_use">J'ai (ou je vais installer) le prof local</span></label>
@@ -277,6 +278,23 @@
         <label class="check inline"><input type="checkbox" data-setting="auto_fill"> <span data-i18n="auto_fill">remplir la réserve</span></label>
         <label class="check inline"><input type="checkbox" data-setting="jlpt_auto_fill"> <span data-i18n="jlpt_auto_fill">générer des questions JLPT</span></label>
       </div>
+    </div>
+    <div class="card">
+      <h3 data-i18n="teacher_card">Le prof (modèle d'IA)</h3>
+      <p class="muted small" data-i18n="teacher_note">Le modèle qui répond dans l'onglet Prof. En local (Ollama), rien ne sort de ton ordinateur. Avec Claude ou ChatGPT, tes messages sont envoyés à Anthropic ou à OpenAI, avec ta propre clé API (payante à l'usage, quelques centimes pour une conversation avec les petits modèles).</p>
+      <div class="controls left teacher-settings">
+        <label><span data-i18n="teacher_provider">Modèle</span>
+          <select id="teacher-provider">
+            <option value="local" data-i18n="teacher_local">Local (Ollama)</option>
+            <option value="anthropic">Claude (Anthropic)</option>
+            <option value="openai">ChatGPT (OpenAI)</option>
+          </select>
+        </label>
+        <label id="teacher-model-box"><span data-i18n="teacher_model">Nom du modèle</span> <input id="teacher-model" type="text" size="28"></label>
+        <label id="teacher-key-box"><span data-i18n="teacher_key">Clé API</span> <input id="teacher-key" type="password" size="28" autocomplete="off"></label>
+        <button id="btn-teacher-save" data-i18n="save">Enregistrer</button>
+      </div>
+      <p class="small muted" id="teacher-help"></p>
     </div>
     <div class="card">
       <h3 data-i18n="bank">Banque partagée</h3>

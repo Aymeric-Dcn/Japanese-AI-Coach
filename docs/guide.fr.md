@@ -44,10 +44,10 @@ Thèmes sur mesure : `--targets "に,で" --pos 格助詞 --title "…"` pour le
 `python server.py [--open] [--port 8000] [--model qwen3:14b]`, puis http://localhost:8000.
 
 - **Session** : « Programme du jour » (révisions + nouveaux exercices des thèmes en cours) ou « Entraînement libre » (thèmes au choix). Entrée = vérifier / suivant.
-- **Prof** : le chat. Il faut qu'Ollama tourne ; l'état en haut à droite indique s'il est joignable.
+- **Prof** : le chat. Il utilise le modèle local (Ollama lancé), ou Claude / ChatGPT : Progrès → « Le prof (modèle d'IA) », choisis le fournisseur, colle ta clé d'API (console.anthropic.com ou platform.openai.com ; une séance de chat coûte quelques centimes avec les petits modèles). La clé est gardée dans `data/settings.json` et jamais renvoyée à la page ; avec un fournisseur cloud, tes messages du chat partent chez lui. La génération d'exercices reste locale. L'état en haut à droite indique quel prof répond et s'il est joignable.
 - **Progrès** : travail du jour, série de jours, révisions de demain, taux de réussite, le programme (état de chaque thème, « Je maîtrise déjà »), « Remplir la réserve ».
 
-Tout est enregistré dans `data/coach.db` (SQLite). Rien ne quitte ton ordinateur.
+Tout est enregistré dans `data/coach.db` (SQLite). Rien ne quitte ton ordinateur (sauf les messages du chat si tu choisis un prof en ligne).
 
 ## Anki (`anki_sync.py`)
 

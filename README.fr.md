@@ -17,7 +17,7 @@
 - **Les questions ambiguës sont écartées avant que tu les voies.** Une question où deux réponses sont justes est pire que pas de question. Des règles de grammaire les détectent (は/が seulement quand la grammaire tranche, paires de particules jamais proposées ensemble, morceaux de 並べ替え dont l'ordre est imposé…), le LLM donne un second avis, et des lots sont relus par Claude : les clés rejetées ne sont plus jamais générées, et la réserve se revérifie quand les règles s'améliorent. Les chiffres sont dans le [journal de tests](notes/log.md).
 - **À ton niveau.** L'app lit ta collection [Anki](https://apps.ankiweb.net) (n'importe quel deck, Anki peut être fermé) et choisit des phrases dont tu connais les mots, plus un nouveau au maximum.
 - **Fonctionne sans carte graphique.** Les exercices relus sont publiés dans une [banque partagée](https://github.com/Aymeric-Dcn/Japanese-AI-Coach-bank) que l'app télécharge au démarrage ; le modèle local ne sert qu'à en générer d'autres et au chat.
-- **Rien ne sort de ton ordinateur** : réponses, progression et données Anki restent dans `data/`.
+- **Rien ne sort de ton ordinateur** : réponses, progression et données Anki restent dans `data/`. Seule exception, si tu la choisis : le chat peut utiliser Claude ou ChatGPT avec ta propre clé d'API, et tes messages du chat partent alors chez ce fournisseur.
 
 ## Fonctionnalités
 
@@ -25,7 +25,7 @@
 | --- | --- |
 | **Session** | programme du jour (révisions + nouveaux exercices des deux thèmes en cours) ou entraînement libre par thème ; particules et conjugaisons ; annuler un mauvais clic (Ctrl+Z), « en fait je ne maîtrise pas », suspendre ou signaler un exercice |
 | **JLPT** | 漢字読み, 表記, 文脈規定, 文法形式, 並べ替え ★ par niveau ; entraînement avec correction immédiate, ou examens blancs chronométrés notés par section |
-| **Prof** | chat en trois modes — questions et corrections, conversation en japonais simple (7 situations), quiz sur tes points faibles — appuyé sur tes fiches de grammaire Anki, le programme et de vraies phrases |
+| **Prof** | chat en trois modes — questions et corrections, conversation en japonais simple (7 situations), quiz sur tes points faibles — appuyé sur tes fiches de grammaire Anki, le programme et de vraies phrases ; modèle local, ou Claude / ChatGPT avec une clé d'API |
 | **Progrès** | statistiques, programme avec progression automatique, révisions gérées à la main, remplissage de la réserve, banque partagée |
 
 <p align="center"><img src="docs/screenshots/progress-fr.png" width="70%" alt="Onglet Progrès"></p>
@@ -96,8 +96,8 @@ notes/log.md        journal de tests : modèles, prompts, ce qui n'allait pas et
 - [x] Interface français / anglais
 - [x] Banque partagée d'exercices relus
 - [ ] Mode sans Anki (test de niveau), données par défaut tirées du [Full Japanese Study Deck](https://github.com/Ronokof/Full-Japanese-Study-Deck)
-- [ ] Installateur et vraie fenêtre (`.exe`), avec un choix clair pour le modèle local
-- [ ] Modèles en ligne facultatifs pour le chat (clé API Claude / OpenAI)
+- [x] App Windows (`.exe`) avec un écran d'accueil qui explique le modèle local
+- [x] Modèles en ligne facultatifs pour le chat (clé API Claude / OpenAI)
 - [ ] Compréhension écrite (読解) et orale
 
 ## Sources de données et droits

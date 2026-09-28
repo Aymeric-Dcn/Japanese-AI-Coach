@@ -257,7 +257,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if labels:
                 emit({"refs": labels})
-            for piece in llm.chat_stream(MODEL, messages):
+            for piece in llm.chat_stream(chat_model(), messages):
                 answer.append(piece)
                 emit({"delta": piece})
             store.add_message(db, conversation, "user", message)
@@ -265,6 +265,8 @@ class Handler(BaseHTTPRequestHandler):
             emit({"done": True})
         except llm.OllamaUnavailable:
             emit({"error": "Ollama ne répond pas. Lance l'application Ollama, puis réessaie."})
+        except llm.CloudError as e:
+            emit({"error": str(e)})
         except urllib.error.HTTPError as e:
             emit({"error": f"Erreur Ollama {e.code}. Le modèle {MODEL} est-il installé ? (ollama pull {MODEL})"})
         except (BrokenPipeError, ConnectionResetError):
@@ -282,7 +284,8 @@ FILL_LOCK = threading.Lock()
 SETTINGS_PATH = Path("data") / "settings.json"
 DEFAULT_SETTINGS = {"auto_sync": True, "auto_fill": True, "fill_target": 15, "jlpt_level": "N4", "jlpt_auto_fill": True,
                     "language": "fr", "bank_auto_sync": True, "bank_url": "", "bank_token": "",
-                    "bank_contribute": "", "contributor": "", "setup_done": None, "local_model": None}
+                    "bank_contribute": "", "contributor": "", "setup_done": None, "local_model": None,
+                    "chat_model": "", "api_keys": {}}
 LANGUAGES = ("fr", "en")
 
 
@@ -363,7 +366,17 @@ def load_settings() -> dict:
 
 def save_settings(changes: dict) -> dict:
     settings = load_settings()
+    keys = dict(settings.get("api_keys") or {})
+    for name, key in (changes.pop("api_keys", None) or {}).items():   # merge: one key at a time
+        if name in llm.CLOUD:
+            if key:
+                keys[name] = str(key).strip()
+            else:
+                keys.pop(name, None)
     settings.update({k: v for k, v in changes.items() if k in DEFAULT_SETTINGS})
+    settings["api_keys"] = keys
+    llm.API_KEYS.clear()
+    llm.API_KEYS.update(keys)
     if settings.get("language") not in LANGUAGES:
         settings["language"] = "fr"
     SETTINGS_PATH.parent.mkdir(exist_ok=True)
@@ -405,7 +418,16 @@ def public_settings() -> dict:
     """Settings for the page: the token is never sent back, only whether one is set."""
     settings = load_settings()
     settings["bank_token_set"] = bool(settings.pop("bank_token", ""))
+    settings["api_keys_set"] = {name: bool(key) for name, key in (settings.pop("api_keys", None) or {}).items()}
+    settings["defaults"] = {name: c["default"] for name, c in llm.CLOUD.items()}
+    settings["local"] = MODEL
     return settings
+
+
+def chat_model() -> str:
+    """The teacher's model: a cloud model chosen in Progress → Teacher, otherwise the local one."""
+    chosen = load_settings().get("chat_model") or ""
+    return chosen if llm.provider(chosen) != "ollama" else MODEL
 
 
 def bank_status() -> dict:
@@ -582,7 +604,12 @@ def status() -> dict:
     finally:
         db.close()
     settings = load_settings()
+    model = chat_model()
+    cloud = llm.provider(model) != "ollama"
+    installed = any(n == MODEL or n.split(":")[0] == MODEL for n in names)
     return {
+        "chat_model": model,
+        "chat_ready": bool(llm.api_key(llm.provider(model))) if cloud else (ollama and installed),
         "packaged": PACKAGED,
         "setup": setup_needed(settings, reserve),
         "anki_found": anki_available(),
@@ -643,6 +670,7 @@ def main() -> None:
                    help="do not sync Anki / fill the reserve at startup (see data/settings.json)")
     args = p.parse_args()
     MODEL, DB_PATH = args.model, args.db
+    llm.API_KEYS.update(load_settings().get("api_keys") or {})
     url = f"http://localhost:{args.port}"
     if PACKAGED:
         args.open = True

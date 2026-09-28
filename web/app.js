@@ -53,11 +53,13 @@ async function loadStatus() {
     const noModel = s.local_model === false && !s.ollama;   // generating needs the local model
     $("btn-fill").hidden = noModel;
     $("btn-jlpt-fill").hidden = noModel;
-    $("chat-off").hidden = !!(s.ollama && s.model_installed);
+    $("chat-off").hidden = !!s.chat_ready;
     $("chat-off").textContent = t("chat_off", {model: s.model});
     const item = (ok, on, off) => `<span class="${ok ? "on" : "off"}">${ok ? on : off}</span>`;
+    const cloud = s.chat_model && s.chat_model.includes(":") && /^(anthropic|openai):/.test(s.chat_model);
     $("status").innerHTML =
-      (s.local_model === false && !s.ollama ? "" : item(s.ollama && s.model_installed, t("teacher_on", {model: esc(s.model)}),
+      (cloud ? item(s.chat_ready, t("teacher_on_cloud", {model: esc(s.chat_model.split(":")[1])}), t("teacher_on_cloud", {model: esc(s.chat_model.split(":")[1])}) + " ✗") :
+       s.local_model === false && !s.ollama ? "" : item(s.ollama && s.model_installed, t("teacher_on", {model: esc(s.model)}),
            s.ollama ? t("model_missing", {model: esc(s.model)}) : t("ollama_off"))) +
       (s.anki_found || s.anki_sync ? item(s.anki_sync, t("anki_on"), t("anki_off")) : "");
     return s;
@@ -694,6 +696,7 @@ async function loadProgress() {
     await loadProgramme();
     loadReviews();
     loadBank();
+    loadTeacher();
     $("weak-card").hidden = !s.weakest.length;
     $("weak-list").innerHTML = s.weakest.map(w =>
       `<li>${t("weak_line", {topic: esc(label(w.topic)), pct: Math.round(100 * w.correct / w.done), n: w.done})}</li>`).join("");
@@ -777,6 +780,48 @@ $("rev-today").addEventListener("click", () => reviewAction("due_today"));
 $("rev-suspend").addEventListener("click", () => reviewAction("suspend"));
 $("rev-unsuspend").addEventListener("click", () => reviewAction("unsuspend"));
 $("rev-report").addEventListener("click", () => reviewAction("report"));
+
+// ---------------- the teacher's model ----------------
+
+const TM = {settings: null};
+
+function teacherForm() {
+  const st = TM.settings;
+  const provider = $("teacher-provider").value;
+  const cloud = provider !== "local";
+  $("teacher-model-box").hidden = !cloud;
+  $("teacher-key-box").hidden = !cloud;
+  const current = st.chat_model || "";
+  if (cloud) {
+    $("teacher-model").value = current.startsWith(provider + ":") ? current.split(":").slice(1).join(":") : st.defaults[provider];
+    $("teacher-key").value = "";
+    $("teacher-key").placeholder = st.api_keys_set[provider] ? "••••••••" : "";
+    $("teacher-help").textContent = t("teacher_help_" + provider) + (st.api_keys_set[provider] ? " " + t("teacher_key_set") : "");
+  } else {
+    $("teacher-help").textContent = t("teacher_help_local", {model: st.local});
+  }
+}
+
+async function loadTeacher() {
+  try {
+    TM.settings = await api("/api/settings");
+    const current = TM.settings.chat_model || "";
+    $("teacher-provider").value = /^(anthropic|openai):/.test(current) ? current.split(":")[0] : "local";
+    teacherForm();
+  } catch (e) { /* optional */ }
+}
+$("teacher-provider").addEventListener("change", teacherForm);
+$("btn-teacher-save").addEventListener("click", async () => {
+  const provider = $("teacher-provider").value;
+  const changes = {chat_model: provider === "local" ? "" : `${provider}:${$("teacher-model").value.trim()}`};
+  if (provider !== "local" && $("teacher-key").value.trim()) changes.api_keys = {[provider]: $("teacher-key").value.trim()};
+  try {
+    await api("/api/settings", changes);
+    toast(t("saved"));
+    await loadTeacher();
+    loadStatus();
+  } catch (e) { toast(e.message); }
+});
 
 // ---------------- shared bank ----------------
 

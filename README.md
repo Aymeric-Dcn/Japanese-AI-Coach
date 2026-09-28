@@ -17,7 +17,7 @@
 - **Ambiguous questions are caught before you see them.** A question where two answers are right is worse than no question. Grammar rules detect them (は/が only where the grammar decides, particle pairs never offered together, 並べ替え pieces whose order is fixed…), the LLM gives a second opinion, and batches are reviewed by Claude: rejected keys are never generated again, and the reserve re-checks itself when the rules improve. See the [test log](notes/log.md) for the numbers.
 - **At your level.** It reads your [Anki](https://apps.ankiweb.net) collection (any deck, Anki can be closed) and picks sentences whose words you know, plus at most one new one.
 - **Works without a GPU.** Reviewed exercises are published in a [shared bank](https://github.com/Aymeric-Dcn/Japanese-AI-Coach-bank) that the app downloads at startup; the local model is only needed to generate more and for the chat.
-- **Nothing leaves your computer**: answers, progress and Anki data stay in `data/`.
+- **Nothing leaves your computer**: answers, progress and Anki data stay in `data/`. The only exception is opt-in: the chat can use Claude or ChatGPT with your own API key, and then your chat messages go to that provider.
 
 ## Features
 
@@ -25,7 +25,7 @@
 | --- | --- |
 | **Session** | today's programme (reviews + new exercises of the two current topics) or free practice by topic; particles and conjugations; undo a misclick (Ctrl+Z), « actually I don't know it », suspend or report an exercise |
 | **JLPT** | 漢字読み, 表記, 文脈規定, 文法形式, 並べ替え ★ by level; practice with instant correction, or timed mock exams scored by section |
-| **Teacher** | chat in three modes — questions and corrections, conversation in simple Japanese (7 situations), quiz on your weak points — grounded in your Anki grammar notes, the programme and real sentences |
+| **Teacher** | chat in three modes — questions and corrections, conversation in simple Japanese (7 situations), quiz on your weak points — grounded in your Anki grammar notes, the programme and real sentences; local model, or Claude / ChatGPT with an API key |
 | **Progress** | stats, programme with automatic progression, reviews managed by hand, reserve top-up, shared bank |
 
 <p align="center"><img src="docs/screenshots/progress-en.png" width="70%" alt="Progress tab"></p>
@@ -96,8 +96,8 @@ notes/log.md        test log: models, prompts, what went wrong and how it was fi
 - [x] French / English interface
 - [x] Shared bank of reviewed exercises
 - [ ] Mode without Anki (level test), default data from the [Full Japanese Study Deck](https://github.com/Ronokof/Full-Japanese-Study-Deck)
-- [ ] Installer and desktop window (`.exe`), with a clear choice about the local model
-- [ ] Optional cloud models for the chat (Claude / OpenAI API key)
+- [x] Windows app (`.exe`) with a welcome screen that explains the local model
+- [x] Optional cloud models for the chat (Claude / OpenAI API key)
 - [ ] Reading comprehension (読解) and listening
 
 ## Data sources and licences
