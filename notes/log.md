@@ -125,3 +125,24 @@ Hardware: RTX 4070 Super 12 GB, 32 GB RAM, Ollama.
 - Chat: `knowledge.py` injects references (Anki grammar notes, programme notes, lexicon, Tatoeba sentences) and shows which were used; modes Prof / Conversation (7 situations) / Quiz.
 - `install_autostart.py` + startup maintenance (Anki sync once a day, reserve and JLPT top-up when Ollama answers), settings in the app.
 - Tested with a simulated Anki collection (new and old formats), SudachiPy, Ollama and headless Chromium. To check on the real machine: FJSD field parsing, JLPT question quality (especially 並べ替え and 文脈規定), conjugation types from SudachiPy.
+
+## 2026-09-28 — Review of the generated questions on the real data
+
+First look at the real reserve (50 JLPT N4 questions, 40 programme exercises), done by Claude through the app:
+- Qwen's check had kept everything (50/50), including clearly ambiguous questions.
+- は/が: about half the exercises accepted both answers without context (我々のチーム＿試合に勝った).
+- JLPT: the 50 questions came from ~10 sentences, each used for the 5 types, so one question gave away another's answer.
+- 並べ替え: ~6/10 had several correct orders (塩を / ポップコーンに, 好きなものを / どれでも, 今日は…).
+- 漢字読み: fake-looking wrong readings (ちっから, がっつ); 表記: random rare kanji (梨用, 痔); raw Anki meanings (« Common noun; Usually written using kana alone… »); 事 asked as a kanji reading.
+- FJSD-Radical notes overwrote the kanji notes in kanji.json (力: no readings), FJSD-Kana were read as words.
+
+Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) until the batches looked right:
+- One sentence per JLPT question; words usually written in kana skipped (Anki tag); counters (3月) skipped; the answer must not appear elsewhere in the sentence.
+- Wrong readings from the split of the word into its kanji (交通 → 交/こう + 通/つう): another on'yomi of the kanji (on'yomi compounds only), long ↔ short vowel (no う added to a kun'yomi), voicing (never ぢ/づ), っ ↔ つ/く from the kanji's real reading, ゅ ↔ ゆ; one wrong answer per family.
+- Wrong spellings: kanji with the same on'yomi, level N5–N3 or known, never forming a real word.
+- 文法形式: particle pairs that are often both right never offered together; に/と and に/から pairs dropped with 会う / 習う-type verbs; を/が never together; conjugations: て/たら/ば not offered together outside て + auxiliary; no verb-form question at the end of a sentence (教えて / 教えよう / 教えます all fit); verbs the analyzer cut wrongly (くびっ|たけ) and sentences with filler tokens (あ, う) skipped.
+- 並べ替え: at most one movable piece (case particle, adverb, bare noun, clause, 〜か…); no topic (は, も, なら, たり); no two adjacent modifiers of the same noun (彼女の / 新しい, きれいな / 静かな, この / その); no dialogues, punctuation or one-kana pieces; longer sentences allowed (+8 words); translation shown. Yield is low (≈10 N4 questions in the whole bank) but they have a single answer.
+- Programme particles: は/が only where the grammar decides (が in a subordinate clause, 誰が, existence after a place; は before a question word); は/も decided by the translation (« aussi »); に/へ both accepted with movement verbs; を/が both accepted with たい and potential forms; や also accepts と.
+- `review.py`: revalidate (at every startup: removes what the current rules would not generate, fixes accepted answers), export, reject, import; reviewed batches dropped in `data/reviews/` are applied at startup. Rejected keys are never generated again (table `rejected`).
+- anki_sync: FJSD-Radical and FJSD-Kana ignored; a kanji note without readings no longer overwrites one with readings; the sync runs again at startup when data/anki.json changed.
+- On a copy of the real reserve: 64 exercises retired (47 old-generator JLPT, 14 は/が, 3 kana words); Claude's manual review of the new batch rejected 5 more (3 に/で where both fit, 2 odd sentences).

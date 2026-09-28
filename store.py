@@ -7,6 +7,7 @@ Tables:
   schedule   — when each exercise already seen comes back (spaced repetition)
   messages   — chat history with the tutor
   topic_flags — topics marked « Je maîtrise déjà » in the app
+  rejected   — exercises removed after a review (ambiguous, wrong…): never generated again
 """
 
 import datetime
@@ -65,6 +66,11 @@ CREATE TABLE IF NOT EXISTS exams (
     seconds INTEGER NOT NULL,
     detail TEXT NOT NULL          -- JSON: {question type: [right, total]}
 );
+CREATE TABLE IF NOT EXISTS rejected (
+    source_key TEXT PRIMARY KEY,
+    reason TEXT NOT NULL,
+    created TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_reviews_day ON reviews(day);
 CREATE INDEX IF NOT EXISTS idx_schedule_due ON schedule(due);
 """
@@ -88,7 +94,24 @@ def today() -> datetime.date:
 # ---------------------------------------------------------------------------
 
 def existing_keys(db) -> set:
-    return {r[0] for r in db.execute("SELECT source_key FROM exercises WHERE source_key IS NOT NULL")}
+    """Keys of the exercises in the reserve, plus the rejected ones (so they are not generated again)."""
+    keys = {r[0] for r in db.execute("SELECT source_key FROM exercises WHERE source_key IS NOT NULL")}
+    return keys | {r[0] for r in db.execute("SELECT source_key FROM rejected")}
+
+
+def retire(db, exercise_id: int, reason: str) -> bool:
+    """Removes an exercise from the reserve and the review schedule, and remembers its key so it is never
+    generated again. Past answers stay in the history but no longer count for the topic."""
+    row = db.execute("SELECT source_key FROM exercises WHERE id = ?", (exercise_id,)).fetchone()
+    if not row:
+        return False
+    if row[0]:
+        db.execute("INSERT OR REPLACE INTO rejected (source_key, reason, created) VALUES (?, ?, ?)",
+                   (row[0], reason, datetime.datetime.now().isoformat(timespec="seconds")))
+    db.execute("DELETE FROM schedule WHERE exercise_id = ?", (exercise_id,))
+    db.execute("DELETE FROM exercises WHERE id = ?", (exercise_id,))
+    db.commit()
+    return True
 
 
 def add_exercise(db, topic: str, kind: str, data: dict, source_key: str = None) -> bool:

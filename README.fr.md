@@ -109,7 +109,18 @@ Le fichier de ta collection (`%APPDATA%\Anki2\<profil>\collection.anki2`) est co
 
 ### JLPT (`jlpt_questions.py`, onglet JLPT)
 
-`python jlpt_questions.py --level N4` (ou « Générer des questions » dans l'app) ajoute 10 questions de chaque type pour le niveau. Le niveau d'une question = le niveau JLPT de ses mots (sous-paquets JLPT de ton deck Anki, ou listes libres de `jlpt_data.py`). 表記 a besoin de fiches kanji avec on'yomi (Anki). 文法形式 et 文脈規定 sont vérifiés par le LLM (aucun autre choix ne doit convenir). Examen blanc : nombre de questions par type comme au vrai test (sans compréhension écrite), 1 minute par question, score par section, erreurs renvoyées dans les révisions.
+`python jlpt_questions.py --level N4` (ou « Générer des questions » dans l'app) ajoute 10 questions de chaque type pour le niveau. Le niveau d'une question = le niveau JLPT de ses mots (sous-paquets JLPT de ton deck Anki, ou listes libres de `jlpt_data.py`). 表記 a besoin de fiches kanji avec on'yomi (Anki). 文法形式 et 文脈規定 sont vérifiés par le LLM (aucun autre choix ne doit convenir). Règles contre les questions ambiguës ou trop faciles : une phrase par question (une question ne donne jamais la réponse d'une autre) ; mauvaises lectures construites comme au vrai test (autre on'yomi du kanji, voyelle longue ↔ courte, son voisé, っ) ; mauvaises graphies avec des kanji de même lecture de niveau N5–N3 qui ne forment pas un vrai mot ; pas de question de kanji sur les mots qui s'écrivent d'habitude en kana (事) ; les paires de particules souvent toutes deux correctes (は/が, に/へ, と/や…) ne sont jamais proposées ensemble ; les formes verbales qui conviendraient aussi (着て / 着たら / 着れば) sont écartées ; le 並べ替え ne garde que des morceaux dont l'ordre est imposé par la grammaire. Examen blanc : nombre de questions par type comme au vrai test (sans compréhension écrite), 1 minute par question, score par section, erreurs renvoyées dans les révisions.
+
+### Contrôle qualité (`review.py`)
+
+```
+python review.py revalidate             # revérifie la réserve avec les règles actuelles (fait aussi à chaque démarrage)
+python review.py export --unseen > lot.json
+python review.py reject 123 456 --reason "は et が possibles"
+python review.py import relu.json       # retraits, corrections, nouvelles questions
+```
+
+Quand les règles s'améliorent, la réserve se nettoie au démarrage suivant : les exercices qui ne seraient plus générés sont retirés (et ne reviendront pas), les réponses acceptées sont mises à jour (に et へ tous deux justes avec 行く). Pour une relecture humaine, on exporte un lot, on le relit (toi, ou Claude), et on dépose le fichier relu dans `data/reviews/` : l'app l'applique au démarrage. Les thèmes de particules dont les deux réponses conviennent souvent ne gardent que les phrases où la grammaire tranche : は/が (が dans une subordonnée, 誰が, existence ; は avant un mot interrogatif), は/も (la traduction dit « aussi »), を/が (les deux acceptés avec たい et la forme potentielle), に/へ et と/や (les deux acceptés quand les deux sont justes).
 
 ### Démarrage en arrière-plan (`install_autostart.py`)
 
@@ -148,6 +159,7 @@ build_bank.py       Tatoeba → SudachiPy → data/bank.db
 make_exercises.py   exercices depuis la banque → réserve (--save) ou feuille HTML
 anki_sync.py        mots et kanji connus dans Anki → data/known.json
 evaluate.py, eval/  jeu de tests pour mesurer la vérification du LLM
+review.py           contrôle qualité de la réserve (revérifier, exporter, retirer, importer)
 generate_sheet.py   feuille générée par le LLM ;  sheet.py : feuilles HTML
 notes/log.md        journal des tests (en anglais)
 ```

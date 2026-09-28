@@ -48,6 +48,8 @@ KNOWN_LAYOUTS = {
     "FJSD-Word": {"role": "word", "forms": ["Kanji forms/Readings", "Readings/Kanji forms"], "meaning": "Translations"},
     "FJSD-Kanji": {"role": "kanji", "forms": ["Kanji"], "meaning": "Meanings", "onyomi": "Onyomi", "kunyomi": "Kunyomi"},
     "FJSD-Grammar": {"role": "grammar", "point": "Point", "meaning": "Meaning", "usage": "Usage", "phrases": "Phrases"},
+    "FJSD-Radical": {"role": "ignore"},   # radicals: would overwrite the kanji notes (力 = « power », no readings)
+    "FJSD-Kana": {"role": "ignore"},      # single kana, not words
 }
 MEANING_NAMES = re.compile(r"meaning|translation|english|gloss|definition|sens|traduction|français|back|意味", re.I)
 READING_NAMES = re.compile(r"reading|kana|yomi|furigana|lecture|読み", re.I)
@@ -176,7 +178,12 @@ def setup_config(col, write: bool = True) -> dict:
 
 def load_config() -> dict:
     if CONFIG_PATH.exists():
-        return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        # note types known to be useless keep role « ignore » even in a config written by an older version
+        for name, layout in (config.get("note_types") or {}).items():
+            if KNOWN_LAYOUTS.get(name, {}).get("role") == "ignore":
+                layout["role"] = "ignore"
+        return config
     return {}
 
 
@@ -225,6 +232,9 @@ def sync_from_file(config: dict, min_interval: int, log=print) -> dict:
         elif layout["role"] == "kanji":
             chars = {c for name in layout.get("forms", []) for c in strip_tags(f.get(name, "")) if KANJI.match(c)}
             for c in chars:
+                old = kanji_info.get(c)
+                if old and (old["onyomi"] or old["kunyomi"]) and not layout.get("onyomi") and not layout.get("kunyomi"):
+                    continue   # keep the note with readings over a note without (radical decks…)
                 kanji_info[c] = {"meaning": clean_text(f.get(layout.get("meaning", ""), ""), 120).replace("\n", "; "),
                                  "onyomi": sorted(forms_from_field(f.get(layout.get("onyomi", ""), ""))),
                                  "kunyomi": sorted(forms_from_field(f.get(layout.get("kunyomi", ""), ""))),

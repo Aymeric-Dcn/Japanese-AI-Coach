@@ -140,6 +140,132 @@ def simple_particle_context(tokens: list, k: int) -> bool:
     return True
 
 
+# ---------------------------------------------------------------------------
+# Pairs of particles that are often BOTH correct: keep only the sentences where the grammar decides,
+# or accept both answers.
+# ---------------------------------------------------------------------------
+
+QUESTION_WORDS = {"誰", "だれ", "何", "なに", "なん", "どれ", "どこ", "どちら", "どっち", "いつ", "どの", "どんな",
+                  "なぜ", "どうして", "どう", "いくら", "いくつ"}
+MOVE_VERBS = {"行く", "いく", "来る", "くる", "帰る", "戻る", "向かう", "出かける", "出掛ける", "引っ越す", "移る",
+              "急ぐ", "走る", "飛ぶ", "送る", "逃げる", "進む", "上る", "登る", "下りる", "降りる", "入る", "着く"}
+EXIST_VERBS = {"ある", "有る", "在る", "いる", "居る"}
+ALSO = re.compile(r"\b(aussi|même|également|non plus|ni)\b", re.I)
+
+
+def is_question(tokens: list) -> bool:
+    return any(t[0] in ("か", "の", "？", "?") and t[1] in ("助詞", "補助記号") for t in tokens[-3:])
+
+
+def wa_ga_determined(tokens: list, k: int) -> bool:
+    """True when only は or only が is natural at position k. は and が depend on the context (topic,
+    contrast, new information), so only clear-cut grammatical cases are kept:
+      が  誰が / 何が…; inside a subordinate clause (私が書いた手紙, 雨が降ったので, 彼が来るのを);
+          existence after a place (部屋に猫がいる);
+      は  a question on another word (これは何ですか, 駅はどこですか)."""
+    particle = tokens[k][0]
+    before = tokens[k - 1] if k else None
+    rest = tokens[k + 1:]
+    if particle == "が":
+        if before and (before[0] in QUESTION_WORDS or before[4] in QUESTION_WORDS):
+            return True
+        # the first predicate after が, with its endings
+        i = k + 1
+        while i < len(tokens) and tokens[i][1] not in ("動詞", "形容詞"):
+            if tokens[i][1] == "助詞" and tokens[i][0] in ("は", "が", "も"):
+                return False                               # another topic / subject first
+            i += 1
+        if i >= len(tokens) or tokens[i][1] != "動詞":
+            return False                                   # adjective: お兄ちゃんがかわいい人形を… is ambiguous
+        j = i + 1
+        while j < len(tokens) and tokens[j][1] in ("助動詞", "接尾辞") or (
+                j < len(tokens) and tokens[j][1] == "動詞" and tokens[j][2] == "非自立可能"):
+            j += 1
+        nxt = tokens[j] if j < len(tokens) else None
+        after = tokens[j + 1] if j + 1 < len(tokens) else None
+        if nxt is None:
+            pass
+        elif nxt[1] in ("名詞", "代名詞") and nxt[0] not in ("ん",):
+            return True                                    # 私が書いた手紙, 彼が来る時
+        elif nxt[1] == "助詞" and nxt[2] == "接続助詞" and nxt[0] not in ("て", "で", "が", "けど", "けれど"):
+            return True                                    # 雨が降ったので, 彼が来たら
+        elif nxt[1] == "助詞" and nxt[2] == "準体助詞" and not (after and after[1] == "助動詞"):
+            return True                                    # 彼が来るのを見た (but not 〜のです)
+        verb = tokens[i]
+        if verb[4] in EXIST_VERBS and any(t[0] == "に" and t[1] == "助詞" for t in tokens[:k]):
+            return True                                    # 部屋に猫がいる
+        return False
+    # は: a question about something else in the sentence (not どの〜も « every »)
+    if not is_question(tokens):
+        return False
+    for i, t in enumerate(rest):
+        if t[0] in QUESTION_WORDS or t[4] in QUESTION_WORDS:
+            nxt = rest[i + 1] if i + 1 < len(rest) else None
+            if not (nxt and nxt[0] in ("も", "でも", "か")):
+                return True
+    return False
+
+
+KNOWN_ICHIDAN = {"食べる", "寝る", "出る", "見せる", "教える", "考える", "答える", "覚える", "忘れる", "入れる",
+                 "始める", "止める", "やめる", "決める", "着せる", "続ける", "調べる", "比べる", "変える", "伝える"}
+
+
+E_TO_U = dict(zip("えけげせぜてでねべめれ", "うくぐすずつづぬぶむる"))
+
+
+def is_potential(lemma: str) -> bool:
+    """話せる, 読める, しゃべれる: the potential form of a godan verb (話す, 読む…), not a verb of its own."""
+    if len(lemma) < 3 or not lemma.endswith("る") or lemma[-2] not in E_TO_U or lemma in KNOWN_ICHIDAN:
+        return False
+    if lemma.endswith(("つける", "づける", "かける", "あける", "つづける")):
+        return False
+    return not _lexicon_has(lemma) and _lexicon_has(lemma[:-2] + E_TO_U[lemma[-2]])
+
+
+def _lexicon_has(word: str) -> bool:
+    try:
+        import lexicon
+        return bool(lexicon.available() and lexicon.lookup(word))
+    except Exception:
+        return True
+
+
+def pair_rule(targets: set, tokens: list, k: int, translation: str):
+    """For the particle pairs that overlap: None = drop the sentence, otherwise the extra accepted answers."""
+    answer = normalize(tokens[k][0])
+    following = next((t for t in tokens[k + 1:] if t[1] == "動詞"), None)
+    if targets == {"は", "が"}:
+        return [] if wa_ga_determined(tokens, k) else None
+    if targets == {"に", "へ"}:
+        if following and following[4] in MOVE_VERBS:
+            return ["へ" if answer == "に" else "に"]      # 日本に / へ行く: both are right
+        return None if answer == "へ" else []
+    if targets == {"は", "も"}:
+        also = bool(ALSO.search(translation or ""))
+        return [] if also == (answer == "も") else None   # the translation tells which one
+    if targets == {"を", "が"}:
+        if following:
+            i = tokens.index(following)
+            after = tokens[i + 1] if i + 1 < len(tokens) else None
+            wants = bool(after) and after[0] == "たい"
+            potential = is_potential(following[4])
+            between = tokens[k + 1:i]
+            direct = not any(t[1] in ("形容詞", "動詞", "助動詞") for t in between)
+            person = k > 0 and (tokens[k - 1][2] == "固有名詞" or tokens[k - 1][1] == "代名詞")
+            if (wants or potential) and direct and not person:
+                return ["が" if answer == "を" else "を"]   # 水を / が飲みたい, 日本語を / が話せる
+        return []
+    if targets == {"と", "や"}:
+        nxt = tokens[k + 1] if k + 1 < len(tokens) else None
+        before = tokens[k - 1] if k else None
+        if answer == "や":
+            if not nxt or nxt[1] not in ("名詞", "代名詞") or (before and before[0] in ("今", "いま")):
+                return None                               # 今や, poems: not the listing や
+            return ["と"]                                 # パンや卵: と is right too
+        return []   # « Tom et Marie », 6 と 4: と = the complete list; や (« …entre autres ») would change the meaning
+    return []
+
+
 def particle_blanks(tokens: list, targets: set, pos: set, any_context: bool) -> list:
     """[(start, end)] token spans to blank: exactly one target particle per sentence."""
     spans = [(k, k + 1) for k, t in enumerate(tokens) if normalize(t[0]) in targets and pos_matches(t, pos)]
@@ -234,6 +360,11 @@ def find_candidates(targets: list = None, form: str = None, pos: str = "", min_w
             if stats is not None:
                 stats["already_saved"] = stats.get("already_saved", 0) + 1
             continue
+        extra = []
+        if not form:
+            extra = pair_rule(target_set, tokens, a, fr or en or "")
+            if extra is None:
+                continue   # both particles would fit here
         new_words = []
         if known is not None:
             new_words = unknown_words(tokens, set(range(a, b)), known)
@@ -245,6 +376,7 @@ def find_candidates(targets: list = None, form: str = None, pos: str = "", min_w
         if form:
             ex["cue_reading"] = cue_reading(ex["cue"])
         ex["new_words"] = new_words
+        ex["answers"] += [x for x in extra if x not in ex["answers"]]
         ex["key"] = key
         groups[form or normalize(answer)].append(ex)
     db.close()

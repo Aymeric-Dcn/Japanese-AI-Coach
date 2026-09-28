@@ -334,7 +334,9 @@ def start_maintenance() -> dict:
             known = tutor.KNOWN_PATH
             synced_today = known.exists() and json.loads(known.read_text(encoding="utf-8")).get("date") == \
                 time.strftime("%Y-%m-%d")
-            if synced_today:
+            config_changed = (Path("data") / "anki.json").exists() and known.exists() and \
+                (Path("data") / "anki.json").stat().st_mtime > known.stat().st_mtime
+            if synced_today and not config_changed:
                 log("Anki : déjà synchronisé aujourd'hui.")
             else:
                 log("Synchronisation Anki…")
@@ -344,6 +346,12 @@ def start_maintenance() -> dict:
                 except Exception as e:
                     log(f"! Anki : {e}")
         added = 0
+        try:
+            import review
+            review.revalidate(db, log=log)   # removes exercises that the current rules would not generate
+            review.apply_pending(db, log=log)  # reviewed batches dropped in data/reviews/
+        except Exception as e:
+            log(f"! Contrôle de la réserve : {e}")
         if settings["auto_fill"] and (Path("data") / "bank.db").exists():
             waited = 0
             while not ollama_up() and waited < 900 and not should_stop():

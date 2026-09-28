@@ -4,12 +4,39 @@ JLPT level, reading, meaning, whether you know the word.
 """
 
 import json
+import re
 import sqlite3
 from functools import lru_cache
 from pathlib import Path
 
 LEXICON_PATH = Path("data") / "lexicon.db"
 LEVELS = ["N5", "N4", "N3", "N2", "N1"]
+# Anki (FJSD) meanings glue the part-of-speech tags to the glosses: « traffic; transportationCommon noun; … »
+TAG_START = re.compile(r"(?<=[a-z0-9)\]'.])(?=[A-Z])")
+KANA_TAG = "Usually written using kana alone"
+
+
+def short_meaning(meaning: str, glosses: int = 3) -> str:
+    """First sense only, without the tags: « traffic; transportationCommon noun; … » → « traffic; transportation »."""
+    if not meaning:
+        return ""
+    first = TAG_START.split(meaning, 1)[0]
+    parts = [p.strip() for p in re.split(r"[;|]", first) if p.strip()]
+    return "; ".join(parts[:glosses])
+
+
+def first_sense_tags(meaning: str) -> list:
+    """The tags right after the first sense (« Common noun », « Usually written using kana alone »…)."""
+    pieces = TAG_START.split(meaning or "", 1)
+    if len(pieces) < 2:
+        return []
+    tags = []
+    for item in pieces[1].split(";"):
+        item = item.strip()
+        if not item or not item[0].isupper():
+            break
+        tags.append(item)
+    return tags
 
 
 def available() -> bool:
@@ -36,7 +63,9 @@ def _build_index(mtime: float) -> dict:
                       "ORDER BY CASE source WHEN 'anki' THEN 0 ELSE 1 END").fetchall()
     db.close()
     for word, reading, forms, meaning, level, known, source in rows:
-        entry = {"word": word, "reading": reading, "meaning": meaning, "level": level, "known": bool(known)}
+        kana = source == "anki" and KANA_TAG in first_sense_tags(meaning)
+        entry = {"word": word, "reading": reading, "meaning": short_meaning(meaning), "level": level,
+                 "known": bool(known), "kana": kana}
         for form in set(json.loads(forms or "[]")) | {word}:
             old = index.get(form)
             if old is None:
@@ -47,7 +76,9 @@ def _build_index(mtime: float) -> dict:
                 elif level and old["level"] and LEVELS.index(level) < LEVELS.index(old["level"]) and source != "anki":
                     old["level"] = level if not old["known"] else old["level"]
                 if not old["meaning"] and meaning:
-                    old["meaning"] = meaning
+                    old["meaning"] = short_meaning(meaning)
+                if kana and form == word and old["reading"] == reading:
+                    old["kana"] = True
     return index
 
 
@@ -58,6 +89,12 @@ def lookup(form: str) -> dict:
 def level(form: str) -> str:
     entry = lookup(form)
     return entry["level"] if entry else ""
+
+
+def usually_kana(form: str) -> bool:
+    """True for words normally written in kana (事 → こと, 為 → ため): no kanji question on them."""
+    entry = lookup(form)
+    return bool(entry and entry.get("kana"))
 
 
 def words(level_wanted: str = None) -> list:
