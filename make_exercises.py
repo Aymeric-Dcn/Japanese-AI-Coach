@@ -487,6 +487,18 @@ def alternative_sentences(ex: dict, targets: list) -> dict:
     return {t: ex["sentence"].replace(BLANK, t) for t in targets if normalize(t) not in answers}
 
 
+WA_NOTE = " Be precise: は marks the topic, not « the subject »."
+# Hints written by rules where the model's hint would give the answer away.
+RULE_HINTS = {frozenset({"のに", "ので"}): (
+    "Lis la traduction : la première partie est-elle la cause de la seconde, ou la seconde arrive-t-elle malgré elle ?",
+    "Read the translation: is the first part the cause of the second, or does the second happen in spite of it?")}
+# Set phrases after the volitional, explained by rules.
+VOLITIONAL_PHRASES = [
+    (("とする", "とし", "とした"), "〜ようとする = essayer de, ou être sur le point de.", "〜ようとする = to try to, or to be about to."),
+    (("と思", "かと思"), "〜ようと思う = avoir l'intention de.", "〜ようと思う = to intend to."),
+]
+
+
 def build_particle_request(ex: dict, targets: list, level: str) -> str:
     answer = ex["answers"][0]
     listed = "\n".join(f"   - « {a} » → {s}" for a, s in alternative_sentences(ex, targets).items()) or "   (none)"
@@ -510,7 +522,7 @@ The expected answer is « {answer} ». Student level: {level}.
    of the word before the blank (a time, the place of an action, a destination, the object…).
    Never write the particle itself in the hint.
 4. "explanation": in 1 to 3 sentences in French, why « {answer} » is the right answer here, and why each
-   other choice is wrong in this sentence. Be precise: は marks the topic, not « the subject ».
+   other choice is wrong in this sentence.{WA_NOTE if "は" in targets else ""}
 5. "hint_en" and "explanation_en": the same hint and explanation, in English."""
 
 
@@ -567,8 +579,16 @@ def check_exercise(ex: dict, level: str, model: str, targets: list = None, form:
         ex[field] = str(result.get(field, "")).strip()
     if not form and hint_gives_answer(ex):
         ex["hint"] = ex["hint_en"] = ""
+    if not form and frozenset(normalize(t) for t in targets or []) in RULE_HINTS:
+        ex["hint"], ex["hint_en"] = RULE_HINTS[frozenset(normalize(t) for t in targets)]
     if form:   # how the form is built: written by rules, the model only says why it is used
         notes = conjugate.describe(ex["cue"], form, ex["answers"][0], ex.get("conj_type", ""), ex.get("cue_reading", ""))
+        if notes and form == "volitional":
+            after = ex["sentence"].split(BLANK, 1)[-1]
+            for starts, fr, en in VOLITIONAL_PHRASES:
+                if after.startswith(starts):
+                    notes["rule"], notes["rule_en"] = f'{notes["rule"]} {fr}', f'{notes["rule_en"]} {en}'
+                    break
         if notes:
             ex["hint"], ex["hint_en"] = notes["hint"], notes["hint_en"]
             ex["explanation"] = f'{notes["rule"]} {ex["explanation"]}'.strip()

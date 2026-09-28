@@ -82,7 +82,7 @@ tutor.py, knowledge.py   le prof du chat et ses références
 llm.py              client Ollama (réponses structurées, streaming)
 build_bank.py       Tatoeba → SudachiPy → data/bank.db
 anki_sync.py, anki_db.py, lexicon.py, jlpt_data.py   Anki et listes de mots
-fill_reserve.py, srs.py, install_autostart.py, evaluate.py (+ eval/)
+fill_reserve.py, srs.py, install_autostart.py, evaluate.py (+ eval/), compare_models.py
 notes/log.md        journal de tests : modèles, prompts, ce qui n'allait pas et comment ça a été corrigé
 ```
 

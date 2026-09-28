@@ -196,3 +196,11 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
   - Volitional: SudachiPy keeps 行こう in one token, so the topic had 0 candidates; now 306. のに / ので: split as の + で / に, 0 candidates before; now 64, kept only when the translation says « although » or « because ».
   - JLPT 文法形式: no volitional or verb before と思う / と言う (every finite form fits), no に / へ / まで distractor for から with a movement verb, no を / で pair after a language (英語を / で話す).
 - Bank v2: 338 exercises in 25 files, 92 rejected keys.
+
+## 2026-09-28 — Review 6: volitional and のに / ので
+
+- The two topics that had 0 candidates produced 30 exercises (qwen3:14b kept all 30). 1 rejected: 取り除けよう (rare verb 取り除ける, and the reading given was wrong). 29 approved.
+- The rule-written hints and « how it is built » lines were right on all 15 volitional items. Qwen's own parts were still generic, and two のに / ので explanations said « は marks the topic… 寒かった is the topic »: the « は = topic » reminder in the prompt made it talk about は where it had nothing to do. It is now only added when は is one of the choices.
+- のに / ので hints now come from a rule (« is the first part the cause of the second, or does the second happen in spite of it? »): Qwen's hints named the answer (« a word that marks a cause »). 〜ようとする and 〜ようと思う are explained by rules after the volitional.
+- `compare_models.py`: the same candidates (fixed seed) checked and explained by several models, written to data/compare/ for review, before switching the default model.
+- Bank v3: 367 exercises, 93 rejected keys.

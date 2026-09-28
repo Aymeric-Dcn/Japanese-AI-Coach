@@ -89,6 +89,15 @@ python evaluate.py --model qwen3:8b --runs 3
 
 Scores how often the check keeps good exercises and drops ambiguous ones and idioms. Run it after changing a prompt or a model, and note the result in `notes/log.md`.
 
+To compare two models on the same new exercises (what they keep, their hints and explanations, the time), without touching the reserve:
+
+```
+ollama pull qwen3:30b-a3b
+python compare_models.py --models qwen3:14b,qwen3:30b-a3b     # → data/compare/<date>-….json
+```
+
+The file is meant to be read side by side (or sent for review): the right answers are in it, the verdicts of each model next to them.
+
 ## Shared exercise bank (`bank_sync.py`)
 
 Reviewed exercises are published in a separate repository, [Japanese-AI-Coach-bank](https://github.com/Aymeric-Dcn/Japanese-AI-Coach-bank). Every copy of the app downloads what is new at startup (Progress → Shared bank → « Sync now »): the app works without a local model. Only exercise content is shared — never answers, progress or Anki data.
