@@ -1266,6 +1266,9 @@ $("btn-update").addEventListener("click", async () => {
     poll();
   } catch (e) { toast(e.message); }
 });
+$("btn-setup-again").addEventListener("click", async () => {
+  try { await api("/api/settings", {setup_done: false}); location.reload(); } catch (e) { toast(e.message); }
+});
 $("btn-update-later").addEventListener("click", () => { U.dismissed = true; $("update-bar").hidden = true; });
 $("updates-mode").addEventListener("change", async e => {
   try { await api("/api/settings", {updates: e.target.value}); toast(t("saved")); loadUpdate(); }
