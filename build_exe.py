@@ -26,6 +26,13 @@ def main() -> None:
         import PyInstaller  # noqa: F401
     except ImportError:
         sys.exit("PyInstaller is missing: pip install pyinstaller")
+    old = ROOT / "dist" / ("JapaneseCoach.exe" if os.name == "nt" else "JapaneseCoach")
+    try:
+        if old.exists():
+            old.unlink()
+    except PermissionError:
+        sys.exit("dist/JapaneseCoach.exe is still running: close the app (⏻, or: taskkill /IM JapaneseCoach.exe /F) "
+                 "and build again.")
     icon = ROOT / "docs" / "icon.ico"
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile", "--noconsole",
            "--name", "JapaneseCoach", "--add-data", f"{ROOT / 'web'}{os.pathsep}web",
