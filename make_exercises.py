@@ -34,8 +34,9 @@ import urllib.error
 import webbrowser
 from pathlib import Path
 
-import curriculum
+import clauses
 import conjugate
+import curriculum
 import llm
 from sheet import BLANK, normalize, save_sheet, split_list
 
@@ -62,7 +63,8 @@ FORM_NAMES = {"te": "la forme en て", "past": "le passé en た", "negative": "
               "masu": "la forme polie en ます", "tai": "la forme en たい (envie)",
               "volitional": "le volitif en う / よう", "nagara": "la forme en ながら (simultanéité)",
               "ba": "le conditionnel en ば", "tara": "le conditionnel en たら",
-              "causative": "le causatif en せる / させる"}
+              "causative": "le causatif en せる / させる", "relative": "la forme simple devant un nom",
+              "mae-ato": "la forme devant 前に / 後で", "temo": "la forme en ても"}
 
 
 # ---------------------------------------------------------------------------
@@ -286,6 +288,8 @@ def particle_blanks(tokens: list, targets: set, pos: set, any_context: bool) -> 
     """[(start, end)] token spans to blank: exactly one target particle per sentence."""
     if targets == {"のに", "ので"}:
         return noni_node_blanks(tokens)
+    if "relative" in pos:   # が in a relative clause (clauses.py)
+        return clauses.relative_ga_blanks(tokens)
     spans = [(k, k + 1) for k, t in enumerate(tokens) if normalize(t[0]) in targets and pos_matches(t, pos)]
     if len(spans) != 1:
         return []  # no target, or several (ambiguous blank)
@@ -329,6 +333,8 @@ def conjugation_blanks(tokens: list, form: str) -> list:
     """[(start, end)] spans « verb + ending » for the form, exactly one per sentence."""
     if form == "volitional":
         return volitional_blanks(tokens)
+    if form in clauses.BLANKS:
+        return clauses.BLANKS[form](tokens)
     endings, ending_pos = FORMS[form]
     spans = []
     for k in range(len(tokens) - 1):
@@ -415,7 +421,9 @@ def find_candidates(targets: list = None, form: str = None, pos: str = "", min_w
                 stats["already_saved"] = stats.get("already_saved", 0) + 1
             continue
         extra = []
-        if not form:
+        if "relative" in pos_set:
+            extra = ["の"]   # 私の書いた手紙: の can replace が in a relative clause
+        elif not form:
             extra = pair_rule(target_set, tokens, a, f"{fr or ''} | {en or ''}" if target_set == {"のに", "ので"} else fr or en or "")
             if extra is None:
                 continue   # both particles would fit here
@@ -430,6 +438,11 @@ def find_candidates(targets: list = None, form: str = None, pos: str = "", min_w
         if form:
             ex["cue_reading"] = cue_reading(ex["cue"])
             ex["conj_type"] = tokens[a][6] if len(tokens[a]) > 6 else ""
+        if form in clauses.BLANKS or "relative" in pos_set:   # notes written by rules
+            written = clauses.notes(form or "relative-ga", tokens, (a, b))
+            if not written:
+                continue
+            ex.update(written)
         ex["new_words"] = new_words
         ex["answers"] += [x for x in extra if x not in ex["answers"]]
         ex["key"] = key
@@ -659,7 +672,25 @@ def save_to_reserve(db, title: str, kind: str, targets: list, exercises: list) -
 def generate_topic(topic: dict, count: int, db, **options) -> int:
     """Generates exercises for one curriculum topic and adds them to the reserve; returns how many were added."""
     import store
+    if topic.get("order"):   # « put the sentence back in order »: built by rules only (word_order.py)
+        import word_order
+        kept = word_order.find(count, options.get("known"), options.get("max_unknown", 1), store.existing_keys(db))
+        options.get("log", print)(f"  {len(kept)} sentence(s) with a single predicate and movable pieces")
+        if not kept:
+            raise GenerationError("No sentence found for word order.")
+        return save_to_reserve(db, topic["title"], "order", [], kept)
     targets = split_list(topic.get("targets", ""))
+    if topic.get("rules"):   # hints and explanations written by rules (clauses.py): no model needed
+        options = dict(options, no_llm=True)
+        pool = generate(targets, topic.get("form"), topic.get("pos", ""), count * 5, level=topic["level"],
+                        skip_keys=store.existing_keys(db), **options)
+        kept, uses = [], {}
+        for ex in pool:   # variety: not ten times 寝る前に
+            word = ex.get("cue") or ex["full_sentence"]
+            if uses.get(word, 0) < 2 and len(kept) < count:
+                uses[word] = uses.get(word, 0) + 1
+                kept.append(ex)
+        return save_to_reserve(db, topic["title"], curriculum.kind(topic), targets, kept)
     kept = generate(targets, topic.get("form"), topic.get("pos", ""), count, level=topic["level"],
                     skip_keys=store.existing_keys(db), **options)
     return save_to_reserve(db, topic["title"], curriculum.kind(topic), targets, kept)

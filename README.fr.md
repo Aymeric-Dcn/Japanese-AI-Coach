@@ -23,7 +23,7 @@
 
 | | |
 | --- | --- |
-| **Session** | programme du jour (révisions + nouveaux exercices des deux thèmes en cours) ou entraînement libre par thème ; particules et conjugaisons ; annuler un mauvais clic (Ctrl+Z), « en fait je ne maîtrise pas », suspendre ou signaler un exercice |
+| **Session** | programme du jour (révisions + nouveaux exercices des deux thèmes en cours) ou entraînement libre par thème ; particules, conjugaisons, propositions relatives et subordonnées (前に, 後で, ても), remettre une phrase dans l'ordre d'après sa traduction ; annuler un mauvais clic (Ctrl+Z), « en fait je ne maîtrise pas », suspendre ou signaler un exercice |
 | **JLPT** | 漢字読み, 表記, 文脈規定, 文法形式, 並べ替え ★ par niveau ; entraînement avec correction immédiate, ou examens blancs chronométrés notés par section |
 | **Prof** | chat en trois modes — questions et corrections, conversation en japonais simple (7 situations), quiz sur tes points faibles — appuyé sur tes fiches de grammaire Anki, le programme et de vraies phrases ; modèle local, ou Claude / ChatGPT avec une clé d'API |
 | **Progrès** | statistiques, programme avec progression automatique, révisions gérées à la main, remplissage de la réserve, banque partagée |
@@ -73,9 +73,10 @@ Pour taper en japonais : Paramètres → Heure et langue → Langue et région �
 server.py           l'app : serveur web + API JSON (bibliothèque standard seulement)
 web/                l'interface (index.html, app.css, app.js, i18n.js : français / anglais)
 store.py            base de progression : réserve, réponses, révisions, chat
-curriculum.py       le programme : 18 thèmes N5 → N4, règles de progression, fiches de grammaire
+curriculum.py       le programme : 23 thèmes N5 → N4, règles de progression, fiches de grammaire
 make_exercises.py   exercices de particules / conjugaison depuis la banque, règles d'ambiguïté
 jlpt_questions.py   questions JLPT : distracteurs, règles d'ambiguïté ; conjugate.py : conjugueur
+word_order.py, clauses.py   remettre dans l'ordre ; relatives, 前に / 後で, ても (règles seules)
 review.py           contrôle qualité : revérifier, exporter, retirer, importer, valider
 bank_sync.py        banque partagée : récupérer, contribuer, importer la boîte d'envoi, publier
 tutor.py, knowledge.py   le prof du chat et ses références

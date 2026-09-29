@@ -219,3 +219,14 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - Now it opens Edge (present on every Windows 10/11) or Chrome in app mode (`--app`, a profile of its own in %LOCALAPPDATA%\JapaneseCoach\window): no address bar, no tabs, its own taskbar entry. Without Edge or Chrome, the browser as before. `python server.py --window` does the same from the source.
 - The app stops when its window is closed: the page pings the server every 20 s and sends a beacon when it goes away (pagehide); the server stops 10 s after the beacon unless the page pings again (a reload does), or after 5 minutes without any sign of the page.
 - Tested with Chromium: a reload keeps the server running, leaving the page stops it after ~10 s. The Edge window itself can only be tested on Windows.
+
+## 2026-09-29 — Word order, relative clauses, 前に / 後で, ても
+
+- **Word order** (`word_order.py`, topic « Ordre des mots », N5): the translation is shown, the sentence is cut into pieces (a word with its particles) and shuffled; the student clicks them in order. Any order with the predicate last is accepted (and a first でも / はい stays first): the pieces carry their particle, so their order is free; when the answer differs from the sentence, the most usual order is shown. That rule only holds for simple sentences, so the generator keeps one predicate at the end and pieces that can move, and glues what cannot: 私の / この / 大きい to their noun, とても to its adjective, もう + すぐ, 小さく + 見える, 手に + 取る (set phrases with a body word). Left out: relative clauses (昨日 in 昨日買った本 would change meaning if moved), 妻を見舞いに行く (を belongs to 見舞い), 耳にする, 一か八か, 六ヶ月に一度.
+- **Relative clauses** (`clauses.py`, N5): « は ou が » only where the grammar decides: が of a relative clause when the sentence already has a topic before it (これは私が書いた手紙です), の accepted too; with adjectives (青が一番美しい色だ) it is often a sentence of its own, so only verbs. « Verbe devant le nom »: past, negative, ている forms (the dictionary form would be the cue copied).
+- **前に / 後で and ても** (N4): 行く前に (dictionary form), 食べた後で (past), 降っても; left out: 〜てもいい / よろしい (permission), にしても, どうしても, なんと言っても, 思ってもみない, とっても (= とても).
+- All these hints and explanations are written by rules: no model needed, and nothing to correct afterwards.
+- Generated here and reviewed: 105 items, 12 rejected (a wrong French translation, 気がする and 青が…色だ that are not relative clauses, contrastive は possible in 意味がわからない, ばかげた, しなければならない, duplicates, 〜てもご迷惑では = permission, 六ヶ月に一度, 三年間日記 cut as one noun). The rules were tightened for each.
+- Found on the way: the reserve check read only the French translation for のに / ので and retired good exercises at startup (10 in the copy of the PC's database). Fixed, and those retirements are undone: the next bank pull brings them back.
+- An app pulls only the kinds of exercise it can show; a file with a newer kind is read again after the app is updated.
+- Bank v4: 460 exercises, 105 rejected keys.

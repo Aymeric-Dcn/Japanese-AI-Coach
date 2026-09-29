@@ -193,7 +193,9 @@ function showExercise() {
   $("progress-fill").style.width = `${100 * S.pos / S.queue.length}%`;
 
   const allowed = ex.allowed_answers || [];
-  if (ex.cue) {
+  if (ex.tiles) {
+    $("exo-choices").innerHTML = t("order_instruction");
+  } else if (ex.cue) {
     $("exo-choices").innerHTML = `${t("verb_to_conjugate")}<span class="ans" lang="ja">${esc(ex.cue)}</span>` +
       (ex.cue_reading ? ` <span class="muted" lang="ja">（${esc(ex.cue_reading)}）</span>` : "") +
       ` <span class="muted small">· ${t("kana_ok")}</span>`;
@@ -203,7 +205,11 @@ function showExercise() {
   }
 
   $("exo-mcq").hidden = !ex.choices;
-  if (ex.choices) {  // multiple choice (JLPT questions)
+  if (ex.tiles) {    // put the sentence back in order
+    ex._placed = [];
+    ex._pool = ex._pool || shuffledTiles(ex);
+    renderTiles();
+  } else if (ex.choices) {  // multiple choice (JLPT questions)
     $("exo-choices").innerHTML = "";
     $("exo-sentence").innerHTML = questionHtml(ex.question);
     $("exo-mcq").innerHTML = choicesHtml(ex.choices);
@@ -213,7 +219,7 @@ function showExercise() {
     $("exo-sentence").innerHTML = `${esc(before)}<input id="answer" lang="ja" autocomplete="off" spellcheck="false"
       aria-label="${t("answer_label")}" style="width:${width}em">${esc(after ?? "")}`;
   }
-  $("exo-reading").textContent = ex.reading || "";
+  $("exo-reading").textContent = ex.tiles ? "" : (ex.reading || "");   // the reading would give the order away
   $("exo-translation").textContent = ex.show_translation ? (ex.translation || "") : "";
   $("exo-new").innerHTML = (ex.new_words || []).length ? `${t("new_words")}<span lang="ja">${ex.new_words.map(esc).join("、")}</span>` : "";
 
@@ -226,7 +232,53 @@ function showExercise() {
   $("after-actions").hidden = true;
   $("btn-unsure").hidden = true;
   updateUndo();
-  if (ex.choices) $("exo-mcq").querySelector("button").focus(); else $("answer").focus();
+  if (ex.choices) $("exo-mcq").querySelector("button").focus();
+  else if (ex.tiles) $("order-pool").querySelector("button")?.focus();
+  else $("answer").focus();
+}
+
+// ---------------- « put the sentence back in order » ----------------
+// Right when the predicate is last (and a first でも / はい stays first): the other pieces carry their
+// particle, so any order of them is Japanese (see word_order.py).
+
+function shuffledTiles(ex) {
+  const n = ex.tiles.length, idx = [...Array(n).keys()];
+  for (let tries = 0; tries < 20; tries++) {
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+    if (!orderValid(ex, idx)) break;   // not already a right answer
+  }
+  return idx.slice();
+}
+function orderValid(ex, idx) {
+  const n = ex.tiles.length;
+  if (idx.length !== n || idx[n - 1] !== n - 1) return false;
+  for (let i = 0; i < (ex.fixed_first || 0); i++) if (idx[i] !== i) return false;
+  return true;
+}
+function orderText(ex, idx) { return idx.map(i => ex.tiles[i]).join("") + (ex.ending || ""); }
+function renderTiles() {
+  const ex = S.current;
+  const tile = (i, where) => `<button class="tile" data-tile="${i}" data-where="${where}" lang="ja"${S.solved ? " disabled" : ""}>${esc(ex.tiles[i])}</button>`;
+  const line = ex._placed.map(i => tile(i, "line")).join("");
+  $("exo-sentence").innerHTML =
+    `<div class="order-line" id="order-line">${line || `<span class="muted small">${t("order_empty")}</span>`}${ex.ending && ex._placed.length === ex.tiles.length ? `<span>${esc(ex.ending)}</span>` : ""}</div>
+     <div class="order-pool" id="order-pool">${ex._pool.filter(i => !ex._placed.includes(i)).map(i => tile(i, "pool")).join("")}</div>`;
+}
+$("exo-sentence").addEventListener("click", e => {
+  const b = e.target.closest("button[data-tile]");
+  const ex = S.current;
+  if (!b || !ex?.tiles || S.solved) return;
+  const i = +b.dataset.tile;
+  if (b.dataset.where === "pool") ex._placed.push(i); else ex._placed = ex._placed.filter(k => k !== i);
+  renderTiles();
+  const next = $("order-pool").querySelector("button") || $("btn-check");
+  next.focus();
+});
+function checkOrder() {
+  const ex = S.current;
+  if (ex._placed.length < ex.tiles.length) { toast(t("order_incomplete")); return null; }
+  return {value: orderText(ex, ex._placed), ok: orderValid(ex, ex._placed),
+          exact: ex._placed.every((v, k) => v === k)};
 }
 
 // A JLPT question: 【word】 is underlined, the rest is plain text.
@@ -302,18 +354,26 @@ function solutionHtml(ex, message) {
 
 async function check() {
   if (S.solved) return next();
-  const ex = S.current, value = field().value;
+  const ex = S.current;
+  const order = ex.tiles ? checkOrder() : null;
+  if (ex.tiles && !order) return;
+  const value = order ? order.value : field().value;
   if (!norm(value)) { field().focus(); return; }
   ex._attempts += 1;
   ex._given = ex._given || value;
-  const ok = ex.answers.some(a => norm(a) === norm(value));
+  const ok = order ? order.ok : ex.answers.some(a => norm(a) === norm(value));
   $("exo").classList.toggle("ok", ok);
   $("exo").classList.toggle("ko", !ok);
   const fb = $("exo-feedback");
   fb.hidden = false;
   await record(ok, value);
   if (ok) {
-    solve(solutionHtml(ex, t("correct")));
+    solve(solutionHtml(ex, order && !order.exact ? t("order_other", {s: `<span lang="ja">${esc(ex.full_sentence)}</span>`}) : t("correct")));
+  } else if (order) {
+    fb.innerHTML = t("order_wrong");
+    $("btn-show").hidden = false;
+    requeue(ex);
+    updateUndo();
   } else {
     fb.innerHTML = t("try_again");
     $("btn-show").hidden = false;
@@ -335,6 +395,7 @@ async function showAnswer() {
   await record(false, "");
   requeue(ex);
   field().value = ex.answers[0];
+  if (ex.tiles) ex._placed = ex.tiles.map((_, i) => i);
   $("exo").classList.remove("ok");
   $("exo").classList.add("ko");
   solve(solutionHtml(ex, t("the_answer", {a: esc(ex.answers[0])})));
@@ -343,6 +404,7 @@ async function showAnswer() {
 function solve(html) {
   S.solved = true;
   field().readOnly = true;
+  if (S.current.tiles) renderTiles();
   $("exo-feedback").hidden = false;
   $("exo-feedback").innerHTML = html;
   $("btn-show").hidden = true;
@@ -480,6 +542,13 @@ document.addEventListener("keydown", e => {
       examPick(+e.key - 1);
       return;
     }
+  }
+  if (e.key === "Backspace" && S.current?.tiles && !S.solved && $("tab-session").classList.contains("active")
+      && !$("session-run").hidden && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") {
+    e.preventDefault();   // takes the last piece back
+    S.current._placed.pop();
+    renderTiles();
+    return;
   }
   if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return;  // Enter confirms Japanese IME input
   if (!$("tab-session").classList.contains("active") || $("session-run").hidden) return;

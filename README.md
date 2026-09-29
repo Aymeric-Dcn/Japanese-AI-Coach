@@ -23,7 +23,7 @@
 
 | | |
 | --- | --- |
-| **Session** | today's programme (reviews + new exercises of the two current topics) or free practice by topic; particles and conjugations; undo a misclick (Ctrl+Z), « actually I don't know it », suspend or report an exercise |
+| **Session** | today's programme (reviews + new exercises of the two current topics) or free practice by topic; particles, conjugations, relative clauses and subordinates (前に, 後で, ても), putting a sentence back in order from its translation; undo a misclick (Ctrl+Z), « actually I don't know it », suspend or report an exercise |
 | **JLPT** | 漢字読み, 表記, 文脈規定, 文法形式, 並べ替え ★ by level; practice with instant correction, or timed mock exams scored by section |
 | **Teacher** | chat in three modes — questions and corrections, conversation in simple Japanese (7 situations), quiz on your weak points — grounded in your Anki grammar notes, the programme and real sentences; local model, or Claude / ChatGPT with an API key |
 | **Progress** | stats, programme with automatic progression, reviews managed by hand, reserve top-up, shared bank |
@@ -73,9 +73,10 @@ To type Japanese: Windows Settings → Time & language → Language & region →
 server.py           the app: web server + JSON API (standard library only)
 web/                interface (index.html, app.css, app.js, i18n.js: French / English)
 store.py            progress database: reserve, answers, review schedule, chat
-curriculum.py       the programme: 18 topics N5 → N4, progression rules, grammar notes
+curriculum.py       the programme: 23 topics N5 → N4, progression rules, grammar notes
 make_exercises.py   particle / conjugation exercises from the bank, ambiguity rules
 jlpt_questions.py   JLPT questions: distractors, ambiguity rules; conjugate.py: verb conjugator
+word_order.py, clauses.py   sentence-order exercises; relative clauses, 前に / 後で, ても (rules only)
 review.py           quality control: revalidate, export, reject, import, approve
 bank_sync.py        shared bank: pull, contribute, import inbox, publish
 tutor.py, knowledge.py   the chat tutor and its references

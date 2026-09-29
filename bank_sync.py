@@ -35,6 +35,8 @@ import curriculum
 import store
 
 STATE_PATH = Path("data") / "bank_sync.json"
+# Kinds of exercise this version of the app can show. The bank may hold newer ones: they are skipped.
+SUPPORTED_KINDS = {"particle", "conjugation", "jlpt", "order"}
 DEFAULT_URL = "https://raw.githubusercontent.com/Aymeric-Dcn/Japanese-AI-Coach-bank/main"
 FORMAT = 1
 PERSONAL_FIELDS = {"new_words"}           # depend on the student's Anki: never shared
@@ -111,13 +113,18 @@ def pull(db, source: str = DEFAULT_URL, token: str = "", log=print) -> int:
         if sha256(text) != digest:
             log(f"  ! {path}: checksum mismatch, skipped")
             continue
+        skipped = False
         for line in text.splitlines():
             if not line.strip():
                 continue
             item = json.loads(line)
+            if item.get("kind") not in SUPPORTED_KINDS:
+                skipped = True
+                continue   # a kind of exercise this version cannot show yet: it comes with the next update
             data = dict(item["data"], origin="bank")
             added += store.add_exercise(db, item["topic"], item["kind"], data, item["key"])
-        state["files"][path] = digest
+        if not skipped:   # otherwise read again after an update of the app
+            state["files"][path] = digest
     retired = 0
     try:
         rejected = [json.loads(l) for l in fetch(source, "rejected.jsonl", token).splitlines() if l.strip()]

@@ -4,7 +4,7 @@
 
 ## The programme
 
-`curriculum.py` lists 18 topics in teaching order, JLPT N5 then N4. The daily session brings reviews of everything plus new exercises from the **two current topics**. A topic is passed at 80 % right over its last 10–20 answers, or straight away after 5 right answers in a row; « Je maîtrise déjà » in the Progrès tab passes it by hand. The next topic then unlocks.
+`curriculum.py` lists 23 topics in teaching order, JLPT N5 then N4. The daily session brings reviews of everything plus new exercises from the **two current topics**. A topic is passed at 80 % right over its last 10–20 answers, or straight away after 5 right answers in a row; « Je maîtrise déjà » in the Progrès tab passes it by hand. The next topic then unlocks.
 
 `fill_reserve.py` tops up the current topics and the next one (15 unseen exercises each by default, twice as many for a weak topic): `--target 25`, `--all`, `--topics wa-ga,past`, `--no-llm`.
 
@@ -18,7 +18,14 @@
 | --- | --- |
 | `wa-ga`, `wo-ga`, `ni-de`, `ni-e`, `wa-mo`, `to-ya`, `kara-made` | N5 particles (the blank is one of the two) |
 | `te-form`, `past`, `negative`, `masu`, `tai` | N5 conjugations (the verb is blanked, its dictionary form and reading are shown) |
+| `relative-ga`, `relative-form` | N5 relative clauses: が (never は) for the subject of the clause, when the sentence already has its topic (これは私が書いた手紙です); the plain form of the verb before the noun (昨日買った本) |
+| `word-order` | N5: put the sentence back in order from the translation (see below) |
 | `volitional`, `nagara`, `ba`, `tara`, `causative`, `noni-node` | N4 |
+| `mae-ato`, `temo` | N4 clauses: 行く前に (always the dictionary form), 食べた後で (always the past), 降っても (even if) |
+
+Relative clauses, 前に / 後で and ても need no model: the blank, the hint and the explanation come from rules (`clauses.py`).
+
+**Word order** (`word_order.py`): the translation is shown and the sentence is cut into pieces (a word with its particles), shuffled; you click them in order (Backspace takes the last one back). Japanese word order is free for the pieces that carry their particle, so any answer with the predicate last is right; the most usual order is shown when yours differs. To keep that true, only simple sentences are used: one predicate, and what describes a noun (私の, この, 大きい) glued to it.
 
 Custom topics: `--targets "に,で" --pos 格助詞 --title "…"` for particles, `--form te` for conjugations.
 

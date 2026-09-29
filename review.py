@@ -39,7 +39,11 @@ def _tokens(bank, source_key: str):
     if len(parts) < 3 or parts[0] != "tatoeba" or bank is None:
         return None, None
     row = bank.execute("SELECT tokens, fr, en FROM sentences WHERE id = ?", (parts[1],)).fetchone()
-    return (json.loads(row[0]), row[1] or row[2] or "") if row else (None, None)
+    if not row:
+        return None, None
+    if parts[2] == "particle" and (parts[3:] or [""])[0] in ("のに", "ので"):
+        return json.loads(row[0]), f"{row[1] or ''} | {row[2] or ''}"   # as make_exercises: both translations
+    return json.loads(row[0]), row[1] or row[2] or ""
 
 
 def check_particle(ex: dict, topic: dict, tokens: list, translation: str):
@@ -51,7 +55,10 @@ def check_particle(ex: dict, topic: dict, tokens: list, translation: str):
     if not spans:
         return None
     a, b = spans[0]
-    extra = mx.pair_rule({normalize(t) for t in targets}, tokens, a, translation)
+    if "relative" in split_list(topic.get("pos", "")):
+        extra = ["の"]
+    else:
+        extra = mx.pair_rule({normalize(t) for t in targets}, tokens, a, translation)
     if extra is None:
         return None
     answer = "".join(t[0] for t in tokens[a:b])
@@ -59,11 +66,30 @@ def check_particle(ex: dict, topic: dict, tokens: list, translation: str):
     return list(dict.fromkeys([answer, kana] + extra))
 
 
+def restore_noni_node(db, log=print) -> int:
+    """Until 2026-09-29 the check read only the French translation for のに / ので and retired good exercises
+    (« both particles possible here »). Forgets those retirements; the next bank pull brings them back."""
+    rows = db.execute("SELECT source_key FROM rejected WHERE reason = 'both particles possible here' "
+                      "AND (source_key LIKE '%:particle:のに' OR source_key LIKE '%:particle:ので')").fetchall()
+    if not rows:
+        return 0
+    db.execute("DELETE FROM rejected WHERE reason = 'both particles possible here' "
+               "AND (source_key LIKE '%:particle:のに' OR source_key LIKE '%:particle:ので')")
+    db.commit()
+    import bank_sync
+    state = bank_sync.load_state()
+    state.get("files", {}).pop("exercises/noni-node.jsonl", None)
+    bank_sync.save_state(state)
+    log(f"Reserve check: {len(rows)} のに / ので exercise(s) retired by mistake will come back with the bank.")
+    return len(rows)
+
+
 def revalidate(db, log=print) -> dict:
     """Re-checks the reserve with the current rules: removes what would no longer be generated
     (ambiguous particles, JLPT questions of an older generator…) and fixes the accepted answers."""
     import jlpt_questions
     import lexicon
+    restore_noni_node(db, log)
     bank = sqlite3.connect(BANK_PATH) if BANK_PATH.exists() else None
     seen = {r[0] for r in db.execute("SELECT exercise_id FROM schedule")}
     retired, updated = 0, 0
@@ -114,7 +140,7 @@ def export(db, topic: str = None, unseen: bool = False, limit: int = 500, unrevi
             continue
         out.append({"id": r["id"], "topic": r["topic"], "kind": r["kind"], "key": r["source_key"], "seen": bool(r["seen"]),
                     **{k: d.get(k) for k in ("question", "sentence", "full_sentence", "translation", "choices", "answers",
-                                             "cue", "explanation") if d.get(k) not in (None, "", [])}})
+                                             "cue", "tiles", "explanation") if d.get(k) not in (None, "", [])}})
     return out[:limit]
 
 

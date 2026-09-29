@@ -4,7 +4,7 @@
 
 ## Le programme
 
-`curriculum.py` liste 18 thèmes dans l'ordre d'apprentissage, JLPT N5 puis N4. La session du jour propose les révisions de tout, plus des nouveaux exercices des **deux thèmes en cours**. Un thème est validé à 80 % de réussite sur ses 10 à 20 dernières réponses, ou d'office après 5 réponses justes d'affilée ; « Je maîtrise déjà » dans l'onglet Progrès le valide à la main. Le thème suivant se débloque alors.
+`curriculum.py` liste 23 thèmes dans l'ordre d'apprentissage, JLPT N5 puis N4. La session du jour propose les révisions de tout, plus des nouveaux exercices des **deux thèmes en cours**. Un thème est validé à 80 % de réussite sur ses 10 à 20 dernières réponses, ou d'office après 5 réponses justes d'affilée ; « Je maîtrise déjà » dans l'onglet Progrès le valide à la main. Le thème suivant se débloque alors.
 
 `fill_reserve.py` complète les thèmes en cours et le suivant (15 exercices non vus par thème par défaut, le double pour un point faible) : `--target 25`, `--all`, `--topics wa-ga,past`, `--no-llm`.
 
@@ -18,7 +18,14 @@
 | --- | --- |
 | `wa-ga`, `wo-ga`, `ni-de`, `ni-e`, `wa-mo`, `to-ya`, `kara-made` | particules N5 (le trou est l'une des deux) |
 | `te-form`, `past`, `negative`, `masu`, `tai` | conjugaisons N5 (le verbe est caché, sa forme du dictionnaire et sa lecture sont affichées) |
+| `relative-ga`, `relative-form` | propositions relatives N5 : が (jamais は) pour le sujet de la proposition, quand la phrase a déjà son thème (これは私が書いた手紙です) ; la forme simple du verbe devant le nom (昨日買った本) |
+| `word-order` | N5 : remettre la phrase dans l'ordre d'après la traduction (voir plus bas) |
 | `volitional`, `nagara`, `ba`, `tara`, `causative`, `noni-node` | N4 |
+| `mae-ato`, `temo` | subordonnées N4 : 行く前に (toujours la forme du dictionnaire), 食べた後で (toujours le passé), 降っても (même si) |
+
+Les relatives, 前に / 後で et ても n'ont pas besoin de modèle : le trou, l'indice et l'explication viennent de règles (`clauses.py`).
+
+**Ordre des mots** (`word_order.py`) : la traduction est affichée et la phrase est coupée en morceaux (un mot avec ses particules), mélangés ; tu cliques dessus dans l'ordre (Retour arrière reprend le dernier). L'ordre japonais est libre pour les morceaux qui portent leur particule : toute réponse avec le prédicat à la fin est juste, et l'ordre le plus courant s'affiche quand le tien est différent. Pour que ce soit vrai, seules des phrases simples sont utilisées : un seul prédicat, et ce qui précise un nom (私の, この, 大きい) collé à lui.
 
 Thèmes sur mesure : `--targets "に,で" --pos 格助詞 --title "…"` pour les particules, `--form te` pour les conjugaisons.
 

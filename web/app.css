@@ -210,3 +210,11 @@ body.in-setup .panel, body.in-setup .tabs { display: none !important; }
 .model-box { background: var(--me); border-radius: 10px; padding: 10px 14px; }
 .model-box ul { margin: 6px 0; padding-left: 20px; }
 .setup .big { margin-top: 16px; }
+
+/* « put the sentence back in order » */
+.order-line { min-height: 2.6em; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 6px 0; border-bottom: 2px solid var(--accent); margin-bottom: 12px; }
+.order-pool { display: flex; flex-wrap: wrap; gap: 8px; min-height: 2.4em; }
+.tile { font-size: 1.25rem; line-height: 1.4; padding: 4px 12px; border-radius: 10px; }
+.order-line .tile { background: var(--accent-soft); border-color: var(--accent-soft); }
+.tile:disabled { cursor: default; opacity: 1; color: var(--text); }
