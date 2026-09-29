@@ -77,6 +77,7 @@ curriculum.py       le programme : 23 thèmes N5 → N4, règles de progression,
 make_exercises.py   exercices de particules / conjugaison depuis la banque, règles d'ambiguïté
 jlpt_questions.py   questions JLPT : distracteurs, règles d'ambiguïté ; conjugate.py : conjugueur
 word_order.py, clauses.py   remettre dans l'ordre ; relatives, 前に / 後で, ても (règles seules)
+updater.py          mises à jour de l'app Windows depuis les releases GitHub
 review.py           contrôle qualité : revérifier, exporter, retirer, importer, valider
 bank_sync.py        banque partagée : récupérer, contribuer, importer la boîte d'envoi, publier
 tutor.py, knowledge.py   le prof du chat et ses références
@@ -97,7 +98,7 @@ notes/log.md        journal de tests : modèles, prompts, ce qui n'allait pas et
 - [x] Interface français / anglais
 - [x] Banque partagée d'exercices relus
 - [ ] Mode sans Anki (test de niveau), données par défaut tirées du [Full Japanese Study Deck](https://github.com/Ronokof/Full-Japanese-Study-Deck)
-- [x] App Windows (`.exe`) avec un écran d'accueil qui explique le modèle local
+- [x] App Windows (`.exe`) : assistant d'accueil (niveau, Anki, prof, mises à jour), se met à jour toute seule depuis les releases GitHub
 - [x] Modèles en ligne facultatifs pour le chat (clé API Claude / OpenAI)
 - [ ] Compréhension écrite (読解) et orale
 

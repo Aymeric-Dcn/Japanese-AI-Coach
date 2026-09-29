@@ -1147,7 +1147,12 @@ $("btn-exam-back").addEventListener("click", () => {
 // ======================================================================
 // ---------------- first start ----------------
 
+// ---------------- welcome wizard (first start) ----------------
+
+const W = {step: 1, steps: 5, status: null};
+
 function showSetup(s) {
+  W.status = s;
   document.body.classList.add("in-setup");
   $("setup").hidden = false;
   document.querySelectorAll("#setup-lang .seg").forEach(b => b.classList.toggle("active", b.dataset.value === LANG));
@@ -1156,26 +1161,121 @@ function showSetup(s) {
     : esc(t("setup_anki_none"));
   const ready = s.ollama && s.model_installed;
   $("setup-model-state").textContent = ready ? t("setup_model_ready", {model: s.model}) : t("setup_model_missing", {model: s.model});
-  $("setup-local").checked = !!ready;
+  const teacher = ready ? "local" : "";
+  document.querySelector(`#setup-teacher input[value="${teacher}"]`).checked = true;
+  setupTeacher();
+  setupStep(1);
 }
+function setupStep(n) {
+  W.step = Math.max(1, Math.min(W.steps, n));
+  document.querySelectorAll(".setup-step").forEach(el => { el.hidden = +el.dataset.step !== W.step; });
+  $("setup-step-label").textContent = t("setup_step", {n: W.step, total: W.steps});
+  $("setup-dots").innerHTML = [...Array(W.steps).keys()].map(i => `<span class="${i + 1 <= W.step ? "on" : ""}"></span>`).join("");
+  $("btn-setup-back").style.visibility = W.step > 1 ? "visible" : "hidden";
+  $("btn-setup-next").hidden = W.step === W.steps;
+  $("btn-setup-go").hidden = W.step !== W.steps;
+  if (W.step === W.steps) setupSummary();
+}
+function setupChoices() {
+  return {
+    language: LANG,
+    level: document.querySelector("#setup-level input:checked")?.value || "N5",
+    anki: !!$("setup-anki-use")?.checked,
+    teacher: document.querySelector("#setup-teacher input:checked")?.value || "",
+    api_key: $("setup-key").value.trim(),
+    updates: document.querySelector("#setup-updates input:checked")?.value || "notify",
+  };
+}
+function setupTeacher() {
+  const teacher = document.querySelector("#setup-teacher input:checked")?.value || "";
+  $("setup-local-box").hidden = teacher !== "local";
+  $("setup-key-box").hidden = !["anthropic", "openai"].includes(teacher);
+  if (!$("setup-key-box").hidden) $("setup-key-help").textContent = t("teacher_help_" + teacher);
+}
+function setupSummary() {
+  const c = setupChoices();
+  const teacher = {"": t("setup_teacher_none_short"), local: t("setup_teacher_local"), anthropic: "Claude", openai: "ChatGPT"}[c.teacher];
+  const items = [
+    `${t("setup_level")} : ${c.level === "N4" ? "JLPT N4" : "JLPT N5"}`,
+    `Anki : ${W.status?.anki_found ? (c.anki ? t("setup_yes") : t("setup_no")) : t("setup_anki_absent")}`,
+    `${t("setup_teacher")} : ${teacher}${["anthropic", "openai"].includes(c.teacher) && !c.api_key ? " — " + t("setup_key_later") : ""}`,
+    `${t("setup_updates")} : ${t("updates_" + c.updates + "_short")}`,
+  ];
+  $("setup-summary").innerHTML = items.map(i => `<li>${esc(i)}</li>`).join("");
+}
+$("setup-teacher").addEventListener("change", setupTeacher);
+$("btn-setup-next").addEventListener("click", () => setupStep(W.step + 1));
+$("btn-setup-back").addEventListener("click", () => setupStep(W.step - 1));
 document.querySelectorAll("#setup-lang .seg").forEach(b => b.addEventListener("click", async () => {
   if (b.dataset.value === LANG) return;
   await api("/api/settings", {language: b.dataset.value}).catch(() => {});
   location.reload();
 }));
 $("btn-setup-go").addEventListener("click", async () => {
-  const level = document.querySelector("#setup-level input:checked")?.value || "N5";
+  const c = setupChoices();
   try {
-    const job = await api("/api/setup", {language: LANG, level, anki: !!$("setup-anki-use")?.checked,
-                                         local_model: $("setup-local").checked});
+    const job = await api("/api/setup", Object.assign(c, {local_model: c.teacher === "local"}));
     document.body.classList.remove("in-setup");
     $("setup").hidden = true;
     showTab("progress");
     renderFill(job);
     pollFill.was = true;
     setTimeout(pollFill, 1000);
+    loadStatus();
+    loadUpdate();
   } catch (e) { toast(e.message); }
 });
+
+// ---------------- updates (updater.py) ----------------
+
+const U = {data: null, dismissed: false};
+
+async function loadUpdate() {
+  try {
+    const u = U.data = await api("/api/update");
+    $("app-version").textContent = t("app_version", {v: u.current}) + " · " + updateText(u);
+    $("updates-mode").value = u.mode;
+    const show = !U.dismissed && ["available", "downloading", "ready"].includes(u.state);
+    $("update-bar").hidden = !show;
+    if (show) {
+      $("update-text").textContent = updateText(u);
+      $("btn-update").hidden = !u.can_install || u.state === "downloading";
+      $("btn-update").textContent = u.state === "ready" ? t("update_restart") : t("update_install");
+      $("update-notes").href = u.page || "#";
+    }
+    if (u.state === "checking" || u.state === "downloading") setTimeout(loadUpdate, 1500);
+  } catch (e) { /* optional */ }
+}
+function updateText(u) {
+  if (u.state === "available") return t(u.can_install ? "update_available" : "update_available_manual", {v: u.latest});
+  if (u.state === "downloading") return t("update_downloading", {v: u.latest, p: u.progress});
+  if (u.state === "ready") return t("update_ready", {v: u.latest});
+  if (u.state === "up_to_date") return t("update_none");
+  if (u.state === "checking") return t("update_checking");
+  if (u.state === "error") return t("update_error");
+  return u.mode === "off" ? t("updates_off_short") : "";
+}
+$("btn-update").addEventListener("click", async () => {
+  try {
+    await api("/api/update/install", {});
+    $("update-text").textContent = t("update_installing");
+    $("btn-update").hidden = true;
+    // the app stops, swaps its .exe and starts again in a new window
+    setTimeout(() => { window.close(); document.body.innerHTML = `<p style="padding:40px;text-align:center">${esc(t("update_installing"))}</p>`; }, 6000);
+    const poll = async () => { await loadUpdate(); if (U.data && U.data.state !== "ready") setTimeout(poll, 1000); };
+    poll();
+  } catch (e) { toast(e.message); }
+});
+$("btn-update-later").addEventListener("click", () => { U.dismissed = true; $("update-bar").hidden = true; });
+$("updates-mode").addEventListener("change", async e => {
+  try { await api("/api/settings", {updates: e.target.value}); toast(t("saved")); loadUpdate(); }
+  catch (err) { toast(err.message); }
+});
+$("btn-update-check").addEventListener("click", async () => {
+  U.dismissed = false;
+  try { await api("/api/update/check", {}); setTimeout(loadUpdate, 800); } catch (e) { toast(e.message); }
+});
+
 $("btn-quit").addEventListener("click", async () => {
   await api("/api/quit", {}).catch(() => {});
   window.close();   // works in the app window; in a browser tab the message below stays
@@ -1198,6 +1298,7 @@ window.addEventListener("pagehide", () => navigator.sendBeacon("/api/closing"));
 
 window.JapaneseCoach = {session: S, chat: C, exam: E};  // handy in the browser console, and for tests
 loadStatus().then(s => { if (s && s.setup) showSetup(s); });
+setTimeout(loadUpdate, 2500);   // the check runs in the background at startup
 loadHome();
 loadSettings();
 api("/api/fill").then(f => { if (f.running) { pollFill.was = true; pollFill(); } else renderFill(f); }).catch(() => {});

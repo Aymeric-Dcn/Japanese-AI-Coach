@@ -230,3 +230,9 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - Found on the way: the reserve check read only the French translation for のに / ので and retired good exercises at startup (10 in the copy of the PC's database). Fixed, and those retirements are undone: the next bank pull brings them back.
 - An app pulls only the kinds of exercise it can show; a file with a newer kind is read again after the app is updated.
 - Bank v4: 460 exercises, 105 rejected keys.
+
+## 2026-09-29 — Updates and welcome wizard (v0.2.0)
+
+- `updater.py`: at startup the Windows app asks GitHub for the latest release (`VERSION` = 0.2.0 vs the tag). Modes: « auto » (downloaded in the background, installed when the app closes), « notify » (banner + « Update » button, default), « off ». The new .exe is downloaded to %LOCALAPPDATA%\JapaneseCoach\update, its size checked; a small hidden script waits until the running .exe has stopped, swaps it, and starts it again. Progress is elsewhere, so nothing is lost; downloaded by the app itself, the file carries no « from the Internet » mark, so no SmartScreen warning again.
+- The welcome screen is now a 5-step wizard: language and level; Anki (found or not, what is read: word / kanji / grammar notes of any deck); the teacher (none, local, Claude or ChatGPT with the key typed right there); updates; summary. Progress → « The app » shows the version, the update mode and « Check now ».
+- Tested with a fake release server: check, banner, download with size check, wizard choices saved (level N4, Claude + key, updates auto). The swap of the .exe itself only runs on Windows.

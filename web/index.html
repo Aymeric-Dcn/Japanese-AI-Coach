@@ -20,42 +20,86 @@
   <button class="ghost small" id="btn-quit" hidden data-i18n-title="quit_title" title="Fermer l'app">⏻</button>
   <select id="lang-select" class="lang" aria-label="Langue / Language"><option value="fr">FR</option><option value="en">EN</option></select>
 </header>
+<div class="update-bar" id="update-bar" hidden>
+  <span id="update-text"></span>
+  <button class="primary small" id="btn-update" data-i18n="update_install">Mettre à jour</button>
+  <a href="#" id="update-notes" class="small" data-i18n="update_notes">Nouveautés</a>
+  <button class="ghost small" id="btn-update-later" data-i18n="update_later">Plus tard</button>
+</div>
 
 <main>
   <!-- ============ FIRST START ============ -->
   <section id="setup" class="card setup" hidden>
-    <h2 data-i18n="setup_title">Bienvenue !</h2>
-    <p class="muted" data-i18n="setup_intro">Quelques questions pour préparer l'app. Tout reste sur cet ordinateur.</p>
+    <div class="setup-head">
+      <h2 data-i18n="setup_title">Bienvenue !</h2>
+      <span class="muted small" id="setup-step-label"></span>
+    </div>
+    <div class="setup-dots" id="setup-dots"></div>
 
-    <h3 data-i18n="setup_lang">Langue</h3>
-    <div class="segmented" id="setup-lang">
-      <button class="seg" data-value="fr">Français</button>
-      <button class="seg" data-value="en">English</button>
+    <div class="setup-step" data-step="1">
+      <p class="muted" data-i18n="setup_intro">Quelques questions pour préparer l'app. Tout reste sur cet ordinateur.</p>
+      <h3 data-i18n="setup_lang">Langue</h3>
+      <div class="segmented" id="setup-lang">
+        <button class="seg" data-value="fr">Français</button>
+        <button class="seg" data-value="en">English</button>
+      </div>
+      <h3 data-i18n="setup_level">Ton niveau</h3>
+      <div class="choice-list" id="setup-level">
+        <label><input type="radio" name="level" value="N5" checked> <span data-i18n="setup_n5">Je débute : commencer au JLPT N5 (particules, forme en ます…)</span></label>
+        <label><input type="radio" name="level" value="N4"> <span data-i18n="setup_n4">Je connais les bases : commencer au N4 (le N5 compte comme acquis)</span></label>
+      </div>
     </div>
 
-    <h3 data-i18n="setup_level">Ton niveau</h3>
-    <div class="choice-list" id="setup-level">
-      <label><input type="radio" name="level" value="N5" checked> <span data-i18n="setup_n5">Je débute : commencer au JLPT N5 (particules, forme en ます…)</span></label>
-      <label><input type="radio" name="level" value="N4"> <span data-i18n="setup_n4">Je connais les bases : commencer au N4 (le N5 compte comme acquis)</span></label>
+    <div class="setup-step" data-step="2" hidden>
+      <h3>Anki</h3>
+      <p class="small" id="setup-anki"></p>
+      <p class="small muted" data-i18n="setup_anki_how">L'app lit tes notes de vocabulaire, de kanji et de grammaire, quel que soit le paquet où elles sont rangées. Elle ne modifie jamais ta collection, et une carte compte comme « connue » dès qu'elle est bien apprise.</p>
     </div>
 
-    <h3>Anki</h3>
-    <p class="small" id="setup-anki"></p>
-
-    <h3 data-i18n="setup_model">Le prof local (facultatif)</h3>
-    <div class="small model-box">
-      <p data-i18n="setup_model_what">Les exercices déjà relus arrivent tout seuls par Internet, sans rien installer. Un modèle d'IA local sert en plus à : discuter avec le prof (onglet Prof), et générer de nouveaux exercices.</p>
-      <ul>
-        <li data-i18n="setup_model_size">Logiciel gratuit : Ollama, puis le modèle Qwen 3 (environ 9 Go à télécharger).</li>
-        <li data-i18n="setup_model_hw">Il faut une carte graphique avec au moins 8 à 12 Go de mémoire (sinon c'est très lent), et 16 Go de RAM.</li>
-        <li data-i18n="setup_model_private">Tout tourne sur ton ordinateur : rien n'est envoyé sur Internet.</li>
-        <li data-i18n="setup_model_api">Pas de carte graphique adaptée ? Le prof peut aussi utiliser Claude ou ChatGPT avec ta propre clé API (Progrès → Le prof).</li>
-      </ul>
-      <p id="setup-model-state"></p>
-      <label class="check"><input type="checkbox" id="setup-local"> <span data-i18n="setup_model_use">J'ai (ou je vais installer) le prof local</span></label>
+    <div class="setup-step" data-step="3" hidden>
+      <h3 data-i18n="setup_teacher">Le prof (facultatif)</h3>
+      <p class="small" data-i18n="setup_model_what">Les exercices déjà relus arrivent tout seuls par Internet, sans rien installer. Un modèle d'IA sert en plus à discuter avec le prof (onglet Prof) et, en local, à générer de nouveaux exercices.</p>
+      <div class="choice-list" id="setup-teacher">
+        <label><input type="radio" name="teacher" value=""> <span data-i18n="setup_teacher_none">Pas de prof pour l'instant (je pourrai l'ajouter dans Progrès → Le prof)</span></label>
+        <label><input type="radio" name="teacher" value="local"> <span data-i18n="setup_teacher_local">Local, sur cet ordinateur (gratuit, privé)</span></label>
+        <label><input type="radio" name="teacher" value="anthropic"> <span data-i18n="setup_teacher_claude">Claude (Anthropic), avec ma clé API</span></label>
+        <label><input type="radio" name="teacher" value="openai"> <span data-i18n="setup_teacher_openai">ChatGPT (OpenAI), avec ma clé API</span></label>
+      </div>
+      <div class="small model-box" id="setup-local-box" hidden>
+        <ul>
+          <li data-i18n="setup_model_size">Logiciel gratuit : Ollama, puis le modèle Qwen 3 (environ 9 Go à télécharger).</li>
+          <li data-i18n="setup_model_hw">Il faut une carte graphique avec au moins 8 à 12 Go de mémoire (sinon c'est très lent), et 16 Go de RAM.</li>
+          <li data-i18n="setup_model_private">Tout tourne sur ton ordinateur : rien n'est envoyé sur Internet.</li>
+        </ul>
+        <p id="setup-model-state"></p>
+      </div>
+      <div class="small model-box" id="setup-key-box" hidden>
+        <p id="setup-key-help"></p>
+        <label class="stack"><span data-i18n="teacher_key">Clé API</span> <input id="setup-key" type="password" size="36" autocomplete="off"></label>
+      </div>
     </div>
 
-    <button class="primary big" id="btn-setup-go" data-i18n="setup_go">C'est parti</button>
+    <div class="setup-step" data-step="4" hidden>
+      <h3 data-i18n="setup_updates">Mises à jour</h3>
+      <p class="small muted" data-i18n="setup_updates_what">Les nouveaux exercices arrivent tout seuls. Pour les nouvelles versions de l'app :</p>
+      <div class="choice-list" id="setup-updates">
+        <label><input type="radio" name="updates" value="auto"> <span data-i18n="updates_auto">Automatiques : téléchargées en arrière-plan, installées à la fermeture de l'app</span></label>
+        <label><input type="radio" name="updates" value="notify" checked> <span data-i18n="updates_notify">Me prévenir, j'installe d'un clic</span></label>
+        <label><input type="radio" name="updates" value="off"> <span data-i18n="updates_off">Ne pas vérifier</span></label>
+      </div>
+      <p class="small muted" data-i18n="setup_updates_safe">Ta progression est rangée à part : une mise à jour ne l'efface jamais.</p>
+    </div>
+
+    <div class="setup-step" data-step="5" hidden>
+      <h3 data-i18n="setup_ready">C'est prêt</h3>
+      <ul class="small" id="setup-summary"></ul>
+    </div>
+
+    <div class="setup-nav">
+      <button class="ghost" id="btn-setup-back" data-i18n="setup_back">← Retour</button>
+      <button class="primary" id="btn-setup-next" data-i18n="setup_next">Suivant →</button>
+      <button class="primary big" id="btn-setup-go" data-i18n="setup_go" hidden>C'est parti</button>
+    </div>
   </section>
 
   <!-- ============ SESSION ============ -->
@@ -277,6 +321,20 @@
         <label class="check inline"><input type="checkbox" data-setting="auto_sync"> <span data-i18n="auto_sync">synchroniser Anki (une fois par jour)</span></label>
         <label class="check inline"><input type="checkbox" data-setting="auto_fill"> <span data-i18n="auto_fill">remplir la réserve</span></label>
         <label class="check inline"><input type="checkbox" data-setting="jlpt_auto_fill"> <span data-i18n="jlpt_auto_fill">générer des questions JLPT</span></label>
+      </div>
+    </div>
+    <div class="card">
+      <h3 data-i18n="app_card">L'application</h3>
+      <p class="small" id="app-version"></p>
+      <div class="controls left">
+        <label><span data-i18n="setup_updates">Mises à jour</span>
+          <select id="updates-mode">
+            <option value="auto" data-i18n="updates_auto_short">Automatiques</option>
+            <option value="notify" data-i18n="updates_notify_short">Me prévenir</option>
+            <option value="off" data-i18n="updates_off_short">Désactivées</option>
+          </select>
+        </label>
+        <button id="btn-update-check" data-i18n="update_check">Vérifier maintenant</button>
       </div>
     </div>
     <div class="card">

@@ -105,6 +105,12 @@ python compare_models.py --models qwen3:14b,qwen3:30b-a3b     # → data/compare
 
 Le fichier se lit côte à côte (ou s'envoie pour relecture) : les bonnes réponses y sont, avec le verdict de chaque modèle à côté.
 
+## Mises à jour de l'app (`updater.py`)
+
+L'app Windows compare sa version avec la dernière release GitHub au démarrage. Réglage (écran d'accueil, ou Progrès → L'application) : **automatiques** (téléchargées en arrière-plan, installées à la fermeture de l'app), **me prévenir** (un bandeau avec un bouton « Mettre à jour » : l'app télécharge le nouvel exe, se ferme, le remplace et redémarre), ou **désactivées**. La progression reste dans %LOCALAPPDATA%\JapaneseCoach et n'est jamais touchée.
+
+Pour publier une version : augmenter `VERSION` dans `updater.py`, `python build_exe.py`, puis une release GitHub avec le tag `v<VERSION>` et `JapaneseCoach.exe` en pièce jointe, sans la cocher en pre-release (GitHub exclut les pre-releases de « latest »).
+
 ## Banque d'exercices partagée (`bank_sync.py`)
 
 Les exercices relus sont publiés dans un dépôt séparé, [Japanese-AI-Coach-bank](https://github.com/Aymeric-Dcn/Japanese-AI-Coach-bank). Chaque copie de l'app télécharge les nouveautés au démarrage (Progrès → Banque partagée → « Synchroniser maintenant ») : l'app fonctionne sans modèle local. Seul le contenu des exercices est partagé — jamais les réponses, la progression ni les données Anki.

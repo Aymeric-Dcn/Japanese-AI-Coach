@@ -43,6 +43,7 @@ import fill_reserve
 import llm
 import store
 import tutor
+import updater
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 PACKAGED = bool(getattr(sys, "frozen", False))   # the .exe built by build_exe.py
@@ -117,6 +118,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(public_settings())
             if url.path == "/api/bank":
                 return self.send_json(bank_status())
+            if url.path == "/api/update":
+                return self.send_json(update_status())
             db = store.connect(DB_PATH)
             try:
                 if url.path == "/api/session":
@@ -214,8 +217,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"ok": True})
             if url.path == "/api/quit":
                 self.send_json({"ok": True})
-                threading.Timer(0.3, lambda: os._exit(0)).start()
+                threading.Timer(0.3, shutdown).start()
                 return None
+            if url.path == "/api/update/check":
+                threading.Thread(target=updater.check, daemon=True).start()
+                return self.send_json(update_status())
+            if url.path == "/api/update/install":
+                if not (PACKAGED and os.name == "nt"):
+                    return self.send_json({"error": tr("La mise à jour automatique ne marche que dans l'app Windows.",
+                                                       "Automatic updates only work in the Windows app.")}, 400)
+                threading.Thread(target=install_update, daemon=True).start()
+                return self.send_json(update_status())
             if url.path == "/api/bank/sync":
                 return self.send_json(start_bank_job("pull"))
             if url.path == "/api/bank/contribute":
@@ -291,7 +303,7 @@ SETTINGS_PATH = Path("data") / "settings.json"
 DEFAULT_SETTINGS = {"auto_sync": True, "auto_fill": True, "fill_target": 15, "jlpt_level": "N4", "jlpt_auto_fill": True,
                     "language": "fr", "bank_auto_sync": True, "bank_url": "", "bank_token": "",
                     "bank_contribute": "", "contributor": "", "setup_done": None, "local_model": None,
-                    "chat_model": "", "api_keys": {}}
+                    "chat_model": "", "api_keys": {}, "updates": "notify"}
 LANGUAGES = ("fr", "en")
 
 
@@ -580,10 +592,16 @@ def setup_needed(settings: dict, reserve: int) -> bool:
 
 def apply_setup(data: dict) -> dict:
     """Choices of the welcome screen: language, starting level, Anki, local model."""
+    teacher = data.get("teacher") or ("local" if data.get("local_model") else "")
     changes = {"setup_done": True, "language": data.get("language") if data.get("language") in LANGUAGES else lang(),
+               "updates": data.get("updates") if data.get("updates") in updater.MODES else "notify",
                "local_model": bool(data.get("local_model")), "auto_sync": bool(data.get("anki")),
                "auto_fill": bool(data.get("local_model")), "jlpt_auto_fill": bool(data.get("local_model")),
                "jlpt_level": "N4" if data.get("level") == "N4" else "N5", "bank_auto_sync": True}
+    if teacher in llm.CLOUD:   # Claude or ChatGPT: the chat uses it, with the key given on the welcome screen
+        changes["chat_model"] = f"{teacher}:{llm.CLOUD[teacher]['default']}"
+        if str(data.get("api_key", "")).strip():
+            changes["api_keys"] = {teacher: str(data["api_key"]).strip()}
     save_settings(changes)
     db = store.connect(DB_PATH)
     try:
@@ -617,6 +635,7 @@ def status() -> dict:
         "chat_model": model,
         "chat_ready": bool(llm.api_key(llm.provider(model))) if cloud else (ollama and installed),
         "packaged": PACKAGED,
+        "version": updater.VERSION,
         "setup": setup_needed(settings, reserve),
         "anki_found": anki_available(),
         "local_model": settings.get("local_model"),
@@ -701,11 +720,40 @@ def watch_window() -> None:
                 continue   # the page has not opened yet
             if closing and now - closing > CLOSE_GRACE and ping < closing:
                 print("Window closed: stopping.")
-                os._exit(0)
+                shutdown()
             if now - ping > LOST_TIMEOUT:
                 print("No page open for a while: stopping.")
-                os._exit(0)
+                shutdown()
     threading.Thread(target=loop, daemon=True).start()
+
+
+# ---------------------------------------------------------------------------
+# Updates (updater.py)
+# ---------------------------------------------------------------------------
+
+def update_mode() -> str:
+    mode = load_settings().get("updates", "notify")
+    return mode if mode in updater.MODES else "notify"
+
+
+def update_status() -> dict:
+    return updater.status(update_mode(), PACKAGED)
+
+
+def install_update() -> None:
+    """« Update » button: download if needed, then swap the .exe and start it again."""
+    if updater.STATE["state"] == "available":
+        updater.download()
+    if updater.install(restart=True):
+        time.sleep(0.5)   # let the page get its last answer
+        os._exit(0)
+
+
+def shutdown() -> None:
+    """Stops the app; a downloaded update (« auto » mode) is installed on the way out."""
+    if updater.STATE["state"] == "ready":
+        updater.install(restart=False)
+    os._exit(0)
 
 
 def app_home() -> Path:
@@ -759,6 +807,8 @@ def main() -> None:
     if not args.no_maintenance and not first_start:   # on first start, the welcome screen starts it
         start_maintenance()
     watch_reviews()
+    if PACKAGED or os.environ.get("JAPANESE_COACH_UPDATE_URL"):   # the source version is updated with git pull
+        updater.start(update_mode(), PACKAGED)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

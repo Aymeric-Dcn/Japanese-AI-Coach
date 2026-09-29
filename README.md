@@ -77,6 +77,7 @@ curriculum.py       the programme: 23 topics N5 → N4, progression rules, gramm
 make_exercises.py   particle / conjugation exercises from the bank, ambiguity rules
 jlpt_questions.py   JLPT questions: distractors, ambiguity rules; conjugate.py: verb conjugator
 word_order.py, clauses.py   sentence-order exercises; relative clauses, 前に / 後で, ても (rules only)
+updater.py          updates of the Windows app from GitHub releases
 review.py           quality control: revalidate, export, reject, import, approve
 bank_sync.py        shared bank: pull, contribute, import inbox, publish
 tutor.py, knowledge.py   the chat tutor and its references
@@ -97,7 +98,7 @@ notes/log.md        test log: models, prompts, what went wrong and how it was fi
 - [x] French / English interface
 - [x] Shared bank of reviewed exercises
 - [ ] Mode without Anki (level test), default data from the [Full Japanese Study Deck](https://github.com/Ronokof/Full-Japanese-Study-Deck)
-- [x] Windows app (`.exe`) with a welcome screen that explains the local model
+- [x] Windows app (`.exe`): welcome wizard (level, Anki, teacher, updates), updates itself from GitHub releases
 - [x] Optional cloud models for the chat (Claude / OpenAI API key)
 - [ ] Reading comprehension (読解) and listening
 

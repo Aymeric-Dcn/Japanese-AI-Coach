@@ -5,6 +5,9 @@ Builds the Windows app: dist/JapaneseCoach.exe — one file, no console, nothing
     pip install pyinstaller
     python build_exe.py
 
+Before building a new version, raise VERSION in updater.py (0.2.0 → 0.3.0), then publish a GitHub release
+tagged v0.3.0 with dist/JapaneseCoach.exe attached: every installed app sees it and updates itself.
+
 The .exe contains the server and the interface (standard library only). It opens in its own window
 (Edge or Chrome in app mode, the browser if neither is found) and stops when that window is closed. On first
 start it shows the welcome screen, keeps its data in %LOCALAPPDATA%\\JapaneseCoach, and downloads the
@@ -43,7 +46,10 @@ def main() -> None:
     cmd.append(str(ROOT / "server.py"))
     subprocess.run(cmd, check=True, cwd=ROOT)
     exe = ROOT / "dist" / ("JapaneseCoach.exe" if os.name == "nt" else "JapaneseCoach")
-    print(f"\n✓ {exe} ({exe.stat().st_size / 1e6:.1f} MB). Give this single file to your friends.")
+    import updater
+    print(f"\n✓ {exe} ({exe.stat().st_size / 1e6:.1f} MB), version {updater.VERSION}.")
+    print(f"  Release it on GitHub with the tag v{updater.VERSION} and this file attached as {updater.ASSET}"
+          f" (not as a pre-release): the apps already installed will offer the update.")
 
 
 if __name__ == "__main__":
