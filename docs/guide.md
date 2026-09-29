@@ -4,11 +4,11 @@
 
 ## The programme
 
-`curriculum.py` lists 23 topics in teaching order, JLPT N5 then N4. The daily session brings reviews of everything plus new exercises from the **two current topics**. A topic is passed at 80 % right over its last 10–20 answers, or straight away after 5 right answers in a row; « Je maîtrise déjà » in the Progrès tab passes it by hand. The next topic then unlocks.
+`curriculum.py` lists 23 topics in teaching order, JLPT N5 then N4. The daily session brings reviews of everything plus new exercises from the **two current topics**. A topic is passed at 80 % right over its last 10–20 answers, or straight away after 5 right answers in a row; « I already know this » in the Progress tab passes it by hand. The next topic then unlocks.
 
 `fill_reserve.py` tops up the current topics and the next one (15 unseen exercises each by default, twice as many for a weak topic): `--target 25`, `--all`, `--topics wa-ga,past`, `--no-llm`.
 
-**Entraînement libre** (Session tab): pick any topics (« Toutes les particules », « Tout N4 »…); « Mode difficile » hides the possible answers.
+**Free practice** (Session tab): pick any topics (« All particles », « All N4 »…); « Hard mode » hides the possible answers.
 
 ## Topics (`--preset`)
 
@@ -37,7 +37,7 @@ Custom topics: `--targets "に,で" --pos 格助詞 --title "…"` for particles
 | `--save` | add to the app's reserve (otherwise an HTML sheet is created) | — |
 | `--count` | number of exercises | `10` |
 | `--known` | only sentences built from the words you know in Anki | — |
-| `--max-unknown` | with `--known`: unknown words allowed per sentence (shown as « Nouveau ») | `0` |
+| `--max-unknown` | with `--known`: unknown words allowed per sentence (shown as « New ») | `0` |
 | `--known-kanji` | with `--known`: every kanji must be known too | — |
 | `--min-words` / `--max-words` | sentence length (≈ difficulty) | `3` / `12` |
 | `--pos` | required part of speech, e.g. `格助詞` (case particle) — avoids the で of 読んで | preset |
@@ -50,9 +50,9 @@ Custom topics: `--targets "に,で" --pos 格助詞 --title "…"` for particles
 
 `python server.py [--open] [--port 8000] [--model qwen3:14b]`, then http://localhost:8000.
 
-- **Session**: « Programme du jour » (reviews + new exercises of the current topics) or « Entraînement libre » (chosen topics). Enter = check / next.
-- **Prof**: chat with the tutor. It uses the local model (Ollama running), or Claude / ChatGPT: Progrès → « The teacher (AI model) », pick the provider, paste your API key (console.anthropic.com or platform.openai.com; a chat session costs a few cents with the small models). The key is stored in `data/settings.json` and never sent back to the page; with a cloud provider, your chat messages go to that provider. Exercise generation stays local. The status in the top right says which teacher answers and whether it is reachable.
-- **Progrès**: today's work, streak, reviews due tomorrow, success rate, the programme (state of each topic, « Je maîtrise déjà »), « Remplir la réserve ».
+- **Session**: « Today's programme » (reviews + new exercises of the current topics) or « Free practice » (chosen topics). Enter = check / next.
+- **Teacher**: chat with the tutor. It uses the local model (Ollama running), or Claude / ChatGPT: Progress → « The teacher (AI model) », pick the provider, paste your API key (console.anthropic.com or platform.openai.com; a chat session costs a few cents with the small models). The key is stored in `data/settings.json` and never sent back to the page; with a cloud provider, your chat messages go to that provider. Exercise generation stays local. The status in the top right says which teacher answers and whether it is reachable.
+- **Progress**: today's work, streak, reviews due tomorrow, success rate, the programme (state of each topic, « I already know this »), « Fill the reserve ».
 
 Everything is stored in `data/coach.db` (SQLite). Nothing leaves your computer (except chat messages if you choose a cloud teacher).
 
@@ -62,11 +62,11 @@ The collection file (`%APPDATA%\Anki2\<profile>\collection.anki2`) is copied and
 
 ## JLPT (`jlpt_questions.py`, JLPT tab)
 
-`python jlpt_questions.py --level N4` (or « Générer des questions » in the app) adds 10 questions of each type for the level. The level of a question is the JLPT level of its words (your Anki deck's JLPT sub-decks, or the open lists of `jlpt_data.py`). 表記 needs kanji notes with on'yomi (Anki). 文法形式 and 文脈規定 are checked by the LLM (another choice must not fit too). Rules against ambiguous or too easy questions: one sentence per question (a question never gives away another one's answer); wrong readings built like the real test (another on'yomi of the kanji, long ↔ short vowel, voicing, っ); wrong spellings with same-reading kanji of level N5–N3 that are not real words; no kanji question on words usually written in kana (事); particle pairs that are often both right (は/が, に/へ, と/や…) are never offered together; conjugation choices that would also fit (着て / 着たら / 着れば) are left out; 並べ替え only keeps pieces whose order is fixed by the grammar. Mock exam: questions per type like the real test (without reading comprehension), 1 minute per question, score per section, mistakes back into the reviews.
+`python jlpt_questions.py --level N4` (or « Generate questions » in the app) adds 10 questions of each type for the level. The level of a question is the JLPT level of its words (your Anki deck's JLPT sub-decks, or the open lists of `jlpt_data.py`). 表記 needs kanji notes with on'yomi (Anki). 文法形式 and 文脈規定 are checked by the LLM (another choice must not fit too). Rules against ambiguous or too easy questions: one sentence per question (a question never gives away another one's answer); wrong readings built like the real test (another on'yomi of the kanji, long ↔ short vowel, voicing, っ); wrong spellings with same-reading kanji of level N5–N3 that are not real words; no kanji question on words usually written in kana (事); particle pairs that are often both right (は/が, に/へ, と/や…) are never offered together; conjugation choices that would also fit (着て / 着たら / 着れば) are left out; 並べ替え only keeps pieces whose order is fixed by the grammar. Mock exam: questions per type like the real test (without reading comprehension), 1 minute per question, score per section, mistakes back into the reviews.
 
 ## Mistakes, undo and reviews by hand
 
-In a session: **↶ Annuler ma réponse** (or Ctrl+Z) forgets a misclick or a typo and puts the review schedule back as it was; on a new exercise it goes back to the previous one. **En fait je ne maîtrise pas** turns a lucky right answer into a wrong one (back at the end of the session and tomorrow). **Ne plus proposer** suspends an exercise; **⚑ Signaler une erreur** removes a wrong or ambiguous one for good (it is never generated again). In Progrès → **Révisions**: every exercise with its next review, filter by topic or text, and review today, suspend, reactivate or report the ticked ones; « jamais vus » adds exercises of the reserve to your reviews.
+In a session: **↶ Undo my answer** (or Ctrl+Z) forgets a misclick or a typo and puts the review schedule back as it was; on a new exercise it goes back to the previous one. **Actually I don't know it** turns a lucky right answer into a wrong one (back at the end of the session and tomorrow). **Don't show again** suspends an exercise; **⚑ Report a mistake** removes a wrong or ambiguous one for good (it is never generated again). In Progress → **Reviews**: every exercise with its next review, filter by topic or text, and review today, suspend, reactivate or report the ticked ones; « include never seen » adds exercises of the reserve to your reviews.
 
 ## Language (French / English)
 
@@ -85,7 +85,7 @@ When the rules improve, the reserve cleans itself at the next start: exercises t
 
 ## Background start (`install_autostart.py`)
 
-Adds a launcher to the Windows Startup folder: `pythonw server.py` runs without a window; open http://localhost:8000. At startup the server syncs Anki (once a day), waits for Ollama, then tops up the reserve and the JLPT questions (checkboxes in Progrès, or `data/settings.json`). Logs: `data/server.log`. Remove with `--uninstall`.
+Adds a launcher to the Windows Startup folder: `pythonw server.py` runs without a window; open http://localhost:8000. At startup the server syncs Anki (once a day), waits for Ollama, then tops up the reserve and the JLPT questions (checkboxes in Progress, or `data/settings.json`). Logs: `data/server.log`. Remove with `--uninstall`.
 
 ## Measuring the LLM (`evaluate.py`)
 
