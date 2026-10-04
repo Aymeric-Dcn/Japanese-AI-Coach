@@ -201,7 +201,8 @@ function showExercise() {
       ` <span class="muted small">· ${t("kana_ok")}</span>`;
   } else {
     $("exo-choices").innerHTML = allowed.length && !$("hard-mode").checked
-      ? t("possible_answers") + allowed.map(a => `<span class="ans" lang="ja">${esc(a)}</span>`).join("") : "";
+      ? t("possible_answers") + allowed.map(a => `<button class="ans pick" draggable="true" data-pick="${esc(a)}" lang="ja"
+          title="${esc(t("pick_title"))}">${esc(a)}</button>`).join("") : "";
   }
 
   $("exo-mcq").hidden = !ex.choices;
@@ -280,6 +281,31 @@ function checkOrder() {
   return {value: orderText(ex, ex._placed), ok: orderValid(ex, ex._placed),
           exact: ex._placed.every((v, k) => v === k)};
 }
+
+// Possible answers shown: click one (or drag it onto the blank) instead of typing it.
+function pickAnswer(value) {
+  if (S.solved || !$("answer")) return;
+  field().value = value;
+  check();
+}
+$("exo-choices").addEventListener("click", e => {
+  const b = e.target.closest("button[data-pick]");
+  if (b) pickAnswer(b.dataset.pick);
+});
+$("exo-choices").addEventListener("dragstart", e => {
+  const b = e.target.closest("button[data-pick]");
+  if (b) { e.dataTransfer.setData("text/plain", b.dataset.pick); e.dataTransfer.effectAllowed = "copy"; }
+});
+$("exo-sentence").addEventListener("dragover", e => {
+  if (e.target.id === "answer" && !S.solved) { e.preventDefault(); e.target.classList.add("drop"); }
+});
+$("exo-sentence").addEventListener("dragleave", e => { if (e.target.id === "answer") e.target.classList.remove("drop"); });
+$("exo-sentence").addEventListener("drop", e => {
+  if (e.target.id !== "answer") return;
+  e.preventDefault();   // replace the value instead of inserting the text at the caret
+  e.target.classList.remove("drop");
+  pickAnswer(e.dataTransfer.getData("text/plain"));
+});
 
 // A JLPT question: 【word】 is underlined, the rest is plain text.
 function questionHtml(q) {
