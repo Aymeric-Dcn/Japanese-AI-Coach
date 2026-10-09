@@ -2,7 +2,7 @@
 
 *[Version française](README.fr.md)*
 
-**A personal Japanese tutor that runs on your own computer.** Daily exercises built from *real* sentences, a JLPT N5 → N4 programme, spaced repetition of your mistakes, JLPT-style questions and timed mock exams, and a chat with a tutor powered by a local LLM. Interface in French or English.
+**A personal Japanese tutor that runs on your own computer.** Daily exercises built from *real* sentences, a JLPT N5 → N4 program, spaced repetition of your mistakes, JLPT-style questions and timed mock exams, and a chat with a tutor powered by a local LLM. Interface in French or English.
 
 <p align="center">
   <img src="docs/screenshots/exercise-en.png" width="49%" alt="A particle exercise, answered">
@@ -23,10 +23,10 @@
 
 | | |
 | --- | --- |
-| **Session** | today's programme (reviews + new exercises of the two current topics) or free practice by topic; particles, conjugations, relative clauses and subordinates (前に, 後で, ても), putting a sentence back in order from its translation; undo a misclick (Ctrl+Z), « actually I don't know it », suspend or report an exercise |
+| **Session** | today's program (reviews + new exercises of the two current topics) or free practice by topic; particles, conjugations, relative clauses and subordinates (前に, 後で, ても), putting a sentence back in order from its translation; undo a misclick (Ctrl+Z), « actually I don't know it », suspend or report an exercise |
 | **JLPT** | 漢字読み, 表記, 文脈規定, 文法形式, 並べ替え ★ by level; practice with instant correction, or timed mock exams scored by section |
-| **Teacher** | chat in three modes — questions and corrections, conversation in simple Japanese (7 situations), quiz on your weak points — grounded in your Anki grammar notes, the programme and real sentences; local model, or Claude / ChatGPT with an API key |
-| **Progress** | stats, programme with automatic progression, reviews managed by hand, reserve top-up, shared bank |
+| **Teacher** | chat in three modes — questions and corrections, conversation in simple Japanese (7 situations), quiz on your weak points — grounded in your Anki grammar notes, the program and real sentences; local model, or Claude / ChatGPT with an API key |
+| **Progress** | stats, program with automatic progression, reviews managed by hand, reserve top-up, shared bank |
 
 <p align="center"><img src="docs/screenshots/progress-en.png" width="70%" alt="Progress tab"></p>
 
@@ -65,7 +65,7 @@ Tested on Windows with an RTX 4070 Super (12 GB) and 32 GB of RAM.
 
 To type Japanese: Windows Settings → Time & language → Language & region → add *Japanese*, switch with `Windows + Space`.
 
-**[User guide](docs/guide.md)**: programme and topics, every option, Anki, JLPT, quality control, shared bank, background start, measuring the LLM.
+**[User guide](docs/guide.md)**: program and topics, every option, Anki, JLPT, quality control, shared bank, background start, measuring the LLM.
 
 **[On your phone, with a Raspberry Pi](docs/raspberry-pi.md)**: one progress for the phone and the PC, through Tailscale (optional).
 
@@ -75,7 +75,7 @@ To type Japanese: Windows Settings → Time & language → Language & region →
 server.py           the app: web server + JSON API (standard library only)
 web/                interface (index.html, app.css, app.js, i18n.js: French / English)
 store.py            progress database: reserve, answers, review schedule, chat
-curriculum.py       the programme: 23 topics N5 → N4, progression rules, grammar notes
+curriculum.py       the program: 23 topics N5 → N4, progression rules, grammar notes
 make_exercises.py   particle / conjugation exercises from the bank, ambiguity rules
 jlpt_questions.py   JLPT questions: distractors, ambiguity rules; conjugate.py: verb conjugator
 word_order.py, clauses.py   sentence-order exercises; relative clauses, 前に / 後で, ても (rules only)
@@ -93,7 +93,7 @@ notes/log.md        test log: models, prompts, what went wrong and how it was fi
 ## Roadmap
 
 - [x] Exercises from real sentences, Anki sync (i+1), particles and conjugations
-- [x] Local app: programme N5 → N4, spaced repetition, free practice, undo and manual reviews
+- [x] Local app: program N5 → N4, spaced repetition, free practice, undo and manual reviews
 - [x] JLPT questions (5 types), practice and timed mock exams
 - [x] Tutor chat with references, conversation and quiz modes
 - [x] Ambiguity rules, quality control and review loop with Claude

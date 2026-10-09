@@ -251,3 +251,10 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - PWA: `web/manifest.webmanifest`, icons 192 / 512 / apple-touch (日 on the app red), theme-color: « Add to Home screen » opens it full screen. Mimetypes set in the server (Windows can map them wrongly).
 - `deploy/install-pi.sh` writes and starts a systemd service; `docs/raspberry-pi.md` (+ .fr): Python check, clone, copying `data/` from the PC (not bank.db), `tailscale serve --bg 8000` for HTTPS, the teacher with a cloud key or the PC's Ollama (`OLLAMA_HOST=0.0.0.0`).
 - The server runs without SudachiPy (checked with Python 3.8 and 3.9 in an empty environment).
+
+## 2026-10-09 — English translations without the Tatoeba bank; « program »
+
+- In English, exercises made before both translations were stored showed the French one when `data/bank.db` is missing (the `.exe` and the Raspberry Pi do not have it). Now:
+  - the reserve check (`review.add_translations`, at every start where `bank.db` exists) stores the French and English translations in those exercises;
+  - `bank_sync.pull` completes exercises already in the reserve with the texts the bank has and they lack (`translation`, `translation_en`, `hint_en`, `explanation_en`, never overwritten: `store.fill_missing`). Every bank file is read again once (`FILL_VERSION`) so apps that already downloaded it get them.
+- English interface and docs: « program » instead of « programme ».

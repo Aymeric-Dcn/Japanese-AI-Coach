@@ -97,6 +97,11 @@ def fetch(source: str, path: str, token: str = "") -> str:
         return response.read().decode("utf-8")
 
 
+# Texts an exercise already in the reserve can receive from the bank later (never overwritten).
+FILLED_FIELDS = ("translation", "translation_en", "hint_en", "explanation_en")
+FILL_VERSION = 1   # raise it to read every bank file again once (after adding a field above)
+
+
 def pull(db, source: str = DEFAULT_URL, token: str = "", log=print) -> int:
     """Adds the bank's new exercises to the reserve and retires the rejected ones. Progress is untouched."""
     state = load_state()
@@ -104,10 +109,11 @@ def pull(db, source: str = DEFAULT_URL, token: str = "", log=print) -> int:
         manifest = json.loads(fetch(source, "manifest.json", token))
     except (OSError, urllib.error.URLError, ValueError) as e:
         raise RuntimeError(f"bank not reachable ({source}): {e}")
-    added = 0
+    added = completed = 0
+    reread = state.get("fill_version", 0) < FILL_VERSION   # once: complete what was downloaded before
     for entry in manifest.get("files", []):
         path, digest = entry["path"], entry["sha256"]
-        if state["files"].get(path) == digest:
+        if state["files"].get(path) == digest and not reread:
             continue
         text = fetch(source, path, token)
         if sha256(text) != digest:
@@ -122,7 +128,10 @@ def pull(db, source: str = DEFAULT_URL, token: str = "", log=print) -> int:
                 skipped = True
                 continue   # a kind of exercise this version cannot show yet: it comes with the next update
             data = dict(item["data"], origin="bank")
-            added += store.add_exercise(db, item["topic"], item["kind"], data, item["key"])
+            if store.add_exercise(db, item["topic"], item["kind"], data, item["key"]):
+                added += 1
+            else:
+                completed += store.fill_missing(db, item["key"], data, FILLED_FIELDS)
         if not skipped:   # otherwise read again after an update of the app
             state["files"][path] = digest
     retired = 0
@@ -134,10 +143,12 @@ def pull(db, source: str = DEFAULT_URL, token: str = "", log=print) -> int:
         row = db.execute("SELECT id FROM exercises WHERE source_key = ?", (item["key"],)).fetchone()
         if row:
             retired += store.retire(db, row[0], item.get("reason", "rejected in the shared bank"))
+    state["fill_version"] = FILL_VERSION
     state.update(last_pull=datetime.datetime.now().isoformat(timespec="seconds"), last_added=added,
                  bank_version=manifest.get("version"), bank_count=manifest.get("count"))
     save_state(state)
-    log(f"Shared bank: {added} new exercise(s), {retired} retired (bank of {manifest.get('count', '?')}).")
+    log(f"Shared bank: {added} new exercise(s), {retired} retired (bank of {manifest.get('count', '?')})."
+        + (f" {completed} completed (translation…)." if completed else ""))
     return added
 
 

@@ -145,6 +145,22 @@ def add_exercise(db, topic: str, kind: str, data: dict, source_key: str = None) 
     return cur.rowcount == 1
 
 
+def fill_missing(db, source_key: str, data: dict, fields: tuple) -> bool:
+    """Adds to an exercise already in the reserve the given fields it does not have yet (an English
+    translation added to the shared bank later, for example). Never overwrites anything."""
+    row = db.execute("SELECT id, data FROM exercises WHERE source_key = ?", (source_key,)).fetchone()
+    if not row:
+        return False
+    current = json.loads(row[1])
+    missing = {k: data[k] for k in fields if data.get(k) and not current.get(k)}
+    if not missing:
+        return False
+    current.update(missing)
+    db.execute("UPDATE exercises SET data = ? WHERE id = ?", (json.dumps(current, ensure_ascii=False), row[0]))
+    db.commit()
+    return True
+
+
 def _exercise(row) -> dict:
     ex = json.loads(row["data"])
     ex.update({"id": row["id"], "topic": row["topic"], "kind": row["kind"]})

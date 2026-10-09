@@ -123,9 +123,40 @@ def revalidate(db, log=print) -> dict:
     finally:
         if bank:
             bank.close()
-    if retired or updated:
-        log(f"Reserve check: {retired} exercise(s) retired, {updated} fixed.")
-    return {"retired": retired, "updated": updated}
+    translated = add_translations(db)
+    if retired or updated or translated:
+        log(f"Reserve check: {retired} exercise(s) retired, {updated} fixed, {translated} translation(s) added.")
+    return {"retired": retired, "updated": updated, "translated": translated}
+
+
+def add_translations(db) -> int:
+    """Stores the French and English translations in exercises made before both were kept
+    (an app without the Tatoeba bank, on a phone or a Raspberry Pi, can then show them)."""
+    if not BANK_PATH.exists():
+        return 0
+    bank = sqlite3.connect(BANK_PATH)
+    done = 0
+    try:
+        for row in db.execute("SELECT id, source_key, data FROM exercises").fetchall():
+            parts = (row["source_key"] or "").split(":")
+            ex = json.loads(row["data"])
+            if len(parts) < 2 or parts[0] != "tatoeba" or (ex.get("translation") and ex.get("translation_en")):
+                continue
+            found = bank.execute("SELECT fr, en FROM sentences WHERE id = ?", (parts[1],)).fetchone()
+            if not found:
+                continue
+            changed = False
+            for field, value in (("translation", found[0]), ("translation_en", found[1])):
+                if value and not ex.get(field):
+                    ex[field] = value
+                    changed = True
+            if changed:
+                db.execute("UPDATE exercises SET data = ? WHERE id = ?", (json.dumps(ex, ensure_ascii=False), row["id"]))
+                done += 1
+        db.commit()
+    finally:
+        bank.close()
+    return done
 
 
 def export(db, topic: str = None, unseen: bool = False, limit: int = 500, unreviewed: bool = False) -> list:
