@@ -196,9 +196,13 @@ function showExercise() {
   if (ex.tiles) {
     $("exo-choices").innerHTML = t("order_instruction");
   } else if (ex.cue) {
-    $("exo-choices").innerHTML = `${t("verb_to_conjugate")}<span class="ans" lang="ja">${esc(ex.cue)}</span>` +
-      (ex.cue_reading ? ` <span class="muted" lang="ja">（${esc(ex.cue_reading)}）</span>` : "") +
+    // the verb with its reading above (furigana). When readings are hidden, a tap on the verb shows it.
+    const cue = ex.cue_reading
+      ? `<ruby class="cue" title="${esc(t("cue_tap"))}">${esc(ex.cue)}<rt>${esc(ex.cue_reading)}</rt></ruby>` : esc(ex.cue);
+    $("exo-choices").innerHTML = `${t("verb_to_conjugate")}<span class="ans" lang="ja">${cue}</span>` +
       ` <span class="muted small">· ${t("kana_ok")}</span>`;
+    const ruby = $("exo-choices").querySelector("ruby.cue");
+    if (ruby) ruby.addEventListener("click", () => ruby.classList.toggle("shown"));
   } else {
     $("exo-choices").innerHTML = allowed.length && !$("hard-mode").checked
       ? t("possible_answers") + allowed.map(a => `<button class="ans pick" draggable="true" data-pick="${esc(a)}" lang="ja"

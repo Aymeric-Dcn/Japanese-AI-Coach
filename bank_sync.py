@@ -98,7 +98,7 @@ def fetch(source: str, path: str, token: str = "") -> str:
 
 
 # Texts an exercise already in the reserve can receive from the bank later (never overwritten).
-FILLED_FIELDS = ("translation", "translation_en", "hint_en", "explanation_en")
+FILLED_FIELDS = ("translation", "translation_en", "hint_en", "explanation_en", "cue_reading")
 FILL_VERSION = 1   # raise it to read every bank file again once (after adding a field above)
 
 

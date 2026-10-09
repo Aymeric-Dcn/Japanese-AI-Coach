@@ -23,6 +23,7 @@ Reviewed batch format (JSON):
 
 import argparse
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -123,10 +124,36 @@ def revalidate(db, log=print) -> dict:
     finally:
         if bank:
             bank.close()
-    translated = add_translations(db)
+    translated = add_translations(db) + add_cue_readings(db)
     if retired or updated or translated:
         log(f"Reserve check: {retired} exercise(s) retired, {updated} fixed, {translated} translation(s) added.")
     return {"retired": retired, "updated": updated, "translated": translated}
+
+
+KANJI = re.compile(r"[一-鿿々]")
+
+
+def add_cue_readings(db) -> int:
+    """Stores the reading of the verb to conjugate (手伝う → てつだう) in exercises made before it was
+    kept: an app without SudachiPy (phone, Raspberry Pi) can then show it above the verb."""
+    try:
+        import sudachipy  # noqa: F401  (without it, every reading would come back empty)
+    except ImportError:
+        return 0
+    import tutor
+    done = 0
+    for row in db.execute("SELECT id, data FROM exercises").fetchall():
+        ex = json.loads(row["data"])
+        if not ex.get("cue") or ex.get("cue_reading") or not KANJI.search(ex["cue"]):
+            continue   # nothing to conjugate, already there, or a verb in kana (する) that needs none
+        reading = tutor.reading(ex["cue"])
+        if not reading:
+            continue
+        ex["cue_reading"] = reading
+        db.execute("UPDATE exercises SET data = ? WHERE id = ?", (json.dumps(ex, ensure_ascii=False), row["id"]))
+        done += 1
+    db.commit()
+    return done
 
 
 def add_translations(db) -> int:

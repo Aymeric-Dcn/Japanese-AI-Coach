@@ -33,6 +33,7 @@ const I18N = {
     // exercise
     badge_retry: "À refaire", badge_review: "Révision", badge_new: "Nouveau",
     verb_to_conjugate: "Verbe à conjuguer : ", kana_ok: "réponse en kanji ou en kana",
+    cue_tap: "Lecture masquée : touche le verbe pour l'afficher",
     possible_answers: "Réponses possibles : ", new_words: "Nouveau : ", answer_label: "Réponse",
     check: "Vérifier", hint: "Indice", show_answer: "Voir la réponse", hide_reading: "Masquer la lecture",
     show_reading: "Afficher la lecture", next: "Suivant ↵", ask_teacher: "Demander au prof",
@@ -196,6 +197,7 @@ const I18N = {
     all_done: "Nothing left for today: well done!", start_error: "Could not start the session: {e}",
     badge_retry: "Again", badge_review: "Review", badge_new: "New",
     verb_to_conjugate: "Verb to conjugate: ", kana_ok: "answer in kanji or kana",
+    cue_tap: "Reading hidden: tap the verb to show it",
     possible_answers: "Possible answers: ", new_words: "New: ", answer_label: "Answer",
     check: "Check", hint: "Hint", show_answer: "Show the answer", hide_reading: "Hide the reading",
     show_reading: "Show the reading", next: "Next ↵", ask_teacher: "Ask the teacher",

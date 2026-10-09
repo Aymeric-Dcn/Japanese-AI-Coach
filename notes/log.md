@@ -258,3 +258,8 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
   - the reserve check (`review.add_translations`, at every start where `bank.db` exists) stores the French and English translations in those exercises;
   - `bank_sync.pull` completes exercises already in the reserve with the texts the bank has and they lack (`translation`, `translation_en`, `hint_en`, `explanation_en`, never overwritten: `store.fill_missing`). Every bank file is read again once (`FILL_VERSION`) so apps that already downloaded it get them.
 - English interface and docs: « program » instead of « programme ».
+
+## 2026-10-09 — Reading above the verb to conjugate
+
+- The verb to conjugate shows its reading above it (furigana: 手伝う with てつだう) instead of in brackets after it. With « Masquer la lecture », the reading is hidden too, and a tap / click on the verb shows it for this exercise: you can try without it and still not get stuck.
+- Many exercises had an empty reading (made where SudachiPy could not read the verb) and the app never filled it again. The reserve check (`review.add_cue_readings`) now stores the reading of every kanji verb that lacks one, the server tries again for empty ones, and the shared bank can complete it (`cue_reading` added to the completed fields). `tutor.reading` stops retrying when SudachiPy is missing (Raspberry Pi).

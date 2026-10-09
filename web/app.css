@@ -86,6 +86,10 @@ h3 { margin: 0 0 10px; font-size: 1.05rem; }
 .exo.ko .sentence input { border-color: var(--ko); }
 .reading { color: var(--muted); font-size: .95rem; }
 body.hide-readings .reading { visibility: hidden; }
+/* reading of the verb to conjugate, above it; hidden with the readings until the verb is tapped */
+ruby.cue rt { font-size: .55em; color: var(--muted); }
+body.hide-readings ruby.cue { cursor: pointer; border-bottom: 1px dotted var(--muted); }
+body.hide-readings ruby.cue:not(.shown) rt { visibility: hidden; }
 .tr { color: var(--muted); font-style: italic; font-size: .95rem; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
 .hint { background: var(--hint-bg); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }

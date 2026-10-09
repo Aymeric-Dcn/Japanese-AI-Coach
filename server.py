@@ -133,8 +133,8 @@ class Handler(BaseHTTPRequestHandler):
                     else:
                         data = store.daily_session(db, new_limit=new, skip_empty=no_local_model())
                         localize(data["items"])
-                    for ex in data["items"]:  # exercises saved before cue readings existed
-                        if ex.get("cue") and "cue_reading" not in ex:
+                    for ex in data["items"]:  # exercises saved without the verb's reading (needs SudachiPy here)
+                        if ex.get("cue") and not ex.get("cue_reading"):
                             ex["cue_reading"] = tutor.reading(ex["cue"])
                     data["stats"] = store.stats(db)
                     return self.send_json(data)

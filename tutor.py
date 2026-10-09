@@ -196,6 +196,8 @@ def analyze(text: str, tokens: list = None) -> str:
 def reading(word: str) -> str:
     """Hiragana reading of a word (empty if SudachiPy is missing or the word is already in kana)."""
     global _analyzer
+    if _analyzer is False:   # SudachiPy missing (phone server, Raspberry Pi): do not try again for each word
+        return ""
     try:
         import build_bank
         if _analyzer is None:
@@ -203,6 +205,8 @@ def reading(word: str) -> str:
         r = build_bank.reading(_analyzer, word)
         return "" if r == word else r
     except (SystemExit, Exception):
+        if _analyzer is None:
+            _analyzer = False
         return ""
 
 
