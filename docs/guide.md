@@ -33,7 +33,7 @@ Custom topics: `--targets "に,で" --pos 格助詞 --title "…"` for particles
 
 | Option | Purpose | Default |
 | --- | --- | --- |
-| `--preset` / `--targets` / `--form` | what to practise | — |
+| `--preset` / `--targets` / `--form` | what to practice | — |
 | `--save` | add to the app's reserve (otherwise an HTML sheet is created) | — |
 | `--count` | number of exercises | `10` |
 | `--known` | only sentences built from the words you know in Anki | — |
@@ -75,7 +75,7 @@ In a session: **↶ Undo my answer** (or Ctrl+Z) forgets a misclick or a typo an
 
 ## Language (French / English)
 
-The app runs in French or English: selector at the top right (saved in `data/settings.json`). The interface, the topic titles and notes, the tutor (prompts, conversation situations, references) and the translations of the sentences follow it. New exercises are generated with a hint and an explanation in both languages; older ones only have French explanations, which are hidden in English. The English translations come from Tatoeba: `python build_bank.py` now keeps them (run it again once; `--french-only` for the old behaviour).
+The app runs in French or English: selector at the top right (saved in `data/settings.json`). The interface, the topic titles and notes, the tutor (prompts, conversation situations, references) and the translations of the sentences follow it. New exercises are generated with a hint and an explanation in both languages; older ones only have French explanations, which are hidden in English. The English translations come from Tatoeba: `python build_bank.py` now keeps them (run it again once; `--french-only` for the old behavior).
 
 ## Quality control (`review.py`)
 

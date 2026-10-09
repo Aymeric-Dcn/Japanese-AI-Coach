@@ -234,7 +234,7 @@ const I18N = {
     end_tomorrow: "Tomorrow: {due} to review · {unseen} new ones still available.",
     level: "Level", jlpt_generate: "Generate questions (10 per type)", practice: "Practice",
     practice_note: "Multiple-choice questions, corrected right away. Mistakes come back in your reviews.",
-    questions: "Questions", practice_go: "Practise", mock_exam: "Mock exam",
+    questions: "Questions", practice_go: "Practice", mock_exam: "Mock exam",
     mock_exam_start: "Start the mock exam", exam_prev: "← Previous", exam_next: "Next →",
     exam_finish: "Finish the exam", exam_corrections: "Your mistakes, corrected", exam_back: "Back to JLPT",
     jlpt_levels_approx: "Approximate levels: run anki_sync.py and/or jlpt_data.py to know the level of the words.",

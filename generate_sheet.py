@@ -339,7 +339,7 @@ def main() -> None:
         pass
 
     p = argparse.ArgumentParser(description="Generates a lesson + fill-in-the-blank Japanese sheet with a local LLM.")
-    p.add_argument("--topic", help="the point to practise, e.g. « les particules に et で »")
+    p.add_argument("--topic", help="the point to practice, e.g. « les particules に et で »")
     p.add_argument("--level", default="N5", help="student level (N5, N4… or a free description)")
     p.add_argument("--count", type=int, default=10, help="number of exercises (default: 10)")
     p.add_argument("--model", default=DEFAULT_MODEL, help=f"Ollama model (default: {DEFAULT_MODEL})")

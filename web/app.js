@@ -108,7 +108,7 @@ function updateStartButton() {
 function renderPicker() {
   const levels = {};
   for (const t of P.topics) {
-    if (!t.total) continue;  // nothing to practise yet
+    if (!t.total) continue;  // nothing to practice yet
     (levels[t.level || t_("others")] = levels[t.level || t_("others")] || []).push(t);
   }
   const html = Object.entries(levels).map(([level, list]) => `<h4>${esc(level)}</h4>` + list.map(t =>

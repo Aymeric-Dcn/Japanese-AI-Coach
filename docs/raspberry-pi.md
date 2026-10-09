@@ -58,7 +58,7 @@ scp data\coach.db data\settings.json data\known.json data\lexicon.db data\gramma
 - Do not copy `bank.db` (240 MB, only for generating).
 - Close the app on the PC first, so `coach.db` is complete.
 
-From now on, **the Pi's copy is the one that counts**: practise on the Pi's address, not in the app on the PC
+From now on, **the Pi's copy is the one that counts**: practice on the Pi's address, not in the app on the PC
 (otherwise the two progress files go different ways). After a new Anki sync on the PC, copy `known.json`,
 `lexicon.db`, `grammar.json` and `kanji.json` again so the Pi knows your new words.
 
