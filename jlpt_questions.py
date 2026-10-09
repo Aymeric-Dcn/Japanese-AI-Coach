@@ -757,7 +757,7 @@ def generate(level: str, qtype: str, count: int, model: str = llm.DEFAULT_MODEL,
             try:
                 ok, reason = check(q, model)
             except llm.OllamaUnavailable:
-                raise mx.GenerationError("Cannot reach Ollama on localhost:11434. Start Ollama, or use --no-llm.")
+                raise mx.GenerationError(f"Cannot reach Ollama on {llm.OLLAMA_URL}. Start Ollama, or use --no-llm.")
             if not ok:
                 dropped += 1
                 log(f"  ✗ {q['question']}  ({reason})")

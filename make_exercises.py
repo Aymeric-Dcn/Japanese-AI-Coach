@@ -643,7 +643,7 @@ def generate(targets: list, form: str, pos: str, count: int, *, level: str = "N5
             try:
                 ok, reason = check_exercise(ex, level, model, targets, form)
             except llm.OllamaUnavailable:
-                raise GenerationError("Cannot reach Ollama on localhost:11434. Start Ollama, or use --no-llm.")
+                raise GenerationError(f"Cannot reach Ollama on {llm.OLLAMA_URL}. Start Ollama, or use --no-llm.")
             except urllib.error.HTTPError as e:
                 raise GenerationError(f"Ollama error {e.code}. Is the model installed? Try: ollama pull {model}")
             if ok:

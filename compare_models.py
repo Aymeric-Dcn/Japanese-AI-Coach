@@ -110,7 +110,7 @@ def main() -> None:
             try:
                 r = run(model, item)
             except llm.OllamaUnavailable:
-                sys.exit("Cannot reach Ollama on localhost:11434. Start Ollama first.")
+                sys.exit(f"Cannot reach Ollama on {llm.OLLAMA_URL}. Start Ollama first.")
             except llm.CloudError as e:
                 sys.exit(f"{model}: {e}")
             row["models"][model] = r

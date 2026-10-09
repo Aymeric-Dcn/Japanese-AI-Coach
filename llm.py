@@ -16,7 +16,21 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-OLLAMA_URL = "http://localhost:11434"
+OLLAMA_URL = "http://localhost:11434"   # another computer's Ollama: --ollama, the « ollama_url » setting or this env
+OLLAMA_URL = (os.environ.get("JAPANESE_COACH_OLLAMA") or OLLAMA_URL).rstrip("/")
+
+
+def set_ollama_url(url: str) -> None:
+    """« 100.64.0.2 », « pc.tailnet.ts.net:11434 » or a full URL → http://host:11434. Empty: keep the current one."""
+    global OLLAMA_URL
+    url = (url or "").strip().rstrip("/")
+    if not url:
+        return
+    if "://" not in url:
+        url = "http://" + url
+    if url.count(":") < 2:   # no port
+        url += ":11434"
+    OLLAMA_URL = url
 DEFAULT_MODEL = "qwen3:14b"
 CLOUD = {
     "anthropic": {"url": "https://api.anthropic.com/v1/messages", "env": "ANTHROPIC_API_KEY",

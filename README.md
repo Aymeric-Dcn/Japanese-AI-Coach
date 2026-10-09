@@ -67,6 +67,8 @@ To type Japanese: Windows Settings → Time & language → Language & region →
 
 **[User guide](docs/guide.md)**: programme and topics, every option, Anki, JLPT, quality control, shared bank, background start, measuring the LLM.
 
+**[On your phone, with a Raspberry Pi](docs/raspberry-pi.md)**: one progress for the phone and the PC, through Tailscale (optional).
+
 ## Project layout
 
 ```
@@ -100,6 +102,7 @@ notes/log.md        test log: models, prompts, what went wrong and how it was fi
 - [ ] Mode without Anki (level test), default data from the [Full Japanese Study Deck](https://github.com/Ronokof/Full-Japanese-Study-Deck)
 - [x] Windows app (`.exe`): welcome wizard (level, Anki, teacher, updates), updates itself from GitHub releases
 - [x] Optional cloud models for the chat (Claude / OpenAI API key)
+- [x] Phone: installable web app (PWA), served by a Raspberry Pi through Tailscale
 - [ ] Reading comprehension (読解) and listening
 
 ## Data sources and licences

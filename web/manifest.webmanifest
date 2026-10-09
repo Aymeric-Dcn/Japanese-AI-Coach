@@ -1,0 +1,14 @@
+{
+  "name": "Japanese Coach",
+  "short_name": "Japanese Coach",
+  "description": "Japanese exercises built from your Anki deck, with corrections and explanations.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf8f5",
+  "theme_color": "#b8323a",
+  "icons": [
+    {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

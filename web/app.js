@@ -810,7 +810,7 @@ async function loadProgramme() {
         : t.state !== "passed" ? `<button data-known="1" data-title="${esc(t.title)}" title="${t_("known_title")}">${t_("known_set")}</button>` : "";
       return `<tr><td class="level">${esc(t.level)}</td><td>${esc(t.label || t.title)}</td>
         <td><span class="state ${t.state}" title="${esc(t.why)}">${STATE_LABEL[t.state]}</span></td>
-        <td class="num">${rate}</td><td class="num">${t.unseen} / ${t.total}</td><td>${action}</td></tr>`;
+        <td class="num" data-label="${t_("h_rate")}">${rate}</td><td class="num" data-label="${t_("h_new_total")}">${t.unseen} / ${t.total}</td><td>${action}</td></tr>`;
     }).join("");
 }
 

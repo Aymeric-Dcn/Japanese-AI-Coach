@@ -133,12 +133,6 @@ table.topics td.num { text-align: right; font-variant-numeric: tabular-nums; }
   padding: 10px 18px; border-radius: 10px; font-size: .9rem; max-width: 90vw; z-index: 20;
 }
 
-@media (max-width: 600px) {
-  .topbar { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
-  .status { width: 100%; margin: 0; }
-  .sentence { font-size: 1.3rem; }
-  .card { padding: 16px; }
-}
 
 /* ---------- programme / practice ---------- */
 .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; padding: 3px; margin-bottom: 14px; }
@@ -236,3 +230,33 @@ label.stack { display: flex; flex-direction: column; gap: 4px; max-width: 420px;
 .choices button.ans.pick { font: inherit; font-size: 1.15rem; cursor: pointer; padding: 1px 12px; margin: 2px 3px; }
 .choices button.ans.pick:hover { border-color: var(--accent); background: var(--accent-soft); }
 .sentence input.drop { background: var(--accent-soft); }
+
+@media (max-width: 600px) {
+  /* phone: one line « ● Japanese Coach … FR », then the four tabs across the whole width */
+  .topbar { flex-wrap: wrap; padding: 6px 12px 0; padding-top: max(6px, env(safe-area-inset-top)); gap: 4px 8px; }
+  .brand { order: 1; font-size: .95rem; }
+  .status { display: none; }
+  #btn-quit { order: 2; margin-left: auto; }
+  select.lang { order: 3; margin-left: auto; padding: 2px 6px; font-size: 16px; }
+  #btn-quit:not([hidden]) + select.lang { margin-left: 0; }
+  .tabs { order: 4; width: 100%; gap: 0; }
+  .tab { flex: 1; padding: 8px 2px; border-radius: 8px 8px 0 0; font-size: .9rem; }
+  .tab.active { background: transparent; box-shadow: inset 0 -2px 0 var(--accent); }
+  main { padding: 10px 10px 40px; padding-bottom: max(40px, env(safe-area-inset-bottom)); }
+  .sentence { font-size: 1.3rem; }
+  .card { padding: 16px 14px; margin: 10px 0; }
+  input, textarea, select { font-size: 16px; }   /* below 16 px, iPhone zooms in on focus */
+  .tab, .tab:hover { border-color: transparent; }
+  table.topics td, table.topics th { overflow-wrap: normal; }
+  .table-wrap table.topics td, .table-wrap table.topics th { white-space: nowrap; }
+  /* programme: one block per topic: « N5 Particles は / が », then state, success, new / total, button */
+  #topics-table, #topics-table tbody, #topics-table tr { display: block; }
+  #topics-table tr:first-child { display: none; }
+  #topics-table tr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 0;
+                     border-bottom: 1px solid var(--border); }
+  #topics-table td { border: none; padding: 0; text-align: left; }
+  #topics-table td.level { width: auto; }
+  #topics-table td:nth-child(2) { flex: 1 1 70%; font-weight: 600; }
+  #topics-table td.num::before { content: attr(data-label) " : "; color: var(--muted); font-size: .8rem; }
+  #topics-table td:last-child { margin-left: auto; }
+}

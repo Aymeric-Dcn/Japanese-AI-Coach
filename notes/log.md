@@ -241,3 +241,13 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 
 - When the possible answers are shown (particles, « Mode difficile » off), they are buttons: a click puts the answer in the blank and checks it, and they can also be dragged onto the blank. Typing still works, and « Mode difficile » still hides them. A wrong pick can be followed by another one, as with typing.
 - `updater.VERSION` = 0.2.1: the first release that installed apps (v0.2.0) should offer by themselves.
+
+## 2026-10-09 — Phone and Raspberry Pi
+
+- Everything here is opt-in: by default the app still listens on 127.0.0.1 only and the `.exe` is unchanged.
+- `server.py --host` (default 127.0.0.1; prints a warning when it is not local) and `--ollama` / the `ollama_url` setting / `JAPANESE_COACH_OLLAMA`: a Pi can use the PC's Ollama through Tailscale (`llm.set_ollama_url` accepts « my-pc », « 100.x.y.z » or a full URL).
+- The startup maintenance (bank pull, reserve check…) runs again every 24 h, so an app that stays on gets the new exercises of the shared bank without a restart.
+- Phone layout (≤ 600 px): one line « ● Japanese Coach … FR », the four tabs across the width, no service status, 16 px inputs (no zoom on iPhone), safe areas; the programme table becomes one block per topic with labelled numbers. Checked on a Pixel 7 viewport: no horizontal scroll, tiles work by tap.
+- PWA: `web/manifest.webmanifest`, icons 192 / 512 / apple-touch (日 on the app red), theme-color: « Add to Home screen » opens it full screen. Mimetypes set in the server (Windows can map them wrongly).
+- `deploy/install-pi.sh` writes and starts a systemd service; `docs/raspberry-pi.md` (+ .fr): Python check, clone, copying `data/` from the PC (not bank.db), `tailscale serve --bg 8000` for HTTPS, the teacher with a cloud key or the PC's Ollama (`OLLAMA_HOST=0.0.0.0`).
+- The server runs without SudachiPy (checked with Python 3.8 and 3.9 in an empty environment).

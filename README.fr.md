@@ -67,6 +67,8 @@ Pour taper en japonais : Paramètres → Heure et langue → Langue et région �
 
 **[Guide d'utilisation](docs/guide.fr.md)** : programme et thèmes, toutes les options, Anki, JLPT, contrôle qualité, banque partagée, démarrage en arrière-plan, mesure du LLM.
 
+**[Sur ton téléphone, avec un Raspberry Pi](docs/raspberry-pi.fr.md)** : une seule progression pour le téléphone et le PC, via Tailscale (optionnel).
+
 ## Organisation du projet
 
 ```
@@ -100,6 +102,7 @@ notes/log.md        journal de tests : modèles, prompts, ce qui n'allait pas et
 - [ ] Mode sans Anki (test de niveau), données par défaut tirées du [Full Japanese Study Deck](https://github.com/Ronokof/Full-Japanese-Study-Deck)
 - [x] App Windows (`.exe`) : assistant d'accueil (niveau, Anki, prof, mises à jour), se met à jour toute seule depuis les releases GitHub
 - [x] Modèles en ligne facultatifs pour le chat (clé API Claude / OpenAI)
+- [x] Téléphone : app web installable (PWA), servie par un Raspberry Pi via Tailscale
 - [ ] Compréhension écrite (読解) et orale
 
 ## Sources de données et droits

@@ -50,6 +50,9 @@ PACKAGED = bool(getattr(sys, "frozen", False))   # the .exe built by build_exe.p
 if PACKAGED:
     WEB_DIR = Path(getattr(sys, "_MEIPASS", ".")) / "web"
 SERVER = {"httpd": None}
+for _type, _ext in (("application/manifest+json", ".webmanifest"), ("text/javascript", ".js"), ("text/css", ".css"),
+                    ("image/png", ".png")):   # Windows can map these wrongly in its registry
+    mimetypes.add_type(_type, _ext)
 MODEL = llm.DEFAULT_MODEL
 DB_PATH = None  # None = store.DB_PATH (data/coach.db)
 
@@ -81,7 +84,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"error": "not found"}, 404)
         body = path.read_bytes()
         ctype = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        if ctype.startswith("text/") or ctype in ("application/javascript",):
+        if ctype.startswith("text/") or ctype in ("application/javascript", "application/manifest+json"):
             ctype += "; charset=utf-8"
         self.send_response(200)
         self.send_header("Content-Type", ctype)
@@ -303,7 +306,7 @@ SETTINGS_PATH = Path("data") / "settings.json"
 DEFAULT_SETTINGS = {"auto_sync": True, "auto_fill": True, "fill_target": 15, "jlpt_level": "N4", "jlpt_auto_fill": True,
                     "language": "fr", "bank_auto_sync": True, "bank_url": "", "bank_token": "",
                     "bank_contribute": "", "contributor": "", "setup_done": None, "local_model": None,
-                    "chat_model": "", "api_keys": {}, "updates": "notify"}
+                    "chat_model": "", "api_keys": {}, "updates": "notify", "ollama_url": ""}
 LANGUAGES = ("fr", "en")
 
 
@@ -395,6 +398,8 @@ def save_settings(changes: dict) -> dict:
     settings["api_keys"] = keys
     llm.API_KEYS.clear()
     llm.API_KEYS.update(keys)
+    if "ollama_url" in changes:
+        llm.set_ollama_url(settings.get("ollama_url") or "http://localhost:11434")
     if settings.get("language") not in LANGUAGES:
         settings["language"] = "fr"
     SETTINGS_PATH.parent.mkdir(exist_ok=True)
@@ -571,6 +576,15 @@ def start_maintenance() -> dict:
                        "Ollama is not answering: reserve not filled (use « Fill the reserve » later)."))
         return added
     return run_job(tr("Maintenance au démarrage", "Startup maintenance"), work)
+
+
+def daily_maintenance() -> None:
+    """For an app that stays on (a Raspberry Pi…): the startup maintenance again every day, so new
+    exercises of the shared bank arrive without a restart."""
+    while True:
+        time.sleep(24 * 3600)
+        if not setup_needed(load_settings(), 1) and not FILL["running"]:
+            start_maintenance()
 
 
 def anki_available() -> bool:
@@ -776,6 +790,11 @@ def main() -> None:
         pass
     p = argparse.ArgumentParser(description="Starts the Japanese Coach app on http://localhost:8000")
     p.add_argument("--port", type=int, default=8000)
+    p.add_argument("--host", default="127.0.0.1",
+                   help="address to listen on (default 127.0.0.1: this computer only). 0.0.0.0 = the whole network: "
+                        "there is no password, so only on a private network such as Tailscale")
+    p.add_argument("--ollama", default="",
+                   help="Ollama of another computer, e.g. my-pc:11434 (default: the « ollama_url » setting, else localhost)")
     p.add_argument("--model", default=llm.DEFAULT_MODEL, help=f"Ollama model for the chat (default: {llm.DEFAULT_MODEL})")
     p.add_argument("--db", default=None, help="progress database (default: data/coach.db)")
     p.add_argument("--open", action="store_true", help="open the app in the browser")
@@ -785,16 +804,21 @@ def main() -> None:
     args = p.parse_args()
     MODEL, DB_PATH = args.model, args.db
     llm.API_KEYS.update(load_settings().get("api_keys") or {})
+    llm.set_ollama_url(args.ollama or load_settings().get("ollama_url") or "")
     url = f"http://localhost:{args.port}"
     if PACKAGED:
         args.open = args.window = True
     try:
-        server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+        server = ThreadingHTTPServer((args.host, args.port), Handler)
     except OSError:   # already running (second double-click): just open it
         print(f"Port {args.port} already in use: opening {url}")
         open_interface(url, args.window)
         return
     print(f"✓ Japanese Coach running on {url}  (Ctrl+C to stop)")
+    if args.host not in ("127.0.0.1", "localhost", "::1"):
+        print(f"  Listening on {args.host}:{args.port}: anyone who can reach this address can use the app (no password).")
+    if llm.OLLAMA_URL != "http://localhost:11434":
+        print(f"  Ollama: {llm.OLLAMA_URL}")
     if args.open or args.window:
         threading.Timer(0.5, lambda: open_interface(url, args.window)).start()
     if PACKAGED:
@@ -806,6 +830,8 @@ def main() -> None:
         db.close()
     if not args.no_maintenance and not first_start:   # on first start, the welcome screen starts it
         start_maintenance()
+    if not args.no_maintenance:
+        threading.Thread(target=daily_maintenance, daemon=True).start()
     watch_reviews()
     if PACKAGED or os.environ.get("JAPANESE_COACH_UPDATE_URL"):   # the source version is updated with git pull
         updater.start(update_mode(), PACKAGED)
