@@ -100,7 +100,7 @@ def fetch(source: str, path: str, token: str = "") -> str:
 
 # Texts an exercise already in the reserve can receive from the bank later (never overwritten).
 FILLED_FIELDS = ("translation", "translation_en", "hint_en", "explanation_en", "cue_reading", "words")
-FILL_VERSION = 2   # raise it to read every bank file again once (after adding a field above)
+FILL_VERSION = 3   # raise it to read every bank file again once (after adding a field above)
 
 
 def pull(db, source: str = DEFAULT_URL, token: str = "", log=print) -> int:
@@ -235,7 +235,7 @@ def add_translations(by_file: dict) -> None:
             for item in items.values():
                 parts = item["key"].split(":")
                 data = item["data"]
-                if parts[0] == "tatoeba" and not data.get("words") and data.get("full_sentence"):
+                if parts[0] == "tatoeba" and not words.has_readings(data.get("words")) and data.get("full_sentence"):
                     found = words.from_bank(bank, item["key"])
                     if words.matches(found, data["full_sentence"]):
                         data["words"] = found

@@ -355,12 +355,45 @@ def topic_states(db) -> list:
     return states
 
 
+def answer_reading(ex: dict) -> str:
+    """Kana of a JLPT question's answer: from the words of the full sentence (or the 【kana】 of an
+    « orthography » question)."""
+    import re
+    import words
+    if ex.get("qtype") == "orthography":
+        m = re.search(r"【(.*?)】", ex.get("question", ""))
+        return m.group(1) if m else ""
+    return words.reading_in(ex.get("words"), ex.get("full_sentence", ""), (ex.get("answers") or [""])[0])
+
+
+def add_jlpt_readings(ex: dict) -> None:
+    """Furigana of a JLPT question as in the real test (words above its level) and the kana of each
+    choice, shown once answered."""
+    import dictionary
+    import lexicon
+    import words
+    if ex.get("words") and words.has_readings(ex["words"]):
+        ex["furigana"] = words.exam_furigana(ex["words"], ex.get("level", ""), dictionary.kanji_info())
+
+    def lookup(word):   # the piece of the sentence (ordering), else the dictionary
+        found = words.reading_in(ex.get("words"), ex.get("full_sentence", ""), word)
+        if found:
+            return found
+        entry = lexicon.lookup(word) if lexicon.available() else None
+        return (entry or {}).get("reading") or tutor.reading(word)
+    if ex.get("choices") and ex.get("qtype") != "kanji_reading":
+        ex["choice_readings"] = words.choice_readings(ex["choices"], (ex.get("answers") or [""])[0],
+                                                      answer_reading(ex), lookup)
+
+
 def localize(items: list, language: str = None) -> list:
     """Exercises in the interface language: topic title, translation, hint and explanation.
     Exercises store French texts, plus English ones (*_en) when they have them."""
     language = language or lang()
     for ex in items:
         ex["topic_label"] = curriculum.title(ex.get("topic", ""), language)
+        if ex.get("qtype") and ex.get("choices"):
+            add_jlpt_readings(ex)
         if language != "en":
             continue
         key = ex.get("source_key") or (ex.get("source_url") and "tatoeba:" + ex["source_url"].rsplit("/", 1)[-1])

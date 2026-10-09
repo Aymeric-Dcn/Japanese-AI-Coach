@@ -321,24 +321,41 @@ $("exo-sentence").addEventListener("drop", e => {
 // ex.words = [[text, lemma], …] (words.py): the texts end to end give ex.full_sentence. A word with a lemma
 // opens the card. Only the parts of the sentence that are shown are linked (never the blank / the answer).
 
-function linkedText(ex, text, offset) {
+// opts.ruby: "all" = furigana on every word with kanji (hidden with « Hide the reading », except the ones a
+// JLPT question gives, ex.furigana), "exam" = only those, "none". opts.click = false: words not clickable.
+function linkedText(ex, text, offset, opts = {}) {
   const words = ex.words || [];
   if (!words.length || !text) return esc(text);
+  const ruby = opts.ruby || "none", given = new Set(ex.furigana || []);
   let pos = 0, out = "";
   const end = offset + text.length;
-  for (const [w, lemma] of words) {
+  words.forEach(([w, lemma, reading], i) => {
     const a = pos, b = pos + w.length;
     pos = b;
-    if (b <= offset || a >= end) continue;
+    if (b <= offset || a >= end) return;
+    const whole = a >= offset && b <= end;
     const piece = w.slice(Math.max(0, offset - a), w.length - Math.max(0, b - end));
-    out += lemma && a >= offset && b <= end
-      ? `<span class="w" data-w="${esc(lemma)}" data-s="${esc(w)}" role="button" tabindex="0">${esc(piece)}</span>`
-      : esc(piece);
-  }
+    let html = esc(piece);
+    if (whole && reading && (ruby === "all" || (ruby === "exam" && given.has(i))))
+      html = rubyHtml(w, reading, given.has(i) ? "rt-q" : "rt-x");
+    out += lemma && whole && opts.click !== false
+      ? `<span class="w" data-w="${esc(lemma)}" data-s="${esc(w)}" role="button" tabindex="0">${html}</span>` : html;
+  });
   return out;
 }
 
-function linkedQuestion(ex) {
+// 食べさせた + たべさせた → <ruby>食<rt>た</rt></ruby>べさせた: the kana around the kanji stay outside.
+function rubyHtml(text, reading, cls) {
+  let a = 0, b = 0;
+  const kana = c => /[ぁ-ゟ]/.test(c);
+  while (a < text.length - 1 && a < reading.length - 1 && kana(text[a]) && text[a] === reading[a]) a++;
+  while (b < text.length - a - 1 && b < reading.length - a - 1 && kana(text[text.length - 1 - b])
+         && text[text.length - 1 - b] === reading[reading.length - 1 - b]) b++;
+  const core = text.slice(a, text.length - b), rcore = reading.slice(a, reading.length - b);
+  return `${esc(text.slice(0, a))}<ruby>${esc(core)}<rt class="${cls}">${esc(rcore)}</rt></ruby>${esc(text.slice(text.length - b))}`;
+}
+
+function linkedQuestion(ex, opts = {ruby: "all"}) {
   // JLPT question: the start and end it shares with the full sentence are linked, the middle (blank,
   // 【word】 to read…) is not.
   const q = ex.question || "", full = ex.full_sentence || "";
@@ -346,8 +363,8 @@ function linkedQuestion(ex) {
   while (p < q.length && p < full.length && q[p] === full[p]) p++;
   let s = 0;
   while (s < q.length - p && s < full.length - p && q[q.length - 1 - s] === full[full.length - 1 - s]) s++;
-  return linkedText(ex, q.slice(0, p), 0) + questionHtml(q.slice(p, q.length - s)) +
-    linkedText(ex, q.slice(q.length - s), full.length - s);
+  return linkedText(ex, q.slice(0, p), 0, opts) + questionHtml(q.slice(p, q.length - s)) +
+    linkedText(ex, q.slice(q.length - s), full.length - s, opts);
 }
 
 function renderTranslation(ex) {
@@ -420,6 +437,12 @@ function questionHtml(q) {
 function choicesHtml(choices) {
   return choices.map((c, i) => `<button data-choice="${i}" lang="ja"><span class="n">${i + 1}</span>${esc(c)}</button>`).join("");
 }
+function showChoiceReadings(box, ex) {   // after answering: the kana of each choice
+  (ex.choice_readings || []).forEach((r, i) => {
+    const b = box.querySelectorAll("button")[i];
+    if (r && b && !b.querySelector(".ch-r")) b.insertAdjacentHTML("beforeend", `<span class="ch-r">${esc(r)}</span>`);
+  });
+}
 
 async function choose(i) {
   const ex = S.current;
@@ -428,6 +451,7 @@ async function choose(i) {
   const buttons = $("exo-mcq").querySelectorAll("button");
   buttons[ex.answer_index].classList.add("right");
   if (!ok) buttons[i].classList.add("wrong");
+  showChoiceReadings($("exo-mcq"), ex);
   ex._given = ex.choices[i];
   ex._attempts += 1;
   $("exo").classList.toggle("ok", ok);
@@ -478,7 +502,7 @@ function solutionHtml(ex, message) {
   const schedule = ex._retry ? null : ex._schedule;
   const others = ex.answers.length > 1 ? `<br>${t("accepted")}<span lang="ja">${ex.answers.map(esc).join(" / ")}</span>` : "";
   const tr = ex.translation && !(ex.show_translation && ex._trShown) ? `<br><span class="tr">${esc(ex.translation)}</span>` : "";
-  const full = ex.full_sentence ? `<div class="sentence-done" lang="ja">${linkedText(ex, ex.full_sentence, 0)}</div>` : "";
+  const full = ex.full_sentence ? `<div class="sentence-done" lang="ja">${linkedText(ex, ex.full_sentence, 0, {ruby: "all"})}</div>` : "";
   const expl = ex.explanation ? `<br>${esc(ex.explanation)}` : "";
   const src = ex.source_url ? `<br><a href="${esc(ex.source_url)}" target="_blank" rel="noopener">${esc(ex.source || "source")}</a>` : "";
   return `${message}${full}${others}${tr}${expl}${src}${nextReviewText(schedule)}`;
@@ -1213,7 +1237,7 @@ function showExamQuestion() {
   $("exam-section").innerHTML = `<span lang="ja">${esc(TYPE_SHORT[q.qtype] || q.topic)}</span>`;
   $("exam-count").textContent = t("exam_count", {i: E.pos + 1, n: E.items.length, k: E.picks.filter(p => p !== null).length});
   $("exam-fill").style.width = `${100 * E.pos / E.items.length}%`;
-  $("exam-question").innerHTML = questionHtml(q.question) + (q.show_translation && q.translation ? `<div class="tr">${esc(q.translation)}</div>` : "");
+  $("exam-question").innerHTML = linkedQuestion(q, {ruby: "exam", click: false}) + (q.show_translation && q.translation ? `<div class="tr">${esc(q.translation)}</div>` : "");
   $("exam-choices").innerHTML = choicesHtml(q.choices);
   if (E.picks[E.pos] !== null) $("exam-choices").querySelectorAll("button")[E.picks[E.pos]].classList.add("picked");
   $("btn-exam-prev").disabled = E.pos === 0;
@@ -1264,13 +1288,17 @@ async function finishExam() {
       <td class="num">${ok} / ${n} (${Math.round(100 * ok / n)} %)</td></tr>`).join("");
   const wrong = E.items.map((q, i) => ({q, pick: E.picks[i]})).filter(x => x.pick !== x.q.answer_index);
   $("exam-mistakes").innerHTML = wrong.length ? wrong.map(({q, pick}) => `<div class="mistake">
-      <div class="jp" lang="ja">${questionHtml(q.question)}</div>
-      <div>${t("your_answer")}<span lang="ja">${pick === null ? "—" : esc(q.choices[pick])}</span> ·
-        ${t("good_answer")}<strong lang="ja">${esc(q.answers[0])}</strong></div>
-      ${q.full_sentence ? `<div class="muted" lang="ja">${esc(q.full_sentence)}</div>` : ""}
+      <div class="jp" lang="ja">${linkedQuestion(q, {ruby: "exam", click: false})}</div>
+      <div>${t("your_answer")}<span lang="ja">${pick === null ? "—" : withReading(q, pick)}</span> ·
+        ${t("good_answer")}<strong lang="ja">${withReading(q, q.answer_index)}</strong></div>
+      ${q.full_sentence ? `<div class="sentence-done" lang="ja">${linkedText(q, q.full_sentence, 0, {ruby: "all"})}</div>` : ""}
       ${q.translation ? `<div class="tr">${esc(q.translation)}</div>` : ""}
       ${q.explanation ? `<div class="small">${esc(q.explanation).replace(/\n/g, "<br>")}</div>` : ""}
     </div>`).join("") : `<p>${t("no_mistake")}</p>`;
+}
+function withReading(q, i) {
+  const r = (q.choice_readings || [])[i];
+  return esc(q.choices[i]) + (r ? ` <span class="muted small">（${esc(r)}）</span>` : "");
 }
 $("btn-exam-back").addEventListener("click", () => {
   $("exam-result").hidden = true;

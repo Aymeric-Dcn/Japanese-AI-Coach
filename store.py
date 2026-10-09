@@ -153,6 +153,9 @@ def fill_missing(db, source_key: str, data: dict, fields: tuple) -> bool:
         return False
     current = json.loads(row[1])
     missing = {k: data[k] for k in fields if data.get(k) and not current.get(k)}
+    if "words" in fields and data.get("words") and current.get("words") \
+            and len(data["words"][0]) > len(current["words"][0]):
+        missing["words"] = data["words"]   # the same words, now with their readings
     if not missing:
         return False
     current.update(missing)

@@ -271,3 +271,10 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - Interface: the shown parts of the sentence are clickable (never the blank / the answer, never 【the word to read】 of a JLPT question; the common start and end of the question and the full sentence decide it). After the answer, the whole sentence is shown clickable in the feedback. The card: bottom sheet on phones, small panel bottom right on a computer; Escape / click outside closes it. Not in timed exams.
 - Translation hidden at first, « Voir la traduction » button; always given with the answer; « Toujours afficher la traduction » on the session screen. « Put in order » keeps it (the exercise is built on it).
 - Not testable here: Jisho is not reachable from this environment (checked with a cached sample of its answer format).
+
+## 2026-10-09 — Furigana in JLPT questions, kana of the choices
+
+- `words` items get a third field, the reading of the piece when it has kanji (older exercises are refreshed from `bank.db`; the shared bank completes them, `FILL_VERSION` 3; `store.fill_missing` replaces words without readings).
+- JLPT questions: furigana as in the real test on words with a kanji above the question's level or with none (`words.exam_furigana`, kanji levels from `resources/kanji_info.json`), in practice and in the timed exam (words not clickable there). In practice, the readings button now works on JLPT questions too: it adds / removes the reading of the other words; the tested part (blank, 【word】) never gets one.
+- Choices show their kana once answered (`choice_readings`: the answer and the pieces of 並べ替え from the sentence's words, conjugations of the same verb from the answer's stem, other words from the deck / lexicon). Exam corrections show both answers with their reading, and the full sentence clickable with furigana.
+- Furigana only over the kanji (食べさせた → 食 with た above), kana outside.

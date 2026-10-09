@@ -86,6 +86,10 @@ h3 { margin: 0 0 10px; font-size: 1.05rem; }
 .exo.ko .sentence input { border-color: var(--ko); }
 .reading { color: var(--muted); font-size: .95rem; }
 body.hide-readings .reading { visibility: hidden; }
+/* furigana of the sentence: rt-x hidden with the readings, rt-q (given by the JLPT question) always shown */
+.sentence ruby rt, .sentence-done ruby rt, .exam-q ruby rt { font-size: .5em; color: var(--muted); }
+body.hide-readings rt.rt-x { visibility: hidden; }
+.mcq button .ch-r { display: block; font-size: .72em; color: var(--muted); line-height: 1.2; }
 /* reading of the verb to conjugate, above it; hidden with the readings until the verb is tapped */
 ruby.cue rt { font-size: .55em; color: var(--muted); }
 body.hide-readings ruby.cue { cursor: pointer; border-bottom: 1px dotted var(--muted); }

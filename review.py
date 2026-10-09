@@ -144,7 +144,7 @@ def add_words(db) -> int:
     try:
         for row in db.execute("SELECT id, source_key, data FROM exercises").fetchall():
             ex = json.loads(row["data"])
-            if ex.get("words") or not ex.get("full_sentence"):
+            if words.has_readings(ex.get("words")) or not ex.get("full_sentence"):
                 continue
             found = words.from_bank(bank, row["source_key"])
             if not words.matches(found, ex["full_sentence"]):
