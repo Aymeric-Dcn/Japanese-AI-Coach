@@ -94,6 +94,16 @@ DNS → HTTPS Certificates).
 
 L'app elle-même n'écoute toujours que sur le Pi (127.0.0.1) : Tailscale est la seule porte d'entrée.
 
+## 5b. Mots, lectures et traductions de tes exercices
+
+Le Pi ne peut pas calculer lui-même les mots d'une phrase (mots cliquables, furigana) ni la traduction anglaise des anciens exercices : il n'a ni SudachiPy ni `bank.db`. Ton PC les lui envoie, en une commande (à refaire après chaque nouvelle génération) :
+
+```powershell
+python bank_sync.py send-texts --to https://raspberrypi.ton-tailnet.ts.net
+```
+
+Seul ce qui manque à un exercice est ajouté ; la progression n'est pas touchée. Les exercices de la banque partagée les reçoivent aussi par la banque.
+
 ## 6. Le prof (chat)
 
 Deux choix, tous les deux dans `data/settings.json` sur le Pi (ou via Progrès → L'application → Relancer

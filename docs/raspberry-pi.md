@@ -91,6 +91,16 @@ it (if Tailscale asks, enable HTTPS certificates in the admin console: DNS → H
 
 The app itself still listens only on the Pi (127.0.0.1): Tailscale is the only way in.
 
+## 5b. Words, readings and translations of your exercises
+
+The Pi cannot compute the words of a sentence (clickable words, furigana) or the older exercises' English translations itself: it has neither SudachiPy nor `bank.db`. Your PC sends them, in one command (also after each new generation):
+
+```powershell
+python bank_sync.py send-texts --to https://raspberrypi.your-tailnet.ts.net
+```
+
+Only what an exercise lacks is added; progress is not touched. Exercises of the shared bank also get them from the bank.
+
 ## 6. The teacher (chat)
 
 Two choices, both in `data/settings.json` on the Pi (or through Progress → The app → Run the welcome wizard again):

@@ -16,6 +16,7 @@ API (JSON):
     GET  /api/topics                   programme topics with their state (passed / current / locked)
     POST /api/topic_known              {title, known} « Je maîtrise déjà »
     POST /api/fill  |  GET /api/fill   top up the reserve in the background / follow its progress
+    POST /api/complete                 words / readings / translations sent by bank_sync.py send-texts
     GET  /api/word?w=食べる             word card: Jisho (cached) + kanji + your deck
     GET|POST /api/settings             automatic Anki sync / reserve filling at startup
 At startup (unless --no-maintenance): Anki sync once a day, then the reserve is topped up when Ollama answers.
@@ -176,6 +177,15 @@ class Handler(BaseHTTPRequestHandler):
         url = urllib.parse.urlparse(self.path)
         try:
             data = self.read_json()
+            if url.path == "/api/complete":   # texts computed on another computer (bank_sync.py send-texts)
+                import bank_sync
+                db = store.connect(DB_PATH)
+                try:
+                    done = sum(store.fill_missing(db, item.get("key", ""), item.get("data") or {}, bank_sync.FILLED_FIELDS)
+                               for item in (data.get("items") or [])[:500])
+                finally:
+                    db.close()
+                return self.send_json({"completed": done})
             if url.path == "/api/answer":
                 db = store.connect(DB_PATH)
                 try:

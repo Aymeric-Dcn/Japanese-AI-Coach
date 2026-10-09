@@ -307,6 +307,31 @@ def write_stats(repo: Path, manifest: dict) -> None:
     (Path(repo) / "STATS.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def send_texts(db, url: str, log=print) -> int:
+    """Sends the texts computed on this computer (words, readings, translations: FILLED_FIELDS) to another
+    copy of the app, e.g. a Raspberry Pi that has no SudachiPy / bank.db: its exercises with the same key get
+    what they lack. Nothing else changes there (no progress, no new exercise)."""
+    import review
+    review.add_translations(db)
+    review.add_cue_readings(db)
+    review.add_words(db)
+    items = []
+    for row in db.execute("SELECT source_key, data FROM exercises WHERE source_key IS NOT NULL"):
+        data = json.loads(row["data"])
+        texts = {k: data[k] for k in FILLED_FIELDS if data.get(k)}
+        if texts:
+            items.append({"key": row["source_key"], "data": texts})
+    done = 0
+    for i in range(0, len(items), 200):
+        body = json.dumps({"items": items[i:i + 200]}, ensure_ascii=False).encode("utf-8")
+        request = urllib.request.Request(url.rstrip("/") + "/api/complete", data=body, method="POST",
+                                         headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=60) as r:
+            done += json.loads(r.read().decode("utf-8")).get("completed", 0)
+    log(f"✓ {len(items)} exercise(s) sent, {done} completed on {url}.")
+    return done
+
+
 def main() -> None:
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -327,6 +352,8 @@ def main() -> None:
     for name in ("import-inbox", "publish"):
         x = sub.add_parser(name)
         x.add_argument("--repo", required=True, help="local clone of the bank repository")
+    st = sub.add_parser("send-texts", help="send words / readings / translations to another copy of the app (Raspberry Pi)")
+    st.add_argument("--to", required=True, help="its address, e.g. https://raspberrypi.your-tailnet.ts.net")
     p.add_argument("--db", default=None)
     args = p.parse_args()
     db = store.connect(args.db)
@@ -341,6 +368,8 @@ def main() -> None:
         print(f"✓ {import_inbox(db, Path(args.repo))} exercise(s) to review. Then: python review.py export --unreviewed")
     elif args.command == "publish":
         publish(db, Path(args.repo))
+    elif args.command == "send-texts":
+        send_texts(db, args.to)
 
 
 if __name__ == "__main__":

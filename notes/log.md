@@ -287,3 +287,7 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 ## 2026-10-09 — Version 0.3.0
 
 - `updater.VERSION` = 0.3.0 for the release with the phone / Raspberry Pi version, word cards and furigana.
+
+## 2026-10-09 — Send the computed texts to the Raspberry Pi
+
+- The Pi's exercises (copied from the PC before) had no words / readings, and the bank only completes the ones it holds. `python bank_sync.py send-texts --to <address of the other app>` fills them in on the PC (from bank.db) and posts them to `POST /api/complete`, which adds to each exercise with the same key only what it lacks (`store.fill_missing`). Tested: 460 sent, 460 completed, 0 the second time.
