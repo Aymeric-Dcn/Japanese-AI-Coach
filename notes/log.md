@@ -278,3 +278,8 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - JLPT questions: furigana as in the real test on words with a kanji above the question's level or with none (`words.exam_furigana`, kanji levels from `resources/kanji_info.json`), in practice and in the timed exam (words not clickable there). In practice, the readings button now works on JLPT questions too: it adds / removes the reading of the other words; the tested part (blank, 【word】) never gets one.
 - Choices show their kana once answered (`choice_readings`: the answer and the pieces of 並べ替え from the sentence's words, conjugations of the same verb from the answer's stem, other words from the deck / lexicon). Exam corrections show both answers with their reading, and the full sentence clickable with furigana.
 - Furigana only over the kanji (食べさせた → 食 with た above), kana outside.
+
+## 2026-10-09 — Furigana in every exercise, readings hidden by default
+
+- Fill-in exercises show furigana above the kanji (from `words`) instead of the line with the whole sentence in kana; the kana line stays only for exercises whose words have no readings yet. Numbers get none (13歳 → « いちさんさい » from the analyzer).
+- Readings are hidden by default everywhere (new preference key `readingsShown`, so everyone starts hidden); « Afficher la lecture » shows them and is remembered. JLPT: the readings the real test gives stay visible.

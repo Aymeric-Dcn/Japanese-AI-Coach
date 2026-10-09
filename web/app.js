@@ -222,12 +222,15 @@ function showExercise() {
     const [before, after] = ex.sentence.split(BLANK);
     const width = Math.max(4, (ex.answers[0] || "").length + 2);
     const full = ex.full_sentence || "";
-    const linkBefore = full.startsWith(before) ? linkedText(ex, before, 0) : esc(before);
-    const linkAfter = after && full.endsWith(after) ? linkedText(ex, after, full.length - after.length) : esc(after ?? "");
+    const opts = {ruby: "all"};
+    const linkBefore = full.startsWith(before) ? linkedText(ex, before, 0, opts) : esc(before);
+    const linkAfter = after && full.endsWith(after) ? linkedText(ex, after, full.length - after.length, opts) : esc(after ?? "");
     $("exo-sentence").innerHTML = `${linkBefore}<input id="answer" lang="ja" autocomplete="off" spellcheck="false"
       aria-label="${t("answer_label")}" style="width:${width}em">${linkAfter}`;
   }
-  $("exo-reading").textContent = ex.tiles ? "" : (ex.reading || "");   // the reading would give the order away
+  // the kana line only for exercises without furigana (no words stored); never for « put in order »
+  const furigana = (ex.words || []).length > 0 && ex.words.every(w => w.length > 2);
+  $("exo-reading").textContent = ex.tiles || furigana ? "" : (ex.reading || "");
   $("exo-sentence").title = ex.words && !ex.tiles ? t("words_tip") : "";
   ex._trShown = !!ex.tiles || store("showTranslation") === "1";
   renderTranslation(ex);
@@ -336,7 +339,7 @@ function linkedText(ex, text, offset, opts = {}) {
     const whole = a >= offset && b <= end;
     const piece = w.slice(Math.max(0, offset - a), w.length - Math.max(0, b - end));
     let html = esc(piece);
-    if (whole && reading && (ruby === "all" || (ruby === "exam" && given.has(i))))
+    if (whole && reading && !/[0-9０-９]/.test(w) && (ruby === "all" || (ruby === "exam" && given.has(i))))
       html = rubyHtml(w, reading, given.has(i) ? "rt-q" : "rt-x");
     out += lemma && whole && opts.click !== false
       ? `<span class="w" data-w="${esc(lemma)}" data-s="${esc(w)}" role="button" tabindex="0">${html}</span>` : html;
@@ -659,19 +662,22 @@ $("btn-undo").addEventListener("click", undo);
 $("btn-unsure").addEventListener("click", unsure);
 $("btn-suspend").addEventListener("click", () => dropCurrent("suspend"));
 $("btn-report").addEventListener("click", () => dropCurrent("report"));
-$("btn-readings").addEventListener("click", e => {
-  const hidden = document.body.classList.toggle("hide-readings");
-  e.target.textContent = hidden ? t("show_reading") : t("hide_reading");
-  store("hideReadings", hidden ? "1" : "0");
+// Readings (furigana, kana line) are hidden until asked: try to read first. The choice is remembered.
+function setReadings(shown) {
+  document.body.classList.toggle("hide-readings", !shown);
+  $("btn-readings").dataset.i18n = shown ? "hide_reading" : "show_reading";
+  $("btn-readings").textContent = t(shown ? "hide_reading" : "show_reading");
+}
+$("btn-readings").addEventListener("click", () => {
+  const shown = document.body.classList.contains("hide-readings");
+  setReadings(shown);
+  store("readingsShown", shown ? "1" : "0");
 });
 $("hard-mode").checked = store("hardMode") === "1";
 $("hard-mode").addEventListener("change", e => store("hardMode", e.target.checked ? "1" : "0"));
 $("always-translation").checked = store("showTranslation") === "1";
 $("always-translation").addEventListener("change", e => store("showTranslation", e.target.checked ? "1" : "0"));
-if (store("hideReadings") === "1") {
-  document.body.classList.add("hide-readings");
-  $("btn-readings").textContent = t("show_reading");
-}
+setReadings(store("readingsShown") === "1");
 $("btn-ask").addEventListener("click", () => {
   const ex = S.current;
   if (C.mode !== "prof") setChatMode("prof");

@@ -52,8 +52,8 @@ def segment(tokens: list) -> list:
         else:
             merged.append([text, lemma, reading])
     for m in merged:
-        if not KANJI.search(m[0]) or m[2] == m[0]:
-            m[2] = ""
+        if not KANJI.search(m[0]) or m[2] == m[0] or re.search(r"[0-9０-９]", m[0]):
+            m[2] = ""   # no kanji, or a number (13歳 is read « いちさんさい » by the analyzer)
     return merged
 
 
