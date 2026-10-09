@@ -19,7 +19,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-VERSION = "0.2.1"   # must match the release tag (v0.2.0) when building the .exe
+VERSION = "0.3.0"   # must match the release tag (v0.2.0) when building the .exe
 REPO = "Aymeric-Dcn/Japanese-AI-Coach"
 API_URL = os.environ.get("JAPANESE_COACH_UPDATE_URL") or f"https://api.github.com/repos/{REPO}/releases/latest"
 ASSET = "JapaneseCoach.exe"

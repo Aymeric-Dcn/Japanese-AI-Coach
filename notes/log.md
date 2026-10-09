@@ -283,3 +283,7 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 
 - Fill-in exercises show furigana above the kanji (from `words`) instead of the line with the whole sentence in kana; the kana line stays only for exercises whose words have no readings yet. Numbers get none (13歳 → « いちさんさい » from the analyzer).
 - Readings are hidden by default everywhere (new preference key `readingsShown`, so everyone starts hidden); « Afficher la lecture » shows them and is remembered. JLPT: the readings the real test gives stay visible.
+
+## 2026-10-09 — Version 0.3.0
+
+- `updater.VERSION` = 0.3.0 for the release with the phone / Raspberry Pi version, word cards and furigana.
