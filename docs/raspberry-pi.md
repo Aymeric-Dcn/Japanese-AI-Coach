@@ -41,6 +41,7 @@ With Python 3.7 or older (Raspberry Pi OS « Buster »), flash a recent **Raspbe
 sudo apt install -y git
 git clone https://github.com/Aymeric-Dcn/Japanese-AI-Coach.git
 cd Japanese-AI-Coach
+mkdir -p data          # your data is not in git: this folder receives it in the next step
 ```
 
 ## 3. Bring your progress from the PC

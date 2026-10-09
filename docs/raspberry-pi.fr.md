@@ -42,6 +42,7 @@ Avec Python 3.7 ou plus ancien (Raspberry Pi OS « Buster »), installe d'abord 
 sudo apt install -y git
 git clone https://github.com/Aymeric-Dcn/Japanese-AI-Coach.git
 cd Japanese-AI-Coach
+mkdir -p data          # tes données ne sont pas dans git : ce dossier les reçoit à l'étape suivante
 ```
 
 ## 3. Ramener ta progression depuis le PC
