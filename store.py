@@ -145,7 +145,7 @@ def add_exercise(db, topic: str, kind: str, data: dict, source_key: str = None) 
     return cur.rowcount == 1
 
 
-def fill_missing(db, source_key: str, data: dict, fields: tuple) -> bool:
+def fill_missing(db, source_key: str, data: dict, fields: tuple, commit: bool = True) -> bool:
     """Adds to an exercise already in the reserve the given fields it does not have yet (an English
     translation added to the shared bank later, for example). Never overwrites anything."""
     row = db.execute("SELECT id, data FROM exercises WHERE source_key = ?", (source_key,)).fetchone()
@@ -160,7 +160,8 @@ def fill_missing(db, source_key: str, data: dict, fields: tuple) -> bool:
         return False
     current.update(missing)
     db.execute("UPDATE exercises SET data = ? WHERE id = ?", (json.dumps(current, ensure_ascii=False), row[0]))
-    db.commit()
+    if commit:   # many at once: the caller commits once (an SD card is slow to write)
+        db.commit()
     return True
 
 

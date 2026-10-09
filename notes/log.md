@@ -291,3 +291,8 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 ## 2026-10-09 — Send the computed texts to the Raspberry Pi
 
 - The Pi's exercises (copied from the PC before) had no words / readings, and the bank only completes the ones it holds. `python bank_sync.py send-texts --to <address of the other app>` fills them in on the PC (from bank.db) and posts them to `POST /api/complete`, which adds to each exercise with the same key only what it lacks (`store.fill_missing`). Tested: 460 sent, 460 completed, 0 the second time.
+
+## 2026-10-09 — Lighter on a Raspberry Pi
+
+- Completing exercises (bank pull, `/api/complete`) commits once instead of once per exercise: an SD card is slow to write.
+- A phone closing the page during an answer no longer prints a BrokenPipe traceback in the journal (`Server.handle_error`); request threads are daemons.

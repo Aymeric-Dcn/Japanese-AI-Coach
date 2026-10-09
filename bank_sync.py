@@ -132,9 +132,10 @@ def pull(db, source: str = DEFAULT_URL, token: str = "", log=print) -> int:
             if store.add_exercise(db, item["topic"], item["kind"], data, item["key"]):
                 added += 1
             else:
-                completed += store.fill_missing(db, item["key"], data, FILLED_FIELDS)
+                completed += store.fill_missing(db, item["key"], data, FILLED_FIELDS, commit=False)
         if not skipped:   # otherwise read again after an update of the app
             state["files"][path] = digest
+    db.commit()
     retired = 0
     try:
         rejected = [json.loads(l) for l in fetch(source, "rejected.jsonl", token).splitlines() if l.strip()]

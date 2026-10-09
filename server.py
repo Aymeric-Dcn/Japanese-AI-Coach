@@ -59,6 +59,16 @@ MODEL = llm.DEFAULT_MODEL
 DB_PATH = None  # None = store.DB_PATH (data/coach.db)
 
 
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        """A phone that closes the page during an answer (BrokenPipe): nothing to report."""
+        if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError, TimeoutError)):
+            return
+        super().handle_error(request, client_address)
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "JapaneseCoach/1.0"
 
@@ -181,8 +191,9 @@ class Handler(BaseHTTPRequestHandler):
                 import bank_sync
                 db = store.connect(DB_PATH)
                 try:
-                    done = sum(store.fill_missing(db, item.get("key", ""), item.get("data") or {}, bank_sync.FILLED_FIELDS)
-                               for item in (data.get("items") or [])[:500])
+                    done = sum(store.fill_missing(db, item.get("key", ""), item.get("data") or {}, bank_sync.FILLED_FIELDS,
+                                                  commit=False) for item in (data.get("items") or [])[:500])
+                    db.commit()
                 finally:
                     db.close()
                 return self.send_json({"completed": done})
@@ -856,7 +867,7 @@ def main() -> None:
     if PACKAGED:
         args.open = args.window = True
     try:
-        server = ThreadingHTTPServer((args.host, args.port), Handler)
+        server = Server((args.host, args.port), Handler)
     except OSError:   # already running (second double-click): just open it
         print(f"Port {args.port} already in use: opening {url}")
         open_interface(url, args.window)
