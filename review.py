@@ -88,10 +88,14 @@ def restore_noni_node(db, log=print) -> int:
 def revalidate(db, log=print) -> dict:
     """Re-checks the reserve with the current rules: removes what would no longer be generated
     (ambiguous particles, JLPT questions of an older generator…) and fixes the accepted answers."""
+    restore_noni_node(db, log)
+    if not BANK_PATH.exists():
+        # a server without the Tatoeba bank (Raspberry Pi): it could not re-check the particles anyway, and
+        # loading the whole lexicon takes minutes on a small board. The PC does it; the bank passes it on.
+        return {"retired": 0, "updated": 0, "translated": 0}
     import jlpt_questions
     import lexicon
-    restore_noni_node(db, log)
-    bank = sqlite3.connect(BANK_PATH) if BANK_PATH.exists() else None
+    bank = sqlite3.connect(BANK_PATH)
     seen = {r[0] for r in db.execute("SELECT exercise_id FROM schedule")}
     retired, updated = 0, 0
     try:

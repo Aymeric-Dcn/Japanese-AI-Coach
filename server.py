@@ -400,8 +400,7 @@ def add_jlpt_readings(ex: dict) -> None:
         found = words.reading_in(ex.get("words"), ex.get("full_sentence", ""), word)
         if found:
             return found
-        entry = lexicon.lookup(word) if lexicon.available() else None
-        return (entry or {}).get("reading") or tutor.reading(word)
+        return (lexicon.quick(word) or {}).get("reading") or tutor.reading(word)
     if ex.get("choices") and ex.get("qtype") != "kanji_reading":
         ex["choice_readings"] = words.choice_readings(ex["choices"], (ex.get("answers") or [""])[0],
                                                       answer_reading(ex), lookup)

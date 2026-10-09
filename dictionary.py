@@ -147,7 +147,7 @@ def kanji_card(k: str) -> dict:
 
 def lookup(word: str, online: bool = True) -> dict:
     word = (word or "").strip()[:40]
-    deck = lexicon.lookup(word) if lexicon.available() else None
+    deck = lexicon.quick(word)
     card = {"word": word, "reading": "", "common": False, "jlpt": "", "senses": [], "forms": [],
             "deck": None, "kanji": [], "jisho_url": JISHO_PAGE + urllib.parse.quote(word), "online": False}
     entries = jisho(word) if online and word else None

@@ -82,6 +82,25 @@ def _build_index(mtime: float) -> dict:
     return index
 
 
+def quick(word: str) -> dict:
+    """One word, straight from the database (no index of every form in memory): for the word card and the
+    kana of JLPT choices, light enough for a Raspberry Pi. {"reading", "meaning", "level", "known"} or None."""
+    if not LEXICON_PATH.exists() or not word:
+        return None
+    db = sqlite3.connect(LEXICON_PATH)
+    try:
+        rows = db.execute("SELECT reading, meaning, level, known, source FROM words WHERE word = ? "
+                          "ORDER BY CASE source WHEN 'anki' THEN 0 ELSE 1 END", (word,)).fetchall()
+    finally:
+        db.close()
+    if not rows:
+        return None
+    reading, meaning, lvl, known, _ = rows[0]
+    levels = [r[2] for r in rows if r[2] in LEVELS]
+    return {"word": word, "reading": reading or "", "meaning": short_meaning(meaning or ""),
+            "level": lvl or (min(levels, key=LEVELS.index) if levels else ""), "known": any(r[3] for r in rows)}
+
+
 def lookup(form: str) -> dict:
     return _index().get(form)
 
