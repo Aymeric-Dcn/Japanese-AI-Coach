@@ -16,6 +16,7 @@ API (JSON):
     GET  /api/topics                   programme topics with their state (passed / current / locked)
     POST /api/topic_known              {title, known} « Je maîtrise déjà »
     POST /api/fill  |  GET /api/fill   top up the reserve in the background / follow its progress
+    GET  /api/word?w=食べる             word card: Jisho (cached) + kanji + your deck
     GET|POST /api/settings             automatic Anki sync / reserve filling at startup
 At startup (unless --no-maintenance): Anki sync once a day, then the reserve is topped up when Ollama answers.
     POST /api/answer                   {id, correct, answer} → next review date
@@ -115,6 +116,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_file(WEB_DIR / name)
             if url.path == "/api/status":
                 return self.send_json(status())
+            if url.path == "/api/word":   # the word card (click on a word of a sentence)
+                import dictionary
+                return self.send_json(dictionary.lookup(query.get("w", "")))
             if url.path == "/api/fill":
                 return self.send_json(fill_status())
             if url.path == "/api/settings":

@@ -28,6 +28,7 @@ from pathlib import Path
 import conjugate
 import lexicon
 import llm
+import words
 import make_exercises as mx
 import store
 from sheet import BLANK, normalize
@@ -751,6 +752,7 @@ def generate(level: str, qtype: str, count: int, model: str = llm.DEFAULT_MODEL,
         q = BUILDERS[qtype](id_, jp, fr, tokens, level, rng)
         if q:
             q["translation_en"] = en or ""
+            q["words"] = words.segment(tokens)
         if not q or q["key"] in skip_keys or q["answers"][0] in used:
             continue
         if qtype in NEEDS_LLM:

@@ -33,6 +33,7 @@ from pathlib import Path
 
 import curriculum
 import store
+import words
 
 STATE_PATH = Path("data") / "bank_sync.json"
 # Kinds of exercise this version of the app can show. The bank may hold newer ones: they are skipped.
@@ -98,8 +99,8 @@ def fetch(source: str, path: str, token: str = "") -> str:
 
 
 # Texts an exercise already in the reserve can receive from the bank later (never overwritten).
-FILLED_FIELDS = ("translation", "translation_en", "hint_en", "explanation_en", "cue_reading")
-FILL_VERSION = 1   # raise it to read every bank file again once (after adding a field above)
+FILLED_FIELDS = ("translation", "translation_en", "hint_en", "explanation_en", "cue_reading", "words")
+FILL_VERSION = 2   # raise it to read every bank file again once (after adding a field above)
 
 
 def pull(db, source: str = DEFAULT_URL, token: str = "", log=print) -> int:
@@ -223,7 +224,7 @@ def import_inbox(db, repo: Path, log=print) -> int:
 
 
 def add_translations(by_file: dict) -> None:
-    """Fills the missing French / English translation of each sentence from the Tatoeba bank."""
+    """Fills the missing French / English translation and words of each sentence from the Tatoeba bank."""
     bank_path = Path("data") / "bank.db"
     if not bank_path.exists():
         return
@@ -234,6 +235,10 @@ def add_translations(by_file: dict) -> None:
             for item in items.values():
                 parts = item["key"].split(":")
                 data = item["data"]
+                if parts[0] == "tatoeba" and not data.get("words") and data.get("full_sentence"):
+                    found = words.from_bank(bank, item["key"])
+                    if words.matches(found, data["full_sentence"]):
+                        data["words"] = found
                 if parts[0] != "tatoeba" or (data.get("translation") and data.get("translation_en")):
                     continue
                 row = bank.execute("SELECT fr, en FROM sentences WHERE id = ?", (parts[1],)).fetchone()

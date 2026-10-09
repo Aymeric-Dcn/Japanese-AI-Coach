@@ -16,6 +16,7 @@ them, 昨日 belongs to 買った and would change meaning if moved.
 """
 
 import json
+import words
 import random
 import re
 import sqlite3
@@ -173,6 +174,7 @@ def build(id_: int, jp: str, fr: str, en: str, tokens: list) -> dict:
         "source": f"Tatoeba #{id_}",
         "source_url": f"https://tatoeba.org/fr/sentences/show/{id_}",
         "new_words": [],
+        "words": words.segment(tokens),
         "key": f"tatoeba:{id_}:order:{len(tiles)}",
     }
 

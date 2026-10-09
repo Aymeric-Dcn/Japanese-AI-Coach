@@ -142,6 +142,7 @@
         </label>
       </div>
       <label class="check"><input type="checkbox" id="hard-mode"> <span data-i18n="hard_mode">Mode difficile : ne pas afficher les réponses possibles</span></label>
+      <label class="check"><input type="checkbox" id="always-translation"> <span data-i18n="always_translation">Toujours afficher la traduction (sinon : essaie d'abord de comprendre la phrase)</span></label>
       <button class="primary big" id="btn-start" data-i18n="start">Commencer</button>
     </div>
 
@@ -411,5 +412,6 @@
 <div class="toast" id="toast" hidden></div>
 <script src="/static/i18n.js"></script>
 <script src="/static/app.js"></script>
+<aside class="word-card" id="word-card" hidden aria-live="polite"></aside>
 </body>
 </html>

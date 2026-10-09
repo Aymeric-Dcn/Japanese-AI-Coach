@@ -39,6 +39,7 @@ def main() -> None:
     icon = ROOT / "docs" / "icon.ico"
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile", "--noconsole",
            "--name", "JapaneseCoach", "--add-data", f"{ROOT / 'web'}{os.pathsep}web",
+           "--add-data", f"{ROOT / 'resources'}{os.pathsep}resources",
            "--exclude-module", "sudachipy", "--exclude-module", "sudachidict_core",
            "--exclude-module", "tkinter", "--exclude-module", "unittest"]
     if icon.exists():

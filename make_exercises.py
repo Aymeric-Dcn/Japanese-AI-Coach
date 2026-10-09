@@ -38,6 +38,7 @@ import clauses
 import conjugate
 import curriculum
 import llm
+import words
 from sheet import BLANK, normalize, save_sheet, split_list
 
 BANK_PATH = Path("data") / "bank.db"
@@ -388,6 +389,7 @@ def build_exercise(id_: int, jp: str, fr: str, en: str, tokens: list, span: tupl
         "source": f"Tatoeba #{id_}",
         "source_url": f"https://tatoeba.org/fr/sentences/show/{id_}",
         "new_words": [],
+        "words": words.segment(tokens),
     }
 
 

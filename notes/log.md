@@ -263,3 +263,11 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 
 - The verb to conjugate shows its reading above it (furigana: 手伝う with てつだう) instead of in brackets after it. With « Masquer la lecture », the reading is hidden too, and a tap / click on the verb shows it for this exercise: you can try without it and still not get stuck.
 - Many exercises had an empty reading (made where SudachiPy could not read the verb) and the app never filled it again. The reserve check (`review.add_cue_readings`) now stores the reading of every kanji verb that lacks one, the server tries again for empty ones, and the shared bank can complete it (`cue_reading` added to the completed fields). `tutor.reading` stops retrying when SudachiPy is missing (Raspberry Pi).
+
+## 2026-10-09 — Word cards (click a word) and translation hidden first
+
+- `words.py`: the sentence split into words from the SudachiPy tokens, verbs / adjectives kept with their endings (食べさせられた → 食べる); particles, punctuation, katakana names and numbers are not looked up. Stored in every new exercise (`words`), added to older ones from `bank.db` (`review.add_words`), put in the shared bank at publish and completed from it (`FILL_VERSION` 2): the Raspberry Pi has them without SudachiPy.
+- `dictionary.py` + `GET /api/word?w=`: the card. Jisho's search API through the server (cached in `data/dictionary.db`, 5 min pause after a failure), the deck (lexicon.db, known.json, kanji.json), and `resources/kanji_info.json` (3,122 kanji from KANJIDIC2 through kanji-data: strokes, grade, JLPT, meanings, on / kun; 300 KB, in the `.exe` too).
+- Interface: the shown parts of the sentence are clickable (never the blank / the answer, never 【the word to read】 of a JLPT question; the common start and end of the question and the full sentence decide it). After the answer, the whole sentence is shown clickable in the feedback. The card: bottom sheet on phones, small panel bottom right on a computer; Escape / click outside closes it. Not in timed exams.
+- Translation hidden at first, « Voir la traduction » button; always given with the answer; « Toujours afficher la traduction » on the session screen. « Put in order » keeps it (the exercise is built on it).
+- Not testable here: Jisho is not reachable from this environment (checked with a cached sample of its answer format).

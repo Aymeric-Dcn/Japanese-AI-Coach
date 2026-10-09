@@ -124,13 +124,38 @@ def revalidate(db, log=print) -> dict:
     finally:
         if bank:
             bank.close()
-    translated = add_translations(db) + add_cue_readings(db)
+    translated = add_translations(db) + add_cue_readings(db) + add_words(db)
     if retired or updated or translated:
-        log(f"Reserve check: {retired} exercise(s) retired, {updated} fixed, {translated} translation(s) added.")
+        log(f"Reserve check: {retired} exercise(s) retired, {updated} fixed, {translated} text(s) added (translations, readings, words).")
     return {"retired": retired, "updated": updated, "translated": translated}
 
 
 KANJI = re.compile(r"[一-鿿々]")
+
+
+def add_words(db) -> int:
+    """Stores the sentence split into words (« words », see words.py) in exercises made before it was
+    kept, from the Tatoeba bank: the words of the sentence can then be clicked on any app."""
+    import words
+    if not BANK_PATH.exists():
+        return 0
+    bank = sqlite3.connect(BANK_PATH)
+    done = 0
+    try:
+        for row in db.execute("SELECT id, source_key, data FROM exercises").fetchall():
+            ex = json.loads(row["data"])
+            if ex.get("words") or not ex.get("full_sentence"):
+                continue
+            found = words.from_bank(bank, row["source_key"])
+            if not words.matches(found, ex["full_sentence"]):
+                continue
+            ex["words"] = found
+            db.execute("UPDATE exercises SET data = ? WHERE id = ?", (json.dumps(ex, ensure_ascii=False), row["id"]))
+            done += 1
+        db.commit()
+    finally:
+        bank.close()
+    return done
 
 
 def add_cue_readings(db) -> int:

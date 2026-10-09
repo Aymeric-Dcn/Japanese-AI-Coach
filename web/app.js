@@ -216,16 +216,21 @@ function showExercise() {
     renderTiles();
   } else if (ex.choices) {  // multiple choice (JLPT questions)
     $("exo-choices").innerHTML = "";
-    $("exo-sentence").innerHTML = questionHtml(ex.question);
+    $("exo-sentence").innerHTML = linkedQuestion(ex);
     $("exo-mcq").innerHTML = choicesHtml(ex.choices);
   } else {
     const [before, after] = ex.sentence.split(BLANK);
     const width = Math.max(4, (ex.answers[0] || "").length + 2);
-    $("exo-sentence").innerHTML = `${esc(before)}<input id="answer" lang="ja" autocomplete="off" spellcheck="false"
-      aria-label="${t("answer_label")}" style="width:${width}em">${esc(after ?? "")}`;
+    const full = ex.full_sentence || "";
+    const linkBefore = full.startsWith(before) ? linkedText(ex, before, 0) : esc(before);
+    const linkAfter = after && full.endsWith(after) ? linkedText(ex, after, full.length - after.length) : esc(after ?? "");
+    $("exo-sentence").innerHTML = `${linkBefore}<input id="answer" lang="ja" autocomplete="off" spellcheck="false"
+      aria-label="${t("answer_label")}" style="width:${width}em">${linkAfter}`;
   }
   $("exo-reading").textContent = ex.tiles ? "" : (ex.reading || "");   // the reading would give the order away
-  $("exo-translation").textContent = ex.show_translation ? (ex.translation || "") : "";
+  $("exo-sentence").title = ex.words && !ex.tiles ? t("words_tip") : "";
+  ex._trShown = !!ex.tiles || store("showTranslation") === "1";
+  renderTranslation(ex);
   $("exo-new").innerHTML = (ex.new_words || []).length ? `${t("new_words")}<span lang="ja">${ex.new_words.map(esc).join("、")}</span>` : "";
 
   $("exo-hint").hidden = true;
@@ -312,6 +317,103 @@ $("exo-sentence").addEventListener("drop", e => {
 });
 
 // A JLPT question: 【word】 is underlined, the rest is plain text.
+// ---------------- clickable words and the word card ----------------
+// ex.words = [[text, lemma], …] (words.py): the texts end to end give ex.full_sentence. A word with a lemma
+// opens the card. Only the parts of the sentence that are shown are linked (never the blank / the answer).
+
+function linkedText(ex, text, offset) {
+  const words = ex.words || [];
+  if (!words.length || !text) return esc(text);
+  let pos = 0, out = "";
+  const end = offset + text.length;
+  for (const [w, lemma] of words) {
+    const a = pos, b = pos + w.length;
+    pos = b;
+    if (b <= offset || a >= end) continue;
+    const piece = w.slice(Math.max(0, offset - a), w.length - Math.max(0, b - end));
+    out += lemma && a >= offset && b <= end
+      ? `<span class="w" data-w="${esc(lemma)}" data-s="${esc(w)}" role="button" tabindex="0">${esc(piece)}</span>`
+      : esc(piece);
+  }
+  return out;
+}
+
+function linkedQuestion(ex) {
+  // JLPT question: the start and end it shares with the full sentence are linked, the middle (blank,
+  // 【word】 to read…) is not.
+  const q = ex.question || "", full = ex.full_sentence || "";
+  let p = 0;
+  while (p < q.length && p < full.length && q[p] === full[p]) p++;
+  let s = 0;
+  while (s < q.length - p && s < full.length - p && q[q.length - 1 - s] === full[full.length - 1 - s]) s++;
+  return linkedText(ex, q.slice(0, p), 0) + questionHtml(q.slice(p, q.length - s)) +
+    linkedText(ex, q.slice(q.length - s), full.length - s);
+}
+
+function renderTranslation(ex) {
+  const box = $("exo-translation");
+  if (!ex.show_translation || !ex.translation) { box.innerHTML = ""; return; }
+  box.innerHTML = ex._trShown ? esc(ex.translation)
+    : `<button class="ghost small" id="btn-translation">${t("show_translation_btn")}</button>`;
+}
+$("exo-translation").addEventListener("click", e => {
+  if (!e.target.closest("#btn-translation") || !S.current) return;
+  S.current._trShown = true;
+  renderTranslation(S.current);
+});
+
+const WC = {cache: {}};
+async function openWord(lemma, surface) {
+  const card = $("word-card");
+  card.hidden = false;
+  card.innerHTML = `<div class="wc-head"><span class="wc-word" lang="ja">${esc(lemma)}</span>
+    <button class="ghost wc-close" aria-label="${t("wc_close")}">✕</button></div><p class="muted">${t("wc_loading")}</p>`;
+  try {
+    const data = WC.cache[lemma] || (WC.cache[lemma] = await api("/api/word?w=" + encodeURIComponent(lemma)));
+    if ($("word-card").hidden) return;
+    card.innerHTML = wordCardHtml(data, surface);
+  } catch (e) {
+    card.innerHTML += `<p class="muted">${esc(e.message)}</p>`;
+  }
+}
+function wordCardHtml(d, surface) {
+  const badges = [];
+  if (d.common) badges.push(`<span class="badge ok">${t("wc_common")}</span>`);
+  if (d.jlpt) badges.push(`<span class="badge">JLPT ${esc(d.jlpt)}</span>`);
+  if (d.deck) badges.push(`<span class="badge ${d.deck.known ? "ok" : ""}">${t(d.deck.known ? "wc_deck_known" : "wc_deck_new")}</span>`);
+  else badges.push(`<span class="badge">${t("wc_not_deck")}</span>`);
+  const head = d.reading && d.reading !== d.word ? `<ruby>${esc(d.word)}<rt>${esc(d.reading)}</rt></ruby>` : esc(d.word);
+  const form = surface && surface !== d.word ? `<div class="muted small" lang="ja">${esc(surface)} → ${esc(d.word)}</div>` : "";
+  const senses = d.senses.length
+    ? `<ol class="wc-senses">${d.senses.map(s => `<li>${s.pos ? `<span class="wc-pos">${esc(s.pos)}</span>` : ""}${esc(s.en)}${s.info ? ` <span class="muted small">(${esc(s.info)})</span>` : ""}</li>`).join("")}</ol>`
+    : `<p class="muted">${t("wc_no_meaning")}</p>`;
+  const forms = d.forms.length ? `<div class="muted small">${t("wc_forms")}<span lang="ja">${d.forms.map(esc).join("、")}</span></div>` : "";
+  const kanji = d.kanji.map(k => `<div class="wc-kanji">
+      <a class="wc-k" lang="ja" href="${esc(k.jisho_url)}" target="_blank" rel="noopener">${esc(k.k)}</a>
+      <div><div>${esc(k.meanings.join(", "))}${k.known ? ` <span class="badge ok">${t("wc_known")}</span>` : ""}</div>
+        ${k.on.length ? `<div class="small"><span class="muted">${t("wc_on")}</span> <span lang="ja">${k.on.map(esc).join("、")}</span></div>` : ""}
+        ${k.kun.length ? `<div class="small"><span class="muted">${t("wc_kun")}</span> <span lang="ja">${k.kun.slice(0, 6).map(esc).join("、")}</span></div>` : ""}
+        <div class="small muted">${[k.jlpt && "JLPT " + esc(k.jlpt), k.grade && (k.grade === 1 ? t("wc_grade1") : k.grade <= 6 ? t("wc_grade", {n: k.grade}) : t("wc_secondary")),
+          k.strokes && t("wc_strokes", {n: k.strokes})].filter(Boolean).join(" · ")}</div></div></div>`).join("");
+  return `<div class="wc-head"><span class="wc-word" lang="ja">${head}</span>
+      <button class="ghost wc-close" aria-label="${t("wc_close")}">✕</button></div>
+    ${form}<div class="wc-badges">${badges.join("")}</div>${senses}${forms}
+    ${kanji ? `<div class="wc-kanji-list">${kanji}</div>` : ""}
+    <div class="wc-foot">${d.online ? "" : `<span class="muted small">${t("wc_offline")}</span>`}
+      <a href="${esc(d.jisho_url)}" target="_blank" rel="noopener">${t("wc_jisho")}</a></div>`;
+}
+function closeWord() { $("word-card").hidden = true; }
+document.addEventListener("click", e => {
+  const w = e.target.closest(".w[data-w]");
+  if (w) { e.preventDefault(); openWord(w.dataset.w, w.dataset.s); return; }
+  if (e.target.closest(".wc-close") || (!$("word-card").hidden && !e.target.closest("#word-card"))) closeWord();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !$("word-card").hidden) closeWord();
+  const w = e.target.closest?.(".w[data-w]");
+  if (w && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openWord(w.dataset.w, w.dataset.s); }
+});
+
 function questionHtml(q) {
   return esc(q).replace(/【(.*?)】/g, "<u>$1</u>");
 }
@@ -332,10 +434,9 @@ async function choose(i) {
   $("exo").classList.toggle("ko", !ok);
   await record(ok, ex.choices[i]);
   if (!ok) requeue(ex);
-  const full = ex.full_sentence ? `<br><span lang="ja">${esc(ex.full_sentence)}</span>` : "";
   S.solved = true;
   $("exo-feedback").hidden = false;
-  $("exo-feedback").innerHTML = solutionHtml(ex, (ok ? t("correct") : t("wrong_answer", {a: esc(ex.answers[0])})) + full);
+  $("exo-feedback").innerHTML = solutionHtml(ex, ok ? t("correct") : t("wrong_answer", {a: esc(ex.answers[0])}));
   $("btn-check").hidden = true;
   $("after-actions").hidden = false;
   $("btn-unsure").hidden = !(ok && ex._firstOk && !ex._retry);
@@ -376,10 +477,11 @@ function nextReviewText(schedule) {
 function solutionHtml(ex, message) {
   const schedule = ex._retry ? null : ex._schedule;
   const others = ex.answers.length > 1 ? `<br>${t("accepted")}<span lang="ja">${ex.answers.map(esc).join(" / ")}</span>` : "";
-  const tr = ex.translation && !ex.show_translation ? `<br><span class="tr">${esc(ex.translation)}</span>` : "";
+  const tr = ex.translation && !(ex.show_translation && ex._trShown) ? `<br><span class="tr">${esc(ex.translation)}</span>` : "";
+  const full = ex.full_sentence ? `<div class="sentence-done" lang="ja">${linkedText(ex, ex.full_sentence, 0)}</div>` : "";
   const expl = ex.explanation ? `<br>${esc(ex.explanation)}` : "";
   const src = ex.source_url ? `<br><a href="${esc(ex.source_url)}" target="_blank" rel="noopener">${esc(ex.source || "source")}</a>` : "";
-  return `${message}${others}${tr}${expl}${src}${nextReviewText(schedule)}`;
+  return `${message}${full}${others}${tr}${expl}${src}${nextReviewText(schedule)}`;
 }
 
 async function check() {
@@ -398,7 +500,7 @@ async function check() {
   fb.hidden = false;
   await record(ok, value);
   if (ok) {
-    solve(solutionHtml(ex, order && !order.exact ? t("order_other", {s: `<span lang="ja">${esc(ex.full_sentence)}</span>`}) : t("correct")));
+    solve(solutionHtml(ex, order && !order.exact ? t("order_other", {s: ""}) : t("correct")));
   } else if (order) {
     fb.innerHTML = t("order_wrong");
     $("btn-show").hidden = false;
@@ -540,6 +642,8 @@ $("btn-readings").addEventListener("click", e => {
 });
 $("hard-mode").checked = store("hardMode") === "1";
 $("hard-mode").addEventListener("change", e => store("hardMode", e.target.checked ? "1" : "0"));
+$("always-translation").checked = store("showTranslation") === "1";
+$("always-translation").addEventListener("change", e => store("showTranslation", e.target.checked ? "1" : "0"));
 if (store("hideReadings") === "1") {
   document.body.classList.add("hide-readings");
   $("btn-readings").textContent = t("show_reading");
