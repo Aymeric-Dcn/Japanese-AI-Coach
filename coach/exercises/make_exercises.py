@@ -19,7 +19,7 @@ The model invents nothing:
   - the LLM (Ollama) only drops doubtful sentences and writes a hint and an explanation.
     With --no-llm it is not used at all.
 
-Build the bank first: python build_bank.py
+Build the bank first: python tools/build_bank.py
 """
 
 import argparse
@@ -34,12 +34,12 @@ import urllib.error
 import webbrowser
 from pathlib import Path
 
-import clauses
-import conjugate
-import curriculum
-import llm
-import words
-from sheet import BLANK, normalize, save_sheet, split_list
+from coach.exercises import clauses
+from coach.exercises import conjugate
+from coach import curriculum
+from coach import llm
+from coach import words
+from coach.exercises.sheet import BLANK, normalize, save_sheet, split_list
 
 BANK_PATH = Path("data") / "bank.db"
 KNOWN_PATH = Path("data") / "known.json"
@@ -81,7 +81,7 @@ KANJI = re.compile(r"[㐀-鿿々]")
 
 def load_known() -> dict:
     if not KNOWN_PATH.exists():
-        sys.exit(f"Known vocabulary not found ({KNOWN_PATH}). Open Anki and run: python anki_sync.py")
+        sys.exit(f"Known vocabulary not found ({KNOWN_PATH}). Open Anki and run: python tools/anki_sync.py")
     data = json.loads(KNOWN_PATH.read_text(encoding="utf-8"))
     words = {normalize(w) for w in data.get("words", [])}
     kanji = set(data.get("kanji", [])) | {c for w in words for c in w if KANJI.match(c)}
@@ -234,7 +234,7 @@ def is_potential(lemma: str) -> bool:
 
 def _lexicon_has(word: str) -> bool:
     try:
-        import lexicon
+        from coach import lexicon
         return bool(lexicon.available() and lexicon.lookup(word))
     except Exception:
         return True
@@ -359,7 +359,7 @@ def cue_reading(word: str) -> str:
     """Reading of the verb shown as a cue (手伝う → てつだう), so kanji you don't know can be typed in kana."""
     global _analyzer
     try:
-        import build_bank
+        from coach import build_bank
         if _analyzer is None:
             _analyzer = build_bank.make_analyzer()
         r = build_bank.reading(_analyzer, word)
@@ -399,7 +399,7 @@ def find_candidates(targets: list = None, form: str = None, pos: str = "", min_w
                     skip_keys: set = frozenset(), stats: dict = None) -> dict:
     """Returns {group: [exercise, …]}; group = the answer (particles) or the form (conjugations)."""
     if not BANK_PATH.exists():
-        sys.exit(f"Bank not found ({BANK_PATH}). Run first: python build_bank.py")
+        sys.exit(f"Bank not found ({BANK_PATH}). Run first: python tools/build_bank.py")
     target_set = {normalize(t) for t in targets or []}
     pos_set = set(split_list(pos))
     groups = {normalize(t): [] for t in targets} if targets else {form: []}
@@ -662,7 +662,7 @@ def generate(targets: list, form: str, pos: str, count: int, *, level: str = "N5
 
 
 def save_to_reserve(db, title: str, kind: str, targets: list, exercises: list) -> int:
-    import store
+    from coach import store
     added = 0
     for ex in exercises:
         key = ex.pop("key", None)
@@ -673,9 +673,9 @@ def save_to_reserve(db, title: str, kind: str, targets: list, exercises: list) -
 
 def generate_topic(topic: dict, count: int, db, **options) -> int:
     """Generates exercises for one curriculum topic and adds them to the reserve; returns how many were added."""
-    import store
+    from coach import store
     if topic.get("order"):   # « put the sentence back in order »: built by rules only (word_order.py)
-        import word_order
+        from coach.exercises import word_order
         kept = word_order.find(count, options.get("known"), options.get("max_unknown", 1), store.existing_keys(db))
         options.get("log", print)(f"  {len(kept)} sentence(s) with a single predicate and movable pieces")
         if not kept:
@@ -755,7 +755,7 @@ def main() -> None:
 
     db = None
     if args.save:
-        import store
+        from coach import store
         db = store.connect()
     known = load_known() if args.known else None
     try:

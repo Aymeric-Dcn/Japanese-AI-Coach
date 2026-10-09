@@ -2,12 +2,16 @@
 Compares local models on the same exercises: which ones they keep, what they explain, how long it takes.
 Nothing is added to the reserve; the result is a file to review (data/compare/<date>-<models>.json).
 
-    python compare_models.py --models qwen3:14b,qwen3:30b-a3b
-    python compare_models.py --models qwen3:14b,qwen3:30b-a3b --per-topic 3 --jlpt 6
-    python compare_models.py --models qwen3:14b,anthropic:claude-haiku-4-5-20251001   (API key saved in the app)
+    python tools/compare_models.py --models qwen3:14b,qwen3:30b-a3b
+    python tools/compare_models.py --models qwen3:14b,qwen3:30b-a3b --per-topic 3 --jlpt 6
+    python tools/compare_models.py --models qwen3:14b,anthropic:claude-haiku-4-5-20251001   (API key saved in the app)
 
 The same candidates (fixed seed) go to every model, so the answers can be put side by side.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))   # the project folder (coach/)
 
 import argparse
 import copy
@@ -18,11 +22,10 @@ import sys
 import time
 from pathlib import Path
 
-import curriculum
-import jlpt_questions as jq
-import llm
-import make_exercises as mx
-
+from coach import curriculum
+from coach.exercises import jlpt_questions as jq
+from coach import llm
+from coach.exercises import make_exercises as mx
 # A mix of what the reserve needs: particle pairs that overlap, and conjugations.
 DEFAULT_TOPICS = ["wa-ga", "ni-e", "wa-mo", "to-ya", "noni-node", "te-form", "ba", "causative", "volitional"]
 OUT_DIR = Path("data") / "compare"

@@ -24,13 +24,12 @@ import urllib.request
 from functools import lru_cache
 from pathlib import Path
 
-import lexicon
-
+from coach import lexicon
 JISHO_API = "https://jisho.org/api/v1/search/words?keyword="
 JISHO_PAGE = "https://jisho.org/search/"
 CACHE_PATH = Path("data") / "dictionary.db"
 KANJI = re.compile(r"[㐀-鿿々]")
-RESOURCES = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "resources"
+RESOURCES = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1])) / "resources"
 _lock = threading.Lock()
 _offline_until = [0.0]   # after a failure, do not wait for Jisho again for a few minutes
 

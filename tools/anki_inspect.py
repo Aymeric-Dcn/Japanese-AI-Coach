@@ -3,13 +3,17 @@
 Shows what is in your Anki collection, to set up the Anki sync.
 Anki must be open, with the AnkiConnect add-on (code 2055492159).
 
-    python anki_inspect.py
-    python anki_inspect.py --deck "Full Japanese Study Deck"   # only decks whose name contains this
+    python tools/anki_inspect.py
+    python tools/anki_inspect.py --deck "Full Japanese Study Deck"   # only decks whose name contains this
 
 Prints every deck with its card counts (total / mature = interval ≥ 21 days),
 then, for each note type used in those decks, its note count, field names and one sample note.
 Only one sample note per note type is read, so it stays fast on big collections.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))   # the project folder (coach/)
 
 import argparse
 import json

@@ -13,9 +13,8 @@ import json
 import re
 from pathlib import Path
 
-import knowledge
-import store
-
+from coach import knowledge
+from coach import store
 KNOWN_PATH = Path("data") / "known.json"
 JAPANESE = re.compile(r"[぀-ヿ㐀-鿿]")
 
@@ -175,7 +174,7 @@ def tokenize(text: str) -> list:
     if not JAPANESE.search(text):
         return []
     try:
-        import build_bank
+        from coach import build_bank
         if _analyzer is None:
             _analyzer = build_bank.make_analyzer()
         tokens = []
@@ -199,7 +198,7 @@ def reading(word: str) -> str:
     if _analyzer is False:   # SudachiPy missing (phone server, Raspberry Pi): do not try again for each word
         return ""
     try:
-        import build_bank
+        from coach import build_bank
         if _analyzer is None:
             _analyzer = build_bank.make_analyzer()
         r = build_bank.reading(_analyzer, word)
@@ -252,7 +251,7 @@ def weak_points(db, language: str = "fr") -> str:
         SELECT e.topic, COUNT(*) AS n, SUM(r.correct) AS ok FROM reviews r JOIN exercises e ON e.id = r.exercise_id
         GROUP BY e.topic HAVING n >= 3 ORDER BY 1.0 * ok / n LIMIT 4""").fetchall()
     if language == "en":
-        import curriculum
+        from coach import curriculum
         if not rows:
             return "- Not enough results yet: quiz them on the particles は/が, に/で and the て-form."
         return "- Their hardest topics: " + ", ".join(

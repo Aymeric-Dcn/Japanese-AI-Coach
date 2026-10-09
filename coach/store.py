@@ -16,9 +16,8 @@ import random
 import sqlite3
 from pathlib import Path
 
-import curriculum
-import srs
-
+from coach import curriculum
+from coach import srs
 DB_PATH = Path("data") / "coach.db"
 
 SCHEMA = """

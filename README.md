@@ -50,18 +50,18 @@ Anki ────► anki_sync.py ──► known words, lexicon, grammar notes,
 
 ## Getting started
 
-**Just want to use it?** Download `JapaneseCoach.exe` from the [Releases](https://github.com/Aymeric-Dcn/Japanese-AI-Coach/releases) page (Windows, no install): double-click, answer the welcome screen, and the reviewed exercises are downloaded. To build it yourself: `pip install pyinstaller` then `python build_exe.py` → `dist/JapaneseCoach.exe`.
+**Just want to use it?** Download `JapaneseCoach.exe` from the [Releases](https://github.com/Aymeric-Dcn/Japanese-AI-Coach/releases) page (Windows, no install): double-click, answer the welcome screen, and the reviewed exercises are downloaded. To build it yourself: `pip install pyinstaller` then `python tools/build_exe.py` → `dist/JapaneseCoach.exe`.
 
 Tested on Windows with an RTX 4070 Super (12 GB) and 32 GB of RAM.
 
 1. **Install** [Python 3.9+](https://www.python.org/downloads/) (tick *Add python.exe to PATH*), then `pip install -r requirements.txt`. Optional: [Ollama](https://ollama.com/download) and `ollama pull qwen3:14b` (≈ 9 GB, for generating exercises and the chat).
 2. **Prepare the data** (once):
    ```
-   python build_bank.py      # download and analyze Tatoeba (≈ 1 min)
-   python jlpt_data.py       # open JLPT word lists
-   python anki_sync.py       # optional: your Anki collection
+   python tools/build_bank.py      # download and analyze Tatoeba (≈ 1 min)
+   python tools/jlpt_data.py       # open JLPT word lists
+   python tools/anki_sync.py       # optional: your Anki collection
    ```
-3. **Start** `python server.py --open` → http://localhost:8000. Exercises of the shared bank arrive at startup; with Ollama, « Progress → Fill the reserve » generates more. `python install_autostart.py` starts the app with Windows.
+3. **Start** `python server.py --open` → http://localhost:8000. Exercises of the shared bank arrive at startup; with Ollama, « Progress → Fill the reserve » generates more. `python tools/install_autostart.py` starts the app with Windows.
 
 To type Japanese: Windows Settings → Time & language → Language & region → add *Japanese*, switch with `Windows + Space`.
 
@@ -72,22 +72,27 @@ To type Japanese: Windows Settings → Time & language → Language & region →
 ## Project layout
 
 ```
-server.py           the app: web server + JSON API (standard library only)
-web/                interface (index.html, app.css, app.js, i18n.js: French / English)
-store.py            progress database: reserve, answers, review schedule, chat
-curriculum.py       the program: 23 topics N5 → N4, progression rules, grammar notes
-make_exercises.py   particle / conjugation exercises from the bank, ambiguity rules
-jlpt_questions.py   JLPT questions: distractors, ambiguity rules; conjugate.py: verb conjugator
-word_order.py, clauses.py   sentence-order exercises; relative clauses, 前に / 後で, ても (rules only)
-updater.py          updates of the Windows app from GitHub releases
-review.py           quality control: revalidate, export, reject, import, approve
-bank_sync.py        shared bank: pull, contribute, import inbox, publish
-tutor.py, knowledge.py   the chat tutor and its references
-llm.py              Ollama client (structured answers, streaming)
-build_bank.py       Tatoeba → SudachiPy → data/bank.db
-anki_sync.py, anki_db.py, lexicon.py, jlpt_data.py   Anki and word lists
-fill_reserve.py, srs.py, install_autostart.py, evaluate.py (+ eval/), compare_models.py
-notes/log.md        test log: models, prompts, what went wrong and how it was fixed
+server.py                the app: web server + JSON API (standard library only)
+review.py, bank_sync.py, make_exercises.py   shortcuts for the commands used most (coach/…)
+web/                     interface (index.html, app.css, app.js, i18n.js: French / English)
+coach/                   the app's core
+  store.py, srs.py       progress database: reserve, answers, review schedule, chat
+  curriculum.py          the program: 23 topics N5 → N4, progression rules, grammar notes
+  review.py              quality control: revalidate, export, reject, import, approve
+  bank_sync.py           shared bank: pull, contribute, import inbox, publish, send-texts
+  tutor.py, knowledge.py, llm.py   the chat tutor, its references, Ollama / cloud models
+  lexicon.py, dictionary.py, words.py   word lists, word cards (Jisho + kanji), words of a sentence
+  build_bank.py          Tatoeba → SudachiPy → data/bank.db
+  updater.py             updates of the Windows app from GitHub releases
+  exercises/             generation by rules: make_exercises.py, conjugate.py, clauses.py,
+                         word_order.py, jlpt_questions.py, fill_reserve.py, sheet.py
+  anki/                  anki_sync.py, anki_db.py: your Anki collection
+tools/                   commands run by hand: build_bank, anki_sync, jlpt_questions, jlpt_data,
+                         build_exe, install_autostart, evaluate, compare_models, generate_sheet…
+tests/                   python -m unittest discover tests (+ eval/: cases for evaluate.py)
+resources/               kanji_info.json (KANJIDIC)
+deploy/                  Raspberry Pi service (install-pi.sh)
+notes/log.md             test log: models, prompts, what went wrong and how it was fixed
 ```
 
 ## Roadmap

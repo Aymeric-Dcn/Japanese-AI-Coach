@@ -2,8 +2,8 @@
 """
 Builds the sentence bank from Tatoeba (real, translated sentences).
 
-    python build_bank.py                # Japanese sentences with a French and/or English translation
-    python build_bank.py --french-only  # only sentences with a French translation (smaller download)
+    python tools/build_bank.py                # Japanese sentences with a French and/or English translation
+    python tools/build_bank.py --french-only  # only sentences with a French translation (smaller download)
 
 Steps:
   1. download the Tatoeba exports into data/tatoeba/ (once);

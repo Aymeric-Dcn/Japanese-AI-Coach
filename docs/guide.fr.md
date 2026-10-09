@@ -61,11 +61,11 @@ Tout est enregistré dans `data/coach.db` (SQLite). Rien ne quitte ton ordinateu
 
 ## Anki (`anki_sync.py`)
 
-Le fichier de ta collection (`%APPDATA%\Anki2\<profil>\collection.anki2`) est copié puis lu directement : Anki peut être fermé, et rien n'y est jamais écrit. Le premier lancement détecte quels types de notes contiennent des mots, des kanji et de la grammaire, et l'enregistre dans `data/anki.json` ; `python anki_sync.py --setup` montre ce qui a été détecté, et tu peux modifier le fichier (rôle `ignore` pour ignorer un type de note). Ça marche avec n'importe quel deck, plusieurs decks, ou la collection d'un ami (`--collection chemin`). `--source ankiconnect` passe par le module à la place.
+Le fichier de ta collection (`%APPDATA%\Anki2\<profil>\collection.anki2`) est copié puis lu directement : Anki peut être fermé, et rien n'y est jamais écrit. Le premier lancement détecte quels types de notes contiennent des mots, des kanji et de la grammaire, et l'enregistre dans `data/anki.json` ; `python tools/anki_sync.py --setup` montre ce qui a été détecté, et tu peux modifier le fichier (rôle `ignore` pour ignorer un type de note). Ça marche avec n'importe quel deck, plusieurs decks, ou la collection d'un ami (`--collection chemin`). `--source ankiconnect` passe par le module à la place.
 
 ## JLPT (`jlpt_questions.py`, onglet JLPT)
 
-`python jlpt_questions.py --level N4` (ou « Générer des questions » dans l'app) ajoute 10 questions de chaque type pour le niveau. Le niveau d'une question = le niveau JLPT de ses mots (sous-paquets JLPT de ton deck Anki, ou listes libres de `jlpt_data.py`). 表記 a besoin de fiches kanji avec on'yomi (Anki). 文法形式 et 文脈規定 sont vérifiés par le LLM (aucun autre choix ne doit convenir). Règles contre les questions ambiguës ou trop faciles : une phrase par question (une question ne donne jamais la réponse d'une autre) ; mauvaises lectures construites comme au vrai test (autre on'yomi du kanji, voyelle longue ↔ courte, son voisé, っ) ; mauvaises graphies avec des kanji de même lecture de niveau N5–N3 qui ne forment pas un vrai mot ; pas de question de kanji sur les mots qui s'écrivent d'habitude en kana (事) ; les paires de particules souvent toutes deux correctes (は/が, に/へ, と/や…) ne sont jamais proposées ensemble ; les formes verbales qui conviendraient aussi (着て / 着たら / 着れば) sont écartées ; le 並べ替え ne garde que des morceaux dont l'ordre est imposé par la grammaire. Examen blanc : nombre de questions par type comme au vrai test (sans compréhension écrite), 1 minute par question, score par section, erreurs renvoyées dans les révisions.
+`python tools/jlpt_questions.py --level N4` (ou « Générer des questions » dans l'app) ajoute 10 questions de chaque type pour le niveau. Le niveau d'une question = le niveau JLPT de ses mots (sous-paquets JLPT de ton deck Anki, ou listes libres de `jlpt_data.py`). 表記 a besoin de fiches kanji avec on'yomi (Anki). 文法形式 et 文脈規定 sont vérifiés par le LLM (aucun autre choix ne doit convenir). Règles contre les questions ambiguës ou trop faciles : une phrase par question (une question ne donne jamais la réponse d'une autre) ; mauvaises lectures construites comme au vrai test (autre on'yomi du kanji, voyelle longue ↔ courte, son voisé, っ) ; mauvaises graphies avec des kanji de même lecture de niveau N5–N3 qui ne forment pas un vrai mot ; pas de question de kanji sur les mots qui s'écrivent d'habitude en kana (事) ; les paires de particules souvent toutes deux correctes (は/が, に/へ, と/や…) ne sont jamais proposées ensemble ; les formes verbales qui conviendraient aussi (着て / 着たら / 着れば) sont écartées ; le 並べ替え ne garde que des morceaux dont l'ordre est imposé par la grammaire. Examen blanc : nombre de questions par type comme au vrai test (sans compréhension écrite), 1 minute par question, score par section, erreurs renvoyées dans les révisions.
 
 Furigana des questions : comme au vrai test, les mots dont un kanji est au-dessus du niveau de la question (ou sans niveau) ont leur lecture au-dessus, examen compris ; le mot testé jamais. En entraînement, « Afficher la lecture » met aussi la lecture sur les autres mots (« Masquer la lecture » l'enlève, celles du test restent). Une fois répondu, chaque choix montre sa lecture en kana (dans la correction de l'examen aussi).
 
@@ -75,7 +75,7 @@ En session : **↶ Annuler ma réponse** (ou Ctrl+Z) oublie un mauvais clic ou u
 
 ## Langue (français / anglais)
 
-L'app fonctionne en français ou en anglais : sélecteur en haut à droite (enregistré dans `data/settings.json`). L'interface, les titres et fiches des thèmes, le prof (consignes, situations de conversation, références) et les traductions des phrases suivent ce choix. Les nouveaux exercices sont générés avec un indice et une explication dans les deux langues ; les anciens n'ont que l'explication en français, masquée en anglais. Les traductions anglaises viennent de Tatoeba : `python build_bank.py` les garde désormais (à relancer une fois ; `--french-only` pour l'ancien comportement).
+L'app fonctionne en français ou en anglais : sélecteur en haut à droite (enregistré dans `data/settings.json`). L'interface, les titres et fiches des thèmes, le prof (consignes, situations de conversation, références) et les traductions des phrases suivent ce choix. Les nouveaux exercices sont générés avec un indice et une explication dans les deux langues ; les anciens n'ont que l'explication en français, masquée en anglais. Les traductions anglaises viennent de Tatoeba : `python tools/build_bank.py` les garde désormais (à relancer une fois ; `--french-only` pour l'ancien comportement).
 
 ## Contrôle qualité (`review.py`)
 
@@ -95,8 +95,8 @@ Ajoute un lanceur dans le dossier Démarrage de Windows : `pythonw server.py` to
 ## Mesurer le LLM (`evaluate.py`)
 
 ```
-python evaluate.py                    # 29 cas écrits à la main dans eval/particle_cases.json
-python evaluate.py --model qwen3:8b --runs 3
+python tools/evaluate.py                    # 29 cas écrits à la main dans eval/particle_cases.json
+python tools/evaluate.py --model qwen3:8b --runs 3
 ```
 
 Mesure à quelle fréquence la vérification garde les bons exercices et écarte les phrases ambiguës et les expressions figées. À relancer après chaque changement de prompt ou de modèle, et à noter dans `notes/log.md`.
@@ -105,7 +105,7 @@ Pour comparer deux modèles sur les mêmes exercices nouveaux (ce qu'ils gardent
 
 ```
 ollama pull qwen3:30b-a3b
-python compare_models.py --models qwen3:14b,qwen3:30b-a3b     # → data/compare/<date>-….json
+python tools/compare_models.py --models qwen3:14b,qwen3:30b-a3b     # → data/compare/<date>-….json
 ```
 
 Le fichier se lit côte à côte (ou s'envoie pour relecture) : les bonnes réponses y sont, avec le verdict de chaque modèle à côté.
@@ -114,7 +114,7 @@ Le fichier se lit côte à côte (ou s'envoie pour relecture) : les bonnes répo
 
 L'app Windows compare sa version avec la dernière release GitHub au démarrage. Réglage (écran d'accueil, ou Progrès → L'application) : **automatiques** (téléchargées en arrière-plan, installées à la fermeture de l'app), **me prévenir** (un bandeau avec un bouton « Mettre à jour » : l'app télécharge le nouvel exe, se ferme, le remplace et redémarre), ou **désactivées**. La progression reste dans %LOCALAPPDATA%\JapaneseCoach et n'est jamais touchée.
 
-Pour publier une version : augmenter `VERSION` dans `updater.py`, `python build_exe.py`, puis une release GitHub avec le tag `v<VERSION>` et `JapaneseCoach.exe` en pièce jointe, sans la cocher en pre-release (GitHub exclut les pre-releases de « latest »).
+Pour publier une version : augmenter `VERSION` dans `coach/updater.py`, `python tools/build_exe.py`, puis une release GitHub avec le tag `v<VERSION>` et `JapaneseCoach.exe` en pièce jointe, sans la cocher en pre-release (GitHub exclut les pre-releases de « latest »).
 
 ## Banque d'exercices partagée (`bank_sync.py`)
 

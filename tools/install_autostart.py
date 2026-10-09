@@ -2,14 +2,18 @@
 """
 Starts the app automatically when you log into Windows, in the background (no window).
 
-    python install_autostart.py              # install
-    python install_autostart.py --uninstall  # remove
+    python tools/install_autostart.py              # install
+    python tools/install_autostart.py --uninstall  # remove
 
 It adds a small launcher (JapaneseCoach.vbs) to your Startup folder. At each start, the server
 syncs Anki (once a day) and tops up the exercise reserve as soon as Ollama is available
 (settings in data/settings.json). Then just open http://localhost:8000.
 Logs go to data/server.log.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))   # the project folder (coach/)
 
 import argparse
 import os
@@ -43,7 +47,7 @@ def main() -> None:
     pythonw = Path(sys.executable).with_name("pythonw.exe")
     if not pythonw.exists():
         pythonw = Path(sys.executable)
-    project = Path(__file__).resolve().parent
+    project = Path(__file__).resolve().parents[1]
     vbs = (
         'Set sh = CreateObject("WScript.Shell")\r\n'
         f'sh.CurrentDirectory = "{project}"\r\n'

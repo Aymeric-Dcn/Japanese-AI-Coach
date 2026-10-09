@@ -2,10 +2,10 @@
 """
 Reads what you know in Anki — no need to open Anki.
 
-    python anki_sync.py                     # mature cards (interval ≥ 21 days)
-    python anki_sync.py --min-interval 0    # every card already reviewed
-    python anki_sync.py --setup             # detect your note types and write data/anki.json (then edit it if needed)
-    python anki_sync.py --source ankiconnect   # through the AnkiConnect add-on instead (Anki must be open)
+    python tools/anki_sync.py                     # mature cards (interval ≥ 21 days)
+    python tools/anki_sync.py --min-interval 0    # every card already reviewed
+    python tools/anki_sync.py --setup             # detect your note types and write data/anki.json (then edit it if needed)
+    python tools/anki_sync.py --source ankiconnect   # through the AnkiConnect add-on instead (Anki must be open)
 
 By default the collection file itself is read (a copy of it, so it is never modified), which works
 whether Anki is open or not. Any deck works: the word / kanji / grammar note types and their fields
@@ -192,7 +192,7 @@ def load_config() -> dict:
 # ---------------------------------------------------------------------------
 
 def sync_from_file(config: dict, min_interval: int, log=print) -> dict:
-    import anki_db
+    from coach.anki import anki_db
     col = anki_db.AnkiCollection.open(config.get("collection_path"), config.get("profile"))
     try:
         log(f"  collection: {col.path}")
@@ -359,7 +359,7 @@ def main() -> None:
     args = p.parse_args()
 
     if args.setup or args.collection or args.profile:
-        import anki_db
+        from coach.anki import anki_db
         col = anki_db.AnkiCollection.open(args.collection, args.profile)
         try:
             config = setup_config(col, write=False)

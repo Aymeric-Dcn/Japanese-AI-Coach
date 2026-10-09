@@ -298,3 +298,12 @@ Fixes, then generate → review → fix loops on the real bank (N5, N4, N3) unti
 - A phone closing the page during an answer no longer prints a BrokenPipe traceback in the journal (`Server.handle_error`); request threads are daemons.
 - The Pi is a Raspberry Pi 1 B+ (one 700 MHz core, 427 MB): the startup check loaded the whole lexicon (55,000 entries, 1.2 s here, minutes there). Without `bank.db` the reserve check now stops right away (it could not check particles anyway; the PC does it and the bank passes rejections on). The word card and the kana of JLPT choices read single words from `lexicon.db` (`lexicon.quick`, indexed SQL) instead of building the in-memory index.
 - English interface: « Practice » instead of « Practise » (American spelling, like « Program »).
+
+## 2026-10-09 — The repository organised
+
+- Nothing changes in what the app does. 33 Python files at the root become:
+  - `server.py` (unchanged: the Pi service, the `.exe` and the docs start it) and three shortcuts for the commands used most: `review.py`, `bank_sync.py`, `make_exercises.py`;
+  - `coach/` the core (store, srs, curriculum, review, bank_sync, tutor, llm, lexicon, dictionary, words, build_bank, updater…), `coach/exercises/` the rules (make_exercises, conjugate, clauses, word_order, jlpt_questions, fill_reserve, sheet), `coach/anki/` (anki_sync, anki_db);
+  - `tools/` what is run by hand (build_bank, anki_sync, jlpt_questions, jlpt_data, build_exe, install_autostart, evaluate, compare_models, generate_sheet, anki_inspect, word_order, fill_reserve); each finds `coach/` by itself, so `python tools/x.py` works from the project folder;
+  - `tests/`: `python -m unittest discover tests`, 12 tests of the rules (conjugation, relative / 前に / ても, word order, words of a sentence, readings of choices, exam furigana) on analyzer tokens kept in `tests/sentences.json` (no SudachiPy or bank.db needed); `eval/` moved to `tests/eval/`.
+- Files moved with `git mv` (history kept); imports rewritten (`from coach import store`…); paths that depended on a file's folder fixed (resources, build_exe, install_autostart). Checked: every module imports, every command's `--help`, a real generation (te-form sheet, word order), the reserve check, the server with the word card and JLPT readings, the server without SudachiPy on Python 3.9.

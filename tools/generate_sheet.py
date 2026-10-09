@@ -5,9 +5,9 @@ The model writes everything (lesson, vocabulary, sentences, answers); see make_e
 for exercises built from real sentences instead.
 
 Usage:
-    python generate_sheet.py --topic "les particules に et で" --level N5 --answers "に,で"
-    python generate_sheet.py --topic "la forme en て" --level N5 --count 12 --model gemma3:12b
-    python generate_sheet.py --demo          # sample sheet, no Ollama needed
+    python tools/generate_sheet.py --topic "les particules に et で" --level N5 --answers "に,で"
+    python tools/generate_sheet.py --topic "la forme en て" --level N5 --count 12 --model gemma3:12b
+    python tools/generate_sheet.py --demo          # sample sheet, no Ollama needed
 
 --answers (optional): closed list of possible answers. Exercises whose answer is not in the
 list are dropped, and the list is shown on the sheet.
@@ -15,6 +15,10 @@ list are dropped, and the list is shown on the sheet.
 The sheet is saved in sheets/ (HTML + JSON) and opened in the browser.
 Standard library only.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))   # the project folder (coach/)
 
 import argparse
 import datetime
@@ -26,7 +30,7 @@ import urllib.error
 import urllib.request
 import webbrowser
 
-from sheet import BLANK, normalize, save_sheet, split_list
+from coach.exercises.sheet import BLANK, normalize, save_sheet, split_list
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
 DEFAULT_MODEL = "qwen3:14b"

@@ -61,11 +61,11 @@ Everything is stored in `data/coach.db` (SQLite). Nothing leaves your computer (
 
 ## Anki (`anki_sync.py`)
 
-The collection file (`%APPDATA%\Anki2\<profile>\collection.anki2`) is copied and read directly: Anki can be closed, nothing is ever written to it. The first run detects which note types hold words, kanji and grammar and saves it in `data/anki.json`; `python anki_sync.py --setup` shows what was detected, and you can edit the file (role `ignore` skips a note type). It works with any deck, several decks, or a friend's collection (`--collection path`). `--source ankiconnect` goes through the add-on instead.
+The collection file (`%APPDATA%\Anki2\<profile>\collection.anki2`) is copied and read directly: Anki can be closed, nothing is ever written to it. The first run detects which note types hold words, kanji and grammar and saves it in `data/anki.json`; `python tools/anki_sync.py --setup` shows what was detected, and you can edit the file (role `ignore` skips a note type). It works with any deck, several decks, or a friend's collection (`--collection path`). `--source ankiconnect` goes through the add-on instead.
 
 ## JLPT (`jlpt_questions.py`, JLPT tab)
 
-`python jlpt_questions.py --level N4` (or « Generate questions » in the app) adds 10 questions of each type for the level. The level of a question is the JLPT level of its words (your Anki deck's JLPT sub-decks, or the open lists of `jlpt_data.py`). 表記 needs kanji notes with on'yomi (Anki). 文法形式 and 文脈規定 are checked by the LLM (another choice must not fit too). Rules against ambiguous or too easy questions: one sentence per question (a question never gives away another one's answer); wrong readings built like the real test (another on'yomi of the kanji, long ↔ short vowel, voicing, っ); wrong spellings with same-reading kanji of level N5–N3 that are not real words; no kanji question on words usually written in kana (事); particle pairs that are often both right (は/が, に/へ, と/や…) are never offered together; conjugation choices that would also fit (着て / 着たら / 着れば) are left out; 並べ替え only keeps pieces whose order is fixed by the grammar. Mock exam: questions per type like the real test (without reading comprehension), 1 minute per question, score per section, mistakes back into the reviews.
+`python tools/jlpt_questions.py --level N4` (or « Generate questions » in the app) adds 10 questions of each type for the level. The level of a question is the JLPT level of its words (your Anki deck's JLPT sub-decks, or the open lists of `jlpt_data.py`). 表記 needs kanji notes with on'yomi (Anki). 文法形式 and 文脈規定 are checked by the LLM (another choice must not fit too). Rules against ambiguous or too easy questions: one sentence per question (a question never gives away another one's answer); wrong readings built like the real test (another on'yomi of the kanji, long ↔ short vowel, voicing, っ); wrong spellings with same-reading kanji of level N5–N3 that are not real words; no kanji question on words usually written in kana (事); particle pairs that are often both right (は/が, に/へ, と/や…) are never offered together; conjugation choices that would also fit (着て / 着たら / 着れば) are left out; 並べ替え only keeps pieces whose order is fixed by the grammar. Mock exam: questions per type like the real test (without reading comprehension), 1 minute per question, score per section, mistakes back into the reviews.
 
 Furigana in questions: as in the real test, words with a kanji above the question's level (or with no level) get their reading above them, exams included; never the word being tested. In practice, « Show the reading » also puts it on the other words (« Hide the reading » removes those; the test's ones stay). Once answered, each choice shows its reading in kana (in the exam's corrections too).
 
@@ -75,7 +75,7 @@ In a session: **↶ Undo my answer** (or Ctrl+Z) forgets a misclick or a typo an
 
 ## Language (French / English)
 
-The app runs in French or English: selector at the top right (saved in `data/settings.json`). The interface, the topic titles and notes, the tutor (prompts, conversation situations, references) and the translations of the sentences follow it. New exercises are generated with a hint and an explanation in both languages; older ones only have French explanations, which are hidden in English. The English translations come from Tatoeba: `python build_bank.py` now keeps them (run it again once; `--french-only` for the old behavior).
+The app runs in French or English: selector at the top right (saved in `data/settings.json`). The interface, the topic titles and notes, the tutor (prompts, conversation situations, references) and the translations of the sentences follow it. New exercises are generated with a hint and an explanation in both languages; older ones only have French explanations, which are hidden in English. The English translations come from Tatoeba: `python tools/build_bank.py` now keeps them (run it again once; `--french-only` for the old behavior).
 
 ## Quality control (`review.py`)
 
@@ -95,8 +95,8 @@ Adds a launcher to the Windows Startup folder: `pythonw server.py` runs without 
 ## Measuring the LLM (`evaluate.py`)
 
 ```
-python evaluate.py                    # 29 hand-made cases in eval/particle_cases.json
-python evaluate.py --model qwen3:8b --runs 3
+python tools/evaluate.py                    # 29 hand-made cases in eval/particle_cases.json
+python tools/evaluate.py --model qwen3:8b --runs 3
 ```
 
 Scores how often the check keeps good exercises and drops ambiguous ones and idioms. Run it after changing a prompt or a model, and note the result in `notes/log.md`.
@@ -105,7 +105,7 @@ To compare two models on the same new exercises (what they keep, their hints and
 
 ```
 ollama pull qwen3:30b-a3b
-python compare_models.py --models qwen3:14b,qwen3:30b-a3b     # → data/compare/<date>-….json
+python tools/compare_models.py --models qwen3:14b,qwen3:30b-a3b     # → data/compare/<date>-….json
 ```
 
 The file is meant to be read side by side (or sent for review): the right answers are in it, the verdicts of each model next to them.
@@ -114,7 +114,7 @@ The file is meant to be read side by side (or sent for review): the right answer
 
 The Windows app compares its version with the latest GitHub release at startup. Settings (welcome screen, or Progress → The app): **automatic** (downloaded in the background, installed when the app closes), **tell me** (a banner with an « Update » button: the app downloads the new .exe, closes, swaps it and starts again), or **off**. Progress stays in %LOCALAPPDATA%\JapaneseCoach and is never touched.
 
-To publish a version: raise `VERSION` in `updater.py`, `python build_exe.py`, then a GitHub release tagged `v<VERSION>` with `JapaneseCoach.exe` attached, not marked as pre-release (GitHub leaves pre-releases out of « latest »).
+To publish a version: raise `VERSION` in `coach/updater.py`, `python tools/build_exe.py`, then a GitHub release tagged `v<VERSION>` with `JapaneseCoach.exe` attached, not marked as pre-release (GitHub leaves pre-releases out of « latest »).
 
 ## Shared exercise bank (`bank_sync.py`)
 

@@ -2,11 +2,11 @@
 """
 Tops up the exercise reserve following the study programme (curriculum.py).
 
-    python fill_reserve.py                 # current topics + the next one, 15 unseen exercises each
-    python fill_reserve.py --target 25     # more per topic
-    python fill_reserve.py --all           # every topic of the programme
-    python fill_reserve.py --topics wa-ga,past
-    python fill_reserve.py --no-llm        # instant, without Ollama (no check, no explanation)
+    python tools/fill_reserve.py                 # current topics + the next one, 15 unseen exercises each
+    python tools/fill_reserve.py --target 25     # more per topic
+    python tools/fill_reserve.py --all           # every topic of the programme
+    python tools/fill_reserve.py --topics wa-ga,past
+    python tools/fill_reserve.py --no-llm        # instant, without Ollama (no check, no explanation)
 
 Topics where you struggle (under 70 % right over their last answers) get twice as many exercises.
 Uses your Anki vocabulary (data/known.json) when it exists: one unknown word allowed per sentence.
@@ -18,11 +18,10 @@ import sys
 import time
 from pathlib import Path
 
-import curriculum
-import llm
-import make_exercises
-import store
-
+from coach import curriculum
+from coach import llm
+from coach.exercises import make_exercises
+from coach import store
 WEAK_RATE = 0.7
 
 
@@ -106,7 +105,7 @@ def main() -> None:
     args = p.parse_args()
 
     if not make_exercises.BANK_PATH.exists():
-        sys.exit("Bank not found. Run first: python build_bank.py")
+        sys.exit("Bank not found. Run first: python tools/build_bank.py")
     ids = [x.strip() for x in args.topics.split(",") if x.strip()]
     unknown = [i for i in ids if i not in curriculum.BY_ID]
     if unknown:

@@ -12,19 +12,18 @@ move (arguments with a particle, time words, adverbs). What describes a noun (�
 to that noun, since it cannot leave it. Sentences with a relative clause (昨日買った本) are left out: in
 them, 昨日 belongs to 買った and would change meaning if moved.
 
-    python word_order.py --count 10        # prints examples, adds nothing
+    python tools/word_order.py --count 10        # prints examples, adds nothing
 """
 
 import json
-import words
+from coach import words
 import random
 import re
 import sqlite3
 import sys
 
-import jlpt_questions as jq
-import make_exercises as mx
-
+from coach.exercises import jlpt_questions as jq
+from coach.exercises import make_exercises as mx
 MIN_TILES, MAX_TILES = 3, 6
 PUNCT = "。！？!?"
 KANJI = re.compile(r"[㐀-鿿々]")
@@ -209,7 +208,7 @@ def find(count: int, known: dict = None, max_unknown: int = 1, skip_keys=frozens
          min_words: int = 4, max_words: int = 10) -> list:
     """Up to `count` exercises from the sentence bank (both translations needed: shared in FR and EN)."""
     if not mx.BANK_PATH.exists():
-        raise mx.GenerationError("Bank not found. Run first: python build_bank.py")
+        raise mx.GenerationError("Bank not found. Run first: python tools/build_bank.py")
     db = sqlite3.connect(mx.BANK_PATH)
     rows = db.execute("SELECT id, jp, fr, en, tokens FROM sentences WHERE word_count BETWEEN ? AND ? "
                       "AND fr IS NOT NULL AND en IS NOT NULL", (min_words, max_words)).fetchall()

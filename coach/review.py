@@ -28,9 +28,8 @@ import sqlite3
 import sys
 from pathlib import Path
 
-import curriculum
-import store
-
+from coach import curriculum
+from coach import store
 BANK_PATH = Path("data") / "bank.db"
 REVIEWS_DIR = Path("data") / "reviews"
 
@@ -49,8 +48,8 @@ def _tokens(bank, source_key: str):
 
 def check_particle(ex: dict, topic: dict, tokens: list, translation: str):
     """None if the exercise no longer passes the rules, else the answers it should accept."""
-    import make_exercises as mx
-    from sheet import normalize, split_list
+    from coach.exercises import make_exercises as mx
+    from coach.exercises.sheet import normalize, split_list
     targets = split_list(topic.get("targets", ""))
     spans = mx.particle_blanks(tokens, {normalize(t) for t in targets}, set(split_list(topic.get("pos", ""))), False)
     if not spans:
@@ -77,7 +76,7 @@ def restore_noni_node(db, log=print) -> int:
     db.execute("DELETE FROM rejected WHERE reason = 'both particles possible here' "
                "AND (source_key LIKE '%:particle:のに' OR source_key LIKE '%:particle:ので')")
     db.commit()
-    import bank_sync
+    from coach import bank_sync
     state = bank_sync.load_state()
     state.get("files", {}).pop("exercises/noni-node.jsonl", None)
     bank_sync.save_state(state)
@@ -93,8 +92,8 @@ def revalidate(db, log=print) -> dict:
         # a server without the Tatoeba bank (Raspberry Pi): it could not re-check the particles anyway, and
         # loading the whole lexicon takes minutes on a small board. The PC does it; the bank passes it on.
         return {"retired": 0, "updated": 0, "translated": 0}
-    import jlpt_questions
-    import lexicon
+    from coach.exercises import jlpt_questions
+    from coach import lexicon
     bank = sqlite3.connect(BANK_PATH)
     seen = {r[0] for r in db.execute("SELECT exercise_id FROM schedule")}
     retired, updated = 0, 0
@@ -140,7 +139,7 @@ KANJI = re.compile(r"[一-鿿々]")
 def add_words(db) -> int:
     """Stores the sentence split into words (« words », see words.py) in exercises made before it was
     kept, from the Tatoeba bank: the words of the sentence can then be clicked on any app."""
-    import words
+    from coach import words
     if not BANK_PATH.exists():
         return 0
     bank = sqlite3.connect(BANK_PATH)
@@ -169,7 +168,7 @@ def add_cue_readings(db) -> int:
         import sudachipy  # noqa: F401  (without it, every reading would come back empty)
     except ImportError:
         return 0
-    import tutor
+    from coach import tutor
     done = 0
     for row in db.execute("SELECT id, data FROM exercises").fetchall():
         ex = json.loads(row["data"])

@@ -2,9 +2,9 @@
 """
 JLPT-style multiple-choice questions built from real sentences (data/bank.db), by level.
 
-    python jlpt_questions.py --level N4                      # 10 new questions of each type
-    python jlpt_questions.py --level N5 --types kanji_reading,ordering --count 20
-    python jlpt_questions.py --level N4 --no-llm             # instant (types that need a check are skipped)
+    python tools/jlpt_questions.py --level N4                      # 10 new questions of each type
+    python tools/jlpt_questions.py --level N5 --types kanji_reading,ordering --count 20
+    python tools/jlpt_questions.py --level N4 --no-llm             # instant (types that need a check are skipped)
 
 Question types (the « connaissances de la langue » part of the test):
   kanji_reading  漢字読み   how is the underlined word read?        distractors: long/short vowel, っ, voicing…
@@ -25,13 +25,13 @@ import sqlite3
 import sys
 from pathlib import Path
 
-import conjugate
-import lexicon
-import llm
-import words
-import make_exercises as mx
-import store
-from sheet import BLANK, normalize
+from coach.exercises import conjugate
+from coach import lexicon
+from coach import llm
+from coach import words
+from coach.exercises import make_exercises as mx
+from coach import store
+from coach.exercises.sheet import BLANK, normalize
 
 BANK_PATH = Path("data") / "bank.db"
 KANJI_PATH = Path("data") / "kanji.json"
@@ -705,7 +705,7 @@ Expected answer: « {answer} ».
 
 def candidates(level: str, seed=None) -> list:
     if not BANK_PATH.exists():
-        raise mx.GenerationError("Bank not found. Run first: python build_bank.py")
+        raise mx.GenerationError("Bank not found. Run first: python tools/build_bank.py")
     db = sqlite3.connect(BANK_PATH)
     # both translations: questions go to the shared bank, used in French and in English
     rows = db.execute("SELECT id, jp, fr, en, tokens, word_count FROM sentences "

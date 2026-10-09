@@ -31,10 +31,9 @@ import urllib.request
 from base64 import b64encode
 from pathlib import Path
 
-import curriculum
-import store
-import words
-
+from coach import curriculum
+from coach import store
+from coach import words
 STATE_PATH = Path("data") / "bank_sync.json"
 # Kinds of exercise this version of the app can show. The bank may hold newer ones: they are skipped.
 SUPPORTED_KINDS = {"particle", "conjugation", "jlpt", "order"}
@@ -51,7 +50,7 @@ KEEP_OUT = {"id", "status", "source_key", "topic", "kind", "topic_label"}
 def topic_id(title: str) -> str:
     if title in curriculum.BY_TITLE:
         return curriculum.BY_TITLE[title]["id"]
-    import jlpt_questions as jq
+    from coach.exercises import jlpt_questions as jq
     for level in jq.EXAM:
         for qtype in jq.TYPES:
             if jq.topic_title(level, qtype) == title:
@@ -312,7 +311,7 @@ def send_texts(db, url: str, log=print) -> int:
     """Sends the texts computed on this computer (words, readings, translations: FILLED_FIELDS) to another
     copy of the app, e.g. a Raspberry Pi that has no SudachiPy / bank.db: its exercises with the same key get
     what they lack. Nothing else changes there (no progress, no new exercise)."""
-    import review
+    from coach import review
     review.add_translations(db)
     review.add_cue_readings(db)
     review.add_words(db)

@@ -2,7 +2,7 @@
 """
 Downloads open JLPT vocabulary lists (N5 → N1) into data/lexicon.db.
 
-    python jlpt_data.py
+    python tools/jlpt_data.py
 
 Source: open-anki-jlpt-decks by Jam Sinclair (MIT licence), built from Jonathan Waller's
 JLPT lists on tanos.co.uk (CC BY). https://github.com/jamsinclair/open-anki-jlpt-decks
@@ -11,6 +11,10 @@ They give every word a JLPT level and an English meaning, so JLPT questions and 
 even without the Full Japanese Study Deck (e.g. with another deck, or none). Words already
 imported from your Anki keep their own data; the open lists fill the gaps.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))   # the project folder (coach/)
 
 import csv
 import io

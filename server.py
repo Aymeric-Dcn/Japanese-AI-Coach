@@ -40,13 +40,12 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-import curriculum
-import fill_reserve
-import llm
-import store
-import tutor
-import updater
-
+from coach import curriculum
+from coach.exercises import fill_reserve
+from coach import llm
+from coach import store
+from coach import tutor
+from coach import updater
 WEB_DIR = Path(__file__).resolve().parent / "web"
 PACKAGED = bool(getattr(sys, "frozen", False))   # the .exe built by build_exe.py
 if PACKAGED:
@@ -128,7 +127,7 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/status":
                 return self.send_json(status())
             if url.path == "/api/word":   # the word card (click on a word of a sentence)
-                import dictionary
+                from coach import dictionary
                 return self.send_json(dictionary.lookup(query.get("w", "")))
             if url.path == "/api/fill":
                 return self.send_json(fill_status())
@@ -156,7 +155,7 @@ class Handler(BaseHTTPRequestHandler):
                 if url.path == "/api/jlpt/overview":
                     return self.send_json(jlpt_overview(db, query.get("level") or load_settings()["jlpt_level"]))
                 if url.path in ("/api/jlpt/practice", "/api/jlpt/exam"):
-                    import jlpt_questions as jq
+                    from coach.exercises import jlpt_questions as jq
                     level = query.get("level", "N4")
                     if url.path.endswith("exam"):
                         items = []
@@ -188,7 +187,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data = self.read_json()
             if url.path == "/api/complete":   # texts computed on another computer (bank_sync.py send-texts)
-                import bank_sync
+                from coach import bank_sync
                 db = store.connect(DB_PATH)
                 try:
                     done = sum(store.fill_missing(db, item.get("key", ""), item.get("data") or {}, bank_sync.FILLED_FIELDS,
@@ -380,7 +379,7 @@ def answer_reading(ex: dict) -> str:
     """Kana of a JLPT question's answer: from the words of the full sentence (or the 【kana】 of an
     « orthography » question)."""
     import re
-    import words
+    from coach import words
     if ex.get("qtype") == "orthography":
         m = re.search(r"【(.*?)】", ex.get("question", ""))
         return m.group(1) if m else ""
@@ -390,9 +389,9 @@ def answer_reading(ex: dict) -> str:
 def add_jlpt_readings(ex: dict) -> None:
     """Furigana of a JLPT question as in the real test (words above its level) and the kana of each
     choice, shown once answered."""
-    import dictionary
-    import lexicon
-    import words
+    from coach import dictionary
+    from coach import lexicon
+    from coach import words
     if ex.get("words") and words.has_readings(ex["words"]):
         ex["furigana"] = words.exam_furigana(ex["words"], ex.get("level", ""), dictionary.kanji_info())
 
@@ -511,7 +510,7 @@ def chat_model() -> str:
 
 
 def bank_status() -> dict:
-    import bank_sync
+    from coach import bank_sync
     state = bank_sync.load_state()
     settings = load_settings()
     return {"url": settings.get("bank_url") or bank_sync.DEFAULT_URL, "last_pull": state.get("last_pull"),
@@ -524,7 +523,7 @@ def start_bank_job(action: str) -> dict:
     settings = load_settings()
 
     def work(log, should_stop, db):
-        import bank_sync
+        from coach import bank_sync
         token = settings.get("bank_token", "")
         if action == "pull":
             return bank_sync.pull(db, settings.get("bank_url") or bank_sync.DEFAULT_URL, token, log=log)
@@ -551,15 +550,15 @@ def start_jlpt_fill(options: dict) -> dict:
     level = str(options.get("level") or load_settings()["jlpt_level"])
 
     def work(log, should_stop, db):
-        import jlpt_questions
+        from coach.exercises import jlpt_questions
         return jlpt_questions.fill(db, level, int(options.get("per_type", 10)), model=MODEL, log=log,
                                    should_stop=should_stop)
     return run_job(tr(f"Questions JLPT {level}", f"JLPT {level} questions"), work)
 
 
 def jlpt_overview(db, level: str) -> dict:
-    import jlpt_questions as jq
-    import lexicon
+    from coach.exercises import jlpt_questions as jq
+    from coach import lexicon
     counts = {t["topic"]: t for t in store.topics(db)}
     types = []
     for qtype in jq.TYPES:
@@ -593,20 +592,20 @@ def start_maintenance() -> dict:
             else:
                 log(tr("Synchronisation Anki…", "Syncing Anki…"))
                 try:
-                    import anki_sync
+                    from coach.anki import anki_sync
                     anki_sync.sync(log=log)
                 except Exception as e:
                     log(f"! Anki : {e}")
         added = 0
         try:
-            import review
+            from coach import review
             review.revalidate(db, log=log)   # removes exercises that the current rules would not generate
             review.apply_pending(db, log=log)  # reviewed batches dropped in data/reviews/
         except Exception as e:
             log(f"! Review check: {e}")
         if settings.get("bank_auto_sync"):
             try:
-                import bank_sync
+                from coach import bank_sync
                 bank_sync.pull(db, settings.get("bank_url") or bank_sync.DEFAULT_URL, settings.get("bank_token", ""), log=log)
             except Exception as e:
                 log(tr(f"Banque partagée injoignable : {e}", f"Shared bank not reachable: {e}"))
@@ -623,7 +622,7 @@ def start_maintenance() -> dict:
                 added += sum(a for _, a in results)
                 if settings.get("jlpt_auto_fill"):
                     try:
-                        import jlpt_questions
+                        from coach.exercises import jlpt_questions
                         added += jlpt_questions.fill(db, settings.get("jlpt_level", "N4"), model=MODEL, log=log,
                                                      should_stop=should_stop)
                     except ImportError:
@@ -649,7 +648,7 @@ def anki_available() -> bool:
     if (Path("data") / "anki.json").exists():
         return True
     try:
-        import anki_db
+        from coach.anki import anki_db
         return bool(anki_db.find_collections())
     except Exception:
         return False
@@ -721,8 +720,7 @@ def status() -> dict:
 
 def watch_reviews(interval: int = 30) -> None:
     """Applies reviewed batches dropped in data/reviews/ while the app runs (see review.py)."""
-    import review
-
+    from coach import review
     def loop():
         while True:
             time.sleep(interval)

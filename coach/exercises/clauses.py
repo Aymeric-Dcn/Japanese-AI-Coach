@@ -12,8 +12,7 @@ Subordinate clauses: where the blank goes, and the hint and explanation (written
     - "temo":          雨が降っても (て-form + も: even if).
 """
 
-import conjugate
-
+from coach.exercises import conjugate
 # Nouns after a verb that are not « a thing described by a clause » but grammar: こと, ため, 前…
 FORMAL_NOUNS = {"こと", "事", "もの", "物", "ところ", "所", "ため", "為", "よう", "様", "はず", "筈", "つもり", "積もり",
                 "前", "後", "あと", "時", "とき", "間", "うち", "内", "まま", "わけ", "訳", "ほう", "方", "たび", "度",

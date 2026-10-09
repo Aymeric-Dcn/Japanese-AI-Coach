@@ -3,9 +3,9 @@
 Builds the Windows app: dist/JapaneseCoach.exe — one file, no console, nothing else to install.
 
     pip install pyinstaller
-    python build_exe.py
+    python tools/build_exe.py
 
-Before building a new version, raise VERSION in updater.py (0.2.0 → 0.3.0), then publish a GitHub release
+Before building a new version, raise VERSION in coach/updater.py (0.2.0 → 0.3.0), then publish a GitHub release
 tagged v0.3.0 with dist/JapaneseCoach.exe attached: every installed app sees it and updates itself.
 
 The .exe contains the server and the interface (standard library only). It opens in its own window
@@ -16,12 +16,16 @@ Not included: the sentence bank and SudachiPy (only needed to generate exercises
 the full project).
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))   # the project folder (coach/)
+
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> None:
@@ -47,7 +51,7 @@ def main() -> None:
     cmd.append(str(ROOT / "server.py"))
     subprocess.run(cmd, check=True, cwd=ROOT)
     exe = ROOT / "dist" / ("JapaneseCoach.exe" if os.name == "nt" else "JapaneseCoach")
-    import updater
+    from coach import updater
     print(f"\n✓ {exe} ({exe.stat().st_size / 1e6:.1f} MB), version {updater.VERSION}.")
     print(f"  Release it on GitHub with the tag v{updater.VERSION} and this file attached as {updater.ASSET}"
           f" (not as a pre-release): the apps already installed will offer the update.")

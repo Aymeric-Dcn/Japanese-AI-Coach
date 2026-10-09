@@ -16,9 +16,8 @@ import sqlite3
 from functools import lru_cache
 from pathlib import Path
 
-import curriculum
-import lexicon
-
+from coach import curriculum
+from coach import lexicon
 GRAMMAR_PATH = Path("data") / "grammar.json"
 BANK_PATH = Path("data") / "bank.db"
 JAPANESE_RUN = re.compile(r"[぀-ヿ㐀-鿿々ー]+")

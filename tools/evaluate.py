@@ -2,9 +2,9 @@
 """
 Measures how reliable the LLM check of make_exercises.py is, on a hand-made test set.
 
-    python evaluate.py                          # eval/particle_cases.json with qwen3:14b
-    python evaluate.py --model qwen3:8b --runs 3
-    python evaluate.py --cases eval/particle_cases.json --verbose
+    python tools/evaluate.py                          # tests/eval/particle_cases.json with qwen3:14b
+    python tools/evaluate.py --model qwen3:8b --runs 3
+    python tools/evaluate.py --cases tests/eval/particle_cases.json --verbose
 
 Each case says what the check SHOULD do with a sentence:
   keep         good exercise, a single possible answer
@@ -15,6 +15,10 @@ The script prints the score per category, every mistake, and one line to copy in
 Run it again after changing the prompt or the model to see whether things improve.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))   # the project folder (coach/)
+
 import argparse
 import datetime
 import json
@@ -22,9 +26,9 @@ import sys
 import time
 from pathlib import Path
 
-import llm
-from make_exercises import check_exercise
-from sheet import BLANK
+from coach import llm
+from coach.exercises.make_exercises import check_exercise
+from coach.exercises.sheet import BLANK
 
 CATEGORIES = ["keep", "ambiguous", "not_example"]
 
@@ -52,7 +56,7 @@ def main() -> None:
     except Exception:
         pass
     p = argparse.ArgumentParser(description="Scores the LLM check on a hand-made test set.")
-    p.add_argument("--cases", default="eval/particle_cases.json")
+    p.add_argument("--cases", default="tests/eval/particle_cases.json")
     p.add_argument("--model", default=llm.DEFAULT_MODEL)
     p.add_argument("--level", default="N5")
     p.add_argument("--runs", type=int, default=1, help="repeat the whole set N times (the model is not deterministic)")
